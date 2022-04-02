@@ -45,6 +45,10 @@ fn vs_main(
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    let distance = 1.0 - (in.position.x * in.position.x + in.position.y * in.position.y);
-    return vec4<f32>(in.color * distance, 1.0);
+    let distance = in.position.x * in.position.x + in.position.y * in.position.y;
+    if (1.0 < distance) {
+        return vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    } else {
+        return vec4<f32>(in.color * (1.0 - distance), 1.0);
+    }
 }

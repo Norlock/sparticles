@@ -7,6 +7,8 @@ use crate::texture;
 use crate::vertex::Vertex;
 use crate::vertex::VERTICES;
 use wgpu::util::DeviceExt;
+use wgpu::BlendComponent;
+use wgpu::BlendState;
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
 use winit::window::Window;
@@ -144,7 +146,7 @@ impl State {
                 entry_point: "fs_main",
                 targets: &[wgpu::ColorTargetState {
                     format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 }],
             }),
