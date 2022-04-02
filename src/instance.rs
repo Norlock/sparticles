@@ -9,6 +9,7 @@ const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
 
 pub struct Instance {
     position: cgmath::Vector3<f32>,
+    color: cgmath::Vector4<f32>,
     rotation: cgmath::Quaternion<f32>,
 }
 
@@ -18,6 +19,7 @@ impl Instance {
             model: (cgmath::Matrix4::from_translation(self.position)
                 * cgmath::Matrix4::from(self.rotation))
             .into(),
+            color: self.color.into(),
         }
     }
 
@@ -39,7 +41,11 @@ impl Instance {
                         cgmath::Deg(0.0),
                     );
 
-                    Instance { position, rotation }
+                    Instance {
+                        position,
+                        color: cgmath::Vector4::new(0.0, 0.2, 1.0, 1.0),
+                        rotation,
+                    }
                 })
             })
             .collect::<Vec<_>>()
@@ -50,6 +56,7 @@ impl Instance {
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct InstanceRaw {
     model: [[f32; 4]; 4],
+    color: [f32; 4],
 }
 
 impl InstanceRaw {
@@ -85,6 +92,11 @@ impl InstanceRaw {
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
                     shader_location: 8,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 16]>() as wgpu::BufferAddress,
+                    shader_location: 9,
                     format: wgpu::VertexFormat::Float32x4,
                 },
             ],

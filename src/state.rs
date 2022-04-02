@@ -7,8 +7,6 @@ use crate::texture;
 use crate::vertex::Vertex;
 use crate::vertex::VERTICES;
 use wgpu::util::DeviceExt;
-use wgpu::BlendComponent;
-use wgpu::BlendState;
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
 use winit::window::Window;
