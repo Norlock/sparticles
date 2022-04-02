@@ -149,16 +149,9 @@ impl State {
                 }],
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                polygon_mode: wgpu::PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
-                unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
-                conservative: false,
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                strip_index_format: Some(wgpu::IndexFormat::Uint32),
+                ..Default::default()
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: texture::Texture::DEPTH_FORMAT,
@@ -257,7 +250,7 @@ impl State {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
                             r: 0.0,
                             g: 0.0,
-                            b: 0.1,
+                            b: 0.0,
                             a: 1.0,
                         }),
                         store: true,

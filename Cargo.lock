@@ -35,21 +35,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "alot"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "cgmath",
- "env_logger",
- "image",
- "log",
- "pollster",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1148,6 +1133,21 @@ dependencies = [
  "wayland-client",
  "wayland-cursor",
  "wayland-protocols",
+]
+
+[[package]]
+name = "sparticles"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "cgmath",
+ "env_logger",
+ "image",
+ "log",
+ "pollster",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]

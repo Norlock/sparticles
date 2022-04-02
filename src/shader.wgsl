@@ -20,6 +20,7 @@ struct VertexInput {
 struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
     [[location(0)]] color: vec3<f32>;
+    [[location(1)]] position: vec3<f32>;
 };
 
 [[stage(vertex)]]
@@ -35,12 +36,19 @@ fn vs_main(
     );
 
     var out: VertexOutput;
+
     out.color = model.color;
     out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
+    out.position = model.position;
     return out;
 }
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    return vec4<f32>(in.color, 1.0);
+    let distance = 1.0 - (in.position.x * in.position.x + in.position.y * in.position.y);
+
+    let red = distance * in.color.x;
+    let green = distance * in.color.y;
+    let blue = distance * in.color.z;
+    return vec4<f32>(red, green, blue, 1.0);
 }
