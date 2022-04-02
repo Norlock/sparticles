@@ -46,9 +46,5 @@ fn vs_main(
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     let distance = 1.0 - (in.position.x * in.position.x + in.position.y * in.position.y);
-
-    let red = distance * in.color.x;
-    let green = distance * in.color.y;
-    let blue = distance * in.color.z;
-    return vec4<f32>(red, green, blue, 1.0);
+    return vec4<f32>(in.color * distance, 1.0);
 }
