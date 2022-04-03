@@ -4,8 +4,6 @@ use crate::camera_uniform::CameraUniform;
 use crate::instance::Instance;
 use crate::instance::InstanceRaw;
 use crate::texture;
-use crate::vertex::Vertex;
-use crate::vertex::VERTICES;
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
@@ -24,7 +22,6 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
     camera: Camera,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
@@ -34,6 +31,8 @@ struct State {
     instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
 }
+
+const VERTICES_LEN: u32 = 4;
 
 impl State {
     // Creating some of the wgpu types requires async code
@@ -137,7 +136,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[Vertex::descriptor(), InstanceRaw::descriptor()],
+                buffers: &[InstanceRaw::descriptor()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -168,12 +167,6 @@ impl State {
             multiview: None,
         });
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
         let instances = Instance::generate_instances();
 
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
@@ -190,7 +183,6 @@ impl State {
             size,
             queue,
             render_pipeline,
-            vertex_buffer,
             camera,
             camera_bind_group,
             camera_buffer,
@@ -268,9 +260,8 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.draw(0..VERTICES.len() as _, 0..self.instances.len() as _);
+            render_pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
+            render_pass.draw(0..VERTICES_LEN, 0..self.instances.len() as _);
         }
 
         // submit will accept anything that implements IntoIter

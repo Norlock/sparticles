@@ -14,7 +14,7 @@ struct CameraUniform {
 var<uniform> camera: CameraUniform;
 
 struct VertexInput {
-    [[location(0)]] position: vec3<f32>;
+    [[builtin(vertex_index)]] vertex_idx: u32;
 };
 
 struct VertexOutput {
@@ -35,11 +35,19 @@ fn vs_main(
       instance.model_matrix_3,
     );
 
+    var vertices = mat4x4<f32>(
+        vec4<f32>(-1.0, -1.0, 0.0, 1.0),
+        vec4<f32>(-1.0, 1.0, 0.0, 1.0),
+        vec4<f32>(1.0, -1.0, 0.0, 1.0),
+        vec4<f32>(1.0, 1.0, 0.0, 1.0),
+    );
+
     var out: VertexOutput;
 
+    let position = vertices[model.vertex_idx];
     out.color = instance.color;
-    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
-    out.position = model.position;
+    out.clip_position = camera.view_proj * model_matrix * position;
+    out.position = position.xyz;
     return out;
 }
 
