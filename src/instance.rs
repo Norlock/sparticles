@@ -11,6 +11,7 @@ pub struct Instance {
     position: cgmath::Vector3<f32>,
     color: cgmath::Vector4<f32>,
     rotation: cgmath::Quaternion<f32>,
+    size: f32,
 }
 
 impl Instance {
@@ -20,6 +21,7 @@ impl Instance {
                 * cgmath::Matrix4::from(self.rotation))
             .into(),
             color: self.color.into(),
+            size: self.size.into(),
         }
     }
 
@@ -29,9 +31,9 @@ impl Instance {
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
                     let position = cgmath::Vector3 {
-                        x: x as f32 * 2.0,
+                        x: x as f32 * 4.0,
                         y: 0.0,
-                        z: z as f32,
+                        z: z as f32 * 4.0,
                     } - INSTANCE_DISPLACEMENT;
 
                     // this is needed so an object at (0, 0, 0) won't get scaled to zero
@@ -42,6 +44,7 @@ impl Instance {
                         position,
                         color: cgmath::Vector4::new(0.0, 0.2, 1.0, 1.0),
                         rotation,
+                        size: 0.5,
                     }
                 })
             })
@@ -54,6 +57,7 @@ impl Instance {
 pub struct InstanceRaw {
     model: [[f32; 4]; 4],
     color: [f32; 4],
+    size: f32,
 }
 
 impl InstanceRaw {
@@ -95,6 +99,11 @@ impl InstanceRaw {
                     offset: mem::size_of::<[f32; 16]>() as wgpu::BufferAddress,
                     shader_location: 9,
                     format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 20]>() as wgpu::BufferAddress,
+                    shader_location: 10,
+                    format: wgpu::VertexFormat::Float32,
                 },
             ],
         }
