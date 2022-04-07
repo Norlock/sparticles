@@ -1,9 +1,8 @@
 use crate::camera::*;
+use crate::instance::particle::*;
 use std::time::Duration;
 use std::time::Instant;
 
-use crate::instance::Instance;
-use crate::instance::InstanceRaw;
 use crate::texture;
 use wgpu::util::DeviceExt;
 use wgpu::FrontFace;
@@ -30,7 +29,7 @@ struct State {
     camera_controller: CameraController,
     camera_projection: Projection,
     camera_bind_group: wgpu::BindGroup,
-    instances: Vec<Instance>,
+    particles: Vec<Particle>,
     instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
     mouse_pressed: bool,
@@ -122,7 +121,7 @@ impl State {
             label: Some("camera_bind_group"),
         });
 
-        let shader = device.create_shader_module(&wgpu::include_wgsl!("shader.wgsl"));
+        let shader = device.create_shader_module(&wgpu::include_wgsl!("./instance/draw.wgsl"));
 
         // Used for correct rendering depth it stores z-coordinate of rendered pixels.
         let depth_texture =
@@ -141,7 +140,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[InstanceRaw::descriptor()],
+                buffers: &[Instance::descriptor()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -170,9 +169,12 @@ impl State {
             multiview: None,
         });
 
-        let instances = Instance::generate_instances();
+        let instances = Particle::generate_instances();
 
-        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let instance_data = instances
+            .iter()
+            .map(Particle::to_instance)
+            .collect::<Vec<_>>();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&instance_data),
@@ -192,7 +194,7 @@ impl State {
             camera_uniform,
             camera_projection,
             camera_controller,
-            instances,
+            particles: instances,
             instance_buffer,
             depth_texture,
             mouse_pressed: false,
@@ -291,7 +293,7 @@ impl State {
             render_pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            render_pass.draw(0..VERTICES_LEN, 0..self.instances.len() as _);
+            render_pass.draw(0..VERTICES_LEN, 0..self.particles.len() as _);
         }
 
         // submit will accept anything that implements IntoIter

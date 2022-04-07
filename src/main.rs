@@ -1,8 +1,8 @@
-use crate::state::run;
+use crate::render::run;
 
 mod camera;
 mod instance;
-mod state;
+mod render;
 mod texture;
 
 fn main() {

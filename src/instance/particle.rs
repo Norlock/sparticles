@@ -1,5 +1,3 @@
-use cgmath::prelude::*;
-
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
@@ -7,26 +5,24 @@ const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
 );
 
-pub struct Instance {
+pub struct Particle {
     position: cgmath::Vector3<f32>,
     color: cgmath::Vector4<f32>,
-    rotation: cgmath::Quaternion<f32>,
+    velocity: cgmath::Vector3<f32>,
     size: f32,
 }
 
-impl Instance {
-    pub fn to_raw(&self) -> InstanceRaw {
-        InstanceRaw {
-            model: (cgmath::Matrix4::from_translation(self.position)
-                * cgmath::Matrix4::from(self.rotation))
-            .into(),
+impl Particle {
+    pub fn to_instance(&self) -> Instance {
+        Instance {
+            position: [self.position.x, self.position.y, self.position.z, self.size],
             color: self.color.into(),
-            size: self.size.into(),
+            velocity: self.velocity.into(),
         }
     }
 
     // TODO replace instance with particles
-    pub fn generate_instances() -> Vec<Instance> {
+    pub fn generate_instances() -> Vec<Particle> {
         (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
@@ -38,13 +34,12 @@ impl Instance {
 
                     // this is needed so an object at (0, 0, 0) won't get scaled to zero
                     // as Quaternions can effect scale if they're not created correctly
-                    let rotation = cgmath::Quaternion::zero();
 
-                    Instance {
+                    Particle {
                         position,
                         color: cgmath::Vector4::new(0.0, 0.2, 1.0, 1.0),
-                        rotation,
                         size: 0.5,
+                        velocity: cgmath::Vector3::new(10., 10., 0.),
                     }
                 })
             })
@@ -54,17 +49,17 @@ impl Instance {
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct InstanceRaw {
-    model: [[f32; 4]; 4],
+pub struct Instance {
+    position: [f32; 4],
     color: [f32; 4],
-    size: f32,
+    velocity: [f32; 3],
 }
 
-impl InstanceRaw {
+impl Instance {
     pub fn descriptor<'a>() -> wgpu::VertexBufferLayout<'a> {
         use std::mem;
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
+            array_stride: mem::size_of::<Instance>() as wgpu::BufferAddress,
             // We need to switch from using a step mode of Vertex to Instance
             // This means that our shaders will only change to use the next
             // instance when the shader starts processing a new instance
@@ -89,21 +84,6 @@ impl InstanceRaw {
                     offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
                     shader_location: 7,
                     format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
-                    shader_location: 8,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 16]>() as wgpu::BufferAddress,
-                    shader_location: 9,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 20]>() as wgpu::BufferAddress,
-                    shader_location: 10,
-                    format: wgpu::VertexFormat::Float32,
                 },
             ],
         }

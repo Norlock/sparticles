@@ -1,11 +1,7 @@
 // Vertex shader
 struct InstanceInput {
-    [[location(5)]] model_matrix_0: vec4<f32>;
-    [[location(6)]] model_matrix_1: vec4<f32>;
-    [[location(7)]] model_matrix_2: vec4<f32>;
-    [[location(8)]] model_matrix_3: vec4<f32>;
-    [[location(9)]] color: vec4<f32>;
-    [[location(10)]] size: f32;
+    [[location(5)]] position: vec4<f32>;
+    [[location(6)]] color: vec4<f32>;
 };
 
 struct Camera {
@@ -29,12 +25,6 @@ fn vs_main(
         model: VertexInput,
         instance: InstanceInput,
 ) -> VertexOutput {
-    let model_matrix = mat4x4<f32>(
-      instance.model_matrix_0,
-      instance.model_matrix_1,
-      instance.model_matrix_2,
-      instance.model_matrix_3,
-    );
 
     var vertices = mat4x2<f32>(
         vec2<f32>(-1.0, -1.0),
@@ -59,11 +49,15 @@ fn vs_main(
     );
 
     let vertex_position = rotation * vertices[model.vertex_idx];
-    var vertex_rotated: vec3<f32> = 
-      (camera_right * vertex_position.x + camera_up * vertex_position.y) * instance.size;
+    let size = instance.position.w;
+    let particle_position = instance.position.xyz;
+
+    var world_space: vec3<f32> = 
+        particle_position + 
+        ((camera_right * vertex_position.x + camera_up * vertex_position.y) * size);
 
     out.color = instance.color;
-    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(vertex_rotated, 1.0);
+    out.clip_position = camera.view_proj * vec4<f32>(world_space, 1.0);
     return out;
 }
 
