@@ -1,6 +1,7 @@
-use crate::camera::Camera;
-use crate::camera_controller::CameraController;
-use crate::camera_uniform::CameraUniform;
+use crate::camera::*;
+use std::time::Duration;
+use std::time::Instant;
+
 use crate::instance::Instance;
 use crate::instance::InstanceRaw;
 use crate::texture;
@@ -27,10 +28,12 @@ struct State {
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_controller: CameraController,
+    camera_projection: Projection,
     camera_bind_group: wgpu::BindGroup,
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
+    mouse_pressed: bool,
 }
 
 const VERTICES_LEN: u32 = 4;
@@ -81,10 +84,13 @@ impl State {
 
         surface.configure(&device, &config);
 
-        let camera = Camera::new(&config);
+        let camera = Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+        let camera_projection =
+            Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
+        let camera_controller = CameraController::new(4.0, 0.4);
 
         let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
+        camera_uniform.update_view_proj(&camera, &camera_projection);
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
@@ -115,8 +121,6 @@ impl State {
             }],
             label: Some("camera_bind_group"),
         });
-
-        let camera_controller = CameraController::new(0.2);
 
         let shader = device.create_shader_module(&wgpu::include_wgsl!("shader.wgsl"));
 
@@ -186,32 +190,59 @@ impl State {
             camera_bind_group,
             camera_buffer,
             camera_uniform,
+            camera_projection,
             camera_controller,
             instances,
             instance_buffer,
             depth_texture,
+            mouse_pressed: false,
         }
     }
 
     fn resize(&mut self, new_size: PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
+            self.camera_projection
+                .resize(new_size.width, new_size.height);
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
-
             self.depth_texture =
                 texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
         }
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
-        self.camera_controller.process_events(event)
+        match event {
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        virtual_keycode: Some(key),
+                        state,
+                        ..
+                    },
+                ..
+            } => self.camera_controller.process_keyboard(*key, *state),
+            WindowEvent::MouseWheel { delta, .. } => {
+                self.camera_controller.process_scroll(delta);
+                true
+            }
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                self.mouse_pressed = *state == ElementState::Pressed;
+                true
+            }
+            _ => false,
+        }
     }
 
-    fn update(&mut self) {
-        self.camera_controller.update_camera(&mut self.camera);
-        self.camera_uniform.update_view_proj(&self.camera);
+    fn update(&mut self, dt: Duration) {
+        self.camera_controller.update_camera(&mut self.camera, dt);
+        self.camera_uniform
+            .update_view_proj(&self.camera, &self.camera_projection);
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
@@ -257,9 +288,9 @@ impl State {
                 }),
             });
 
+            render_pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
             render_pass.draw(0..VERTICES_LEN, 0..self.instances.len() as _);
         }
 
@@ -275,41 +306,55 @@ pub async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new();
 
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    let window = WindowBuilder::new()
+        .with_title("Sparticles")
+        .build(&event_loop)
+        .unwrap();
+
     let mut state = State::new(&window).await;
+    let mut last_render_time = Instant::now();
 
     // main()
     event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Poll;
         match event {
+            Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion{ delta, },
+                .. // We're not using device_id currently
+            } => if state.mouse_pressed {
+                state.camera_controller.process_mouse(delta.0, delta.1)
+            }
             Event::WindowEvent {
                 ref event,
                 window_id,
-            } if window_id == window.id() => {
-                if !state.input(event) {
-                    // UPDATED!
-                    match event {
-                        WindowEvent::CloseRequested
-                        | WindowEvent::KeyboardInput {
-                            input:
-                                KeyboardInput {
-                                    state: ElementState::Pressed,
-                                    virtual_keycode: Some(VirtualKeyCode::Escape),
-                                    ..
-                                },
-                            ..
-                        } => *control_flow = ControlFlow::Exit,
-                        WindowEvent::Resized(physical_size) => {
-                            state.resize(*physical_size);
-                        }
-                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                            state.resize(**new_inner_size);
-                        }
-                        _ => {}
+                } if window_id == window.id() && !state.input(event) => {
+                match event {
+                    #[cfg(not(target_arch="wasm32"))]
+                    WindowEvent::CloseRequested
+                    | WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Escape),
+                                ..
+                            },
+                        ..
+                    } => *control_flow = ControlFlow::Exit,
+                    WindowEvent::Resized(physical_size) => {
+                        state.resize(*physical_size);
                     }
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        state.resize(**new_inner_size);
+                    }
+                    _ => {}
                 }
             }
             Event::RedrawRequested(window_id) if window_id == window.id() => {
-                state.update();
+                let now = Instant::now();
+                let dt = now - last_render_time;
+                last_render_time = now;
+                state.update(dt);
+
                 match state.render() {
                     Ok(_) => {}
                     // Reconfigure the surface if lost
