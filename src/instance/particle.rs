@@ -6,10 +6,10 @@ const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
 );
 
 pub struct Particle {
-    position: cgmath::Vector3<f32>,
-    color: cgmath::Vector4<f32>,
-    velocity: cgmath::Vector3<f32>,
-    size: f32,
+    pub position: cgmath::Vector3<f32>,
+    pub color: cgmath::Vector4<f32>,
+    pub velocity: cgmath::Vector3<f32>,
+    pub size: f32,
 }
 
 impl Particle {
@@ -22,7 +22,7 @@ impl Particle {
     }
 
     // TODO replace instance with particles
-    pub fn generate_instances() -> Vec<Particle> {
+    pub fn generate_particles() -> Vec<Particle> {
         (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
@@ -83,7 +83,7 @@ impl Instance {
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
                     shader_location: 7,
-                    format: wgpu::VertexFormat::Float32x4,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
             ],
         }

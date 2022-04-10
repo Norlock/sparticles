@@ -1,4 +1,5 @@
 use crate::camera::*;
+use crate::instance::compute::create_compute_pipeline;
 use crate::instance::particle::*;
 use std::time::Duration;
 use std::time::Instant;
@@ -23,19 +24,26 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
+    compute_pipeline: wgpu::ComputePipeline,
     camera: Camera,
     camera_uniform: CameraUniform,
-    camera_buffer: wgpu::Buffer,
     camera_controller: CameraController,
     camera_projection: Projection,
     camera_bind_group: wgpu::BindGroup,
     particles: Vec<Particle>,
-    instance_buffer: wgpu::Buffer,
+    particle_buffers: Vec<wgpu::Buffer>,
+    particle_bind_groups: Vec<wgpu::BindGroup>,
+    camera_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
+    frame: usize,
+    work_group_count: u32,
     mouse_pressed: bool,
 }
 
 const VERTICES_LEN: u32 = 4;
+
+// number of single-particle calculations (invocations) in each gpu work group
+const PARTICLES_PER_GROUP: u32 = 64;
 
 impl State {
     // Creating some of the wgpu types requires async code
@@ -86,7 +94,7 @@ impl State {
         let camera = Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
         let camera_projection =
             Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
-        let camera_controller = CameraController::new(4.0, 0.4);
+        let camera_controller = CameraController::new(8.0, 0.4);
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera, &camera_projection);
@@ -121,7 +129,7 @@ impl State {
             label: Some("camera_bind_group"),
         });
 
-        let shader = device.create_shader_module(&wgpu::include_wgsl!("./instance/draw.wgsl"));
+        let draw_shader = device.create_shader_module(&wgpu::include_wgsl!("./instance/draw.wgsl"));
 
         // Used for correct rendering depth it stores z-coordinate of rendered pixels.
         let depth_texture =
@@ -138,12 +146,12 @@ impl State {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: &draw_shader,
                 entry_point: "vs_main",
                 buffers: &[Instance::descriptor()],
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
+                module: &draw_shader,
                 entry_point: "fs_main",
                 targets: &[wgpu::ColorTargetState {
                     format: config.format,
@@ -158,28 +166,63 @@ impl State {
                 cull_mode: Some(wgpu::Face::Front),
                 ..Default::default()
             },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: texture::Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less, // Less means pixels will be drawn front to back.
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
+            depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
         });
 
-        let instances = Particle::generate_instances();
+        let particles = Particle::generate_particles();
+        let field_count = 11;
+        let mut instances = Vec::with_capacity(particles.len() * field_count);
 
-        let instance_data = instances
-            .iter()
-            .map(Particle::to_instance)
-            .collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        for particle in particles.iter() {
+            instances.push(particle.position.x);
+            instances.push(particle.position.y);
+            instances.push(particle.position.z);
+            instances.push(particle.size);
+            instances.push(particle.color.x);
+            instances.push(particle.color.y);
+            instances.push(particle.color.z);
+            instances.push(particle.color.w);
+            instances.push(particle.velocity.x);
+            instances.push(particle.velocity.y);
+            instances.push(particle.velocity.z);
+        }
+
+        let mut particle_buffers = Vec::<wgpu::Buffer>::new();
+
+        for i in 0..2 {
+            particle_buffers.push(
+                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some(&format!("Particle Buffer {}", i)),
+                    contents: bytemuck::cast_slice(&instances),
+                    usage: wgpu::BufferUsages::VERTEX
+                        | wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_DST,
+                }),
+            );
+        }
+
+        //device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        //label: Some("Instance Buffer"),
+        //contents: bytemuck::cast_slice(&instances),
+        //usage: wgpu::BufferUsages::VERTEX
+        //| wgpu::BufferUsages::STORAGE
+        //| wgpu::BufferUsages::COPY_DST
+        //});
+
+        let mut particle_bind_groups = Vec::<wgpu::BindGroup>::new();
+
+        let compute_pipeline = create_compute_pipeline(
+            &device,
+            particles.len() as u64,
+            &mut particle_bind_groups,
+            &particle_buffers,
+        );
+
+        // calculates number of work groups from PARTICLES_PER_GROUP constant
+        let work_group_count =
+            ((particles.len() as f32) / (PARTICLES_PER_GROUP as f32)).ceil() as u32;
 
         Self {
             config,
@@ -188,16 +231,20 @@ impl State {
             size,
             queue,
             render_pipeline,
+            compute_pipeline,
             camera,
             camera_bind_group,
             camera_buffer,
             camera_uniform,
             camera_projection,
             camera_controller,
-            particles: instances,
-            instance_buffer,
+            particles,
+            particle_buffers,
+            particle_bind_groups,
             depth_texture,
             mouse_pressed: false,
+            work_group_count,
+            frame: 0,
         }
     }
 
@@ -264,6 +311,17 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
+        encoder.push_debug_group("compute particles");
+        {
+            // compute pass
+            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
+            cpass.set_pipeline(&self.compute_pipeline);
+            cpass.set_bind_group(0, &self.particle_bind_groups[(self.frame + 1) % 2], &[]);
+            cpass.dispatch(self.work_group_count, 1, 1);
+        }
+        encoder.pop_debug_group();
+
+        encoder.push_debug_group("render particles");
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -271,33 +329,36 @@ impl State {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 1.0,
-                        }),
+                        // Not clearing here in order to test wgpu's zero texture initialization on a surface texture.
+                        // Users should avoid loading uninitialized memory since this can cause additional overhead.
+                        load: wgpu::LoadOp::Load,
                         store: true,
                     },
+                    //ops: wgpu::Operations {
+                    //load: wgpu::LoadOp::Clear(wgpu::Color {
+                    //r: 0.0,
+                    //g: 0.0,
+                    //b: 0.0,
+                    //a: 1.0,
+                    //}),
+                    //store: true,
+                    //},
                 }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
+                depth_stencil_attachment: None,
             });
 
-            render_pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
+            render_pass.set_vertex_buffer(0, self.particle_buffers[self.frame % 2].slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+
             render_pass.draw(0..VERTICES_LEN, 0..self.particles.len() as _);
         }
+        encoder.pop_debug_group();
+
+        self.frame += 1;
 
         // submit will accept anything that implements IntoIter
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.queue.submit(Some(encoder.finish()));
         output.present();
 
         Ok(())
