@@ -13,15 +13,20 @@ pub struct Particle {
 }
 
 impl Particle {
-    pub fn to_instance(&self) -> Instance {
-        Instance {
-            position: [self.position.x, self.position.y, self.position.z, self.size],
-            color: self.color.into(),
-            velocity: self.velocity.into(),
-        }
+    pub fn to_instance(&self, instances: &mut Vec<f32>) {
+        instances.push(self.position.x);
+        instances.push(self.position.y);
+        instances.push(self.position.z);
+        instances.push(self.size);
+        instances.push(self.color.x);
+        instances.push(self.color.y);
+        instances.push(self.color.z);
+        instances.push(self.color.w);
+        instances.push(self.velocity.x);
+        instances.push(self.velocity.y);
+        instances.push(self.velocity.z);
     }
 
-    // TODO replace instance with particles
     pub fn generate_particles() -> Vec<Particle> {
         (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
@@ -32,14 +37,11 @@ impl Particle {
                         z: z as f32 * 4.0,
                     } - INSTANCE_DISPLACEMENT;
 
-                    // this is needed so an object at (0, 0, 0) won't get scaled to zero
-                    // as Quaternions can effect scale if they're not created correctly
-
                     Particle {
                         position,
                         color: cgmath::Vector4::new(0.0, 0.2, 1.0, 1.0),
                         size: 0.5,
-                        velocity: cgmath::Vector3::new(10., 10., 0.),
+                        velocity: cgmath::Vector3::new(0.001, 0.001, 0.),
                     }
                 })
             })
@@ -67,22 +69,17 @@ impl Instance {
             attributes: &[
                 wgpu::VertexAttribute {
                     offset: 0,
-                    // While our vertex shader only uses locations 0, and 1 now, in later tutorials we'll
-                    // be using 2, 3, and 4, for Vertex. We'll start at slot 5 not conflict with them later
-                    shader_location: 5,
+                    shader_location: 2,
                     format: wgpu::VertexFormat::Float32x4,
                 },
-                // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
-                // for each vec4. We'll have to reassemble the mat4 in
-                // the shader.
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                    shader_location: 6,
+                    shader_location: 3,
                     format: wgpu::VertexFormat::Float32x4,
                 },
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
-                    shader_location: 7,
+                    shader_location: 4,
                     format: wgpu::VertexFormat::Float32x3,
                 },
             ],

@@ -8,9 +8,8 @@ var<uniform> camera: Camera;
 
 struct VertexInput {
     [[builtin(vertex_index)]] vertex_idx: u32;
-    [[location(5)]] position: vec4<f32>;
-    [[location(6)]] color: vec4<f32>;
-    [[location(7)]] velocity: vec3<f32>;
+    [[location(2)]] position: vec4<f32>;
+    [[location(3)]] color: vec4<f32>;
 };
 
 struct VertexOutput {

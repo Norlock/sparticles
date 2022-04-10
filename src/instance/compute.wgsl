@@ -3,13 +3,13 @@ struct Particle {
   pos_y: f32;
   pos_z: f32;
   size: f32;
-  color_r: f32;
-  color_g: f32;
-  color_b: f32;
-  color_a: f32;
-  velocity_x: f32;
-  velocity_y: f32;
-  velocity_z: f32;
+  col_r: f32;
+  col_g: f32;
+  col_b: f32;
+  col_a: f32;
+  vel_x: f32;
+  vel_y: f32;
+  vel_z: f32;
 };
 
 //struct SimParams {
@@ -39,14 +39,10 @@ fn main([[builtin(global_invocation_id)]] global_id: vec3<u32>) {
     return;
   }
 
-  //var position_size : vec4<f32> = particlesSrc.data[index].position_size;
-
   var particle = particlesSrc.data[index];
 
-  var vel: vec3<f32> = vec3<f32>(0.01, 0.0, 0.0);
-
   // Write back
-  //particles.particles[index].position_size = vec4<f32>(position, size);
-  particlesDst.data[index].pos_x = particle.pos_x + 0.005;
-  //particlesDst.particles[index].vel = vVel;
+  particlesDst.data[index].pos_x = particle.pos_x + particle.vel_x;
+  particlesDst.data[index].pos_y = particle.pos_y + particle.vel_y;
+  particlesDst.data[index].pos_z = particle.pos_z + particle.vel_z;
 }

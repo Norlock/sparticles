@@ -1,5 +1,5 @@
 use crate::camera::*;
-use crate::instance::compute::create_compute_pipeline;
+use crate::instance::compute::ComputeData;
 use crate::instance::particle::*;
 use std::time::Duration;
 use std::time::Instant;
@@ -24,26 +24,17 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    compute_pipeline: wgpu::ComputePipeline,
     camera: Camera,
     camera_uniform: CameraUniform,
     camera_controller: CameraController,
     camera_projection: Projection,
     camera_bind_group: wgpu::BindGroup,
-    particles: Vec<Particle>,
-    particle_buffers: Vec<wgpu::Buffer>,
-    particle_bind_groups: Vec<wgpu::BindGroup>,
     camera_buffer: wgpu::Buffer,
-    depth_texture: texture::Texture,
-    frame: usize,
-    work_group_count: u32,
     mouse_pressed: bool,
+    compute: ComputeData,
 }
 
 const VERTICES_LEN: u32 = 4;
-
-// number of single-particle calculations (invocations) in each gpu work group
-const PARTICLES_PER_GROUP: u32 = 64;
 
 impl State {
     // Creating some of the wgpu types requires async code
@@ -131,10 +122,6 @@ impl State {
 
         let draw_shader = device.create_shader_module(&wgpu::include_wgsl!("./instance/draw.wgsl"));
 
-        // Used for correct rendering depth it stores z-coordinate of rendered pixels.
-        let depth_texture =
-            texture::Texture::create_depth_texture(&device, &config, "depth_texture");
-
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -171,58 +158,7 @@ impl State {
             multiview: None,
         });
 
-        let particles = Particle::generate_particles();
-        let field_count = 11;
-        let mut instances = Vec::with_capacity(particles.len() * field_count);
-
-        for particle in particles.iter() {
-            instances.push(particle.position.x);
-            instances.push(particle.position.y);
-            instances.push(particle.position.z);
-            instances.push(particle.size);
-            instances.push(particle.color.x);
-            instances.push(particle.color.y);
-            instances.push(particle.color.z);
-            instances.push(particle.color.w);
-            instances.push(particle.velocity.x);
-            instances.push(particle.velocity.y);
-            instances.push(particle.velocity.z);
-        }
-
-        let mut particle_buffers = Vec::<wgpu::Buffer>::new();
-
-        for i in 0..2 {
-            particle_buffers.push(
-                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some(&format!("Particle Buffer {}", i)),
-                    contents: bytemuck::cast_slice(&instances),
-                    usage: wgpu::BufferUsages::VERTEX
-                        | wgpu::BufferUsages::STORAGE
-                        | wgpu::BufferUsages::COPY_DST,
-                }),
-            );
-        }
-
-        //device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //label: Some("Instance Buffer"),
-        //contents: bytemuck::cast_slice(&instances),
-        //usage: wgpu::BufferUsages::VERTEX
-        //| wgpu::BufferUsages::STORAGE
-        //| wgpu::BufferUsages::COPY_DST
-        //});
-
-        let mut particle_bind_groups = Vec::<wgpu::BindGroup>::new();
-
-        let compute_pipeline = create_compute_pipeline(
-            &device,
-            particles.len() as u64,
-            &mut particle_bind_groups,
-            &particle_buffers,
-        );
-
-        // calculates number of work groups from PARTICLES_PER_GROUP constant
-        let work_group_count =
-            ((particles.len() as f32) / (PARTICLES_PER_GROUP as f32)).ceil() as u32;
+        let compute = ComputeData::new(&device);
 
         Self {
             config,
@@ -231,20 +167,14 @@ impl State {
             size,
             queue,
             render_pipeline,
-            compute_pipeline,
             camera,
             camera_bind_group,
             camera_buffer,
             camera_uniform,
             camera_projection,
             camera_controller,
-            particles,
-            particle_buffers,
-            particle_bind_groups,
-            depth_texture,
+            compute,
             mouse_pressed: false,
-            work_group_count,
-            frame: 0,
         }
     }
 
@@ -256,8 +186,6 @@ impl State {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
-            self.depth_texture =
-                texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
         }
     }
 
@@ -315,9 +243,13 @@ impl State {
         {
             // compute pass
             let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
-            cpass.set_pipeline(&self.compute_pipeline);
-            cpass.set_bind_group(0, &self.particle_bind_groups[(self.frame + 1) % 2], &[]);
-            cpass.dispatch(self.work_group_count, 1, 1);
+            cpass.set_pipeline(&self.compute.pipeline);
+            cpass.set_bind_group(
+                0,
+                &self.compute.bind_groups[(self.compute.frame + 1) % 2],
+                &[],
+            );
+            cpass.dispatch(self.compute.work_group_count, 1, 1);
         }
         encoder.pop_debug_group();
 
@@ -347,15 +279,18 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_vertex_buffer(0, self.particle_buffers[self.frame % 2].slice(..));
+            render_pass.set_vertex_buffer(
+                0,
+                self.compute.particle_buffers[self.compute.frame % 2].slice(..),
+            );
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
-            render_pass.draw(0..VERTICES_LEN, 0..self.particles.len() as _);
+            render_pass.draw(0..VERTICES_LEN, 0..self.compute.num_particles);
         }
         encoder.pop_debug_group();
 
-        self.frame += 1;
+        self.compute.frame += 1;
 
         // submit will accept anything that implements IntoIter
         self.queue.submit(Some(encoder.finish()));
