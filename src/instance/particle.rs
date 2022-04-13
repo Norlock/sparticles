@@ -1,9 +1,11 @@
-const NUM_INSTANCES_PER_ROW: u32 = 10;
+const NUM_INSTANCES_PER_ROW: u32 = 2;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
     0.0,
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
 );
+
+const FIELD_COUNT: usize = 11;
 
 pub struct Particle {
     pub position: cgmath::Vector3<f32>,
@@ -13,7 +15,7 @@ pub struct Particle {
 }
 
 impl Particle {
-    pub fn to_instance(&self, instances: &mut Vec<f32>) {
+    pub fn map_instance(&self, instances: &mut Vec<f32>) {
         instances.push(self.position.x);
         instances.push(self.position.y);
         instances.push(self.position.z);
@@ -27,6 +29,11 @@ impl Particle {
         instances.push(self.velocity.z);
     }
 
+    pub fn create_instance_vec(num_particles: usize) -> Vec<f32> {
+        Vec::with_capacity(num_particles * FIELD_COUNT)
+    }
+
+    // TODO remove if emitter is done.
     pub fn generate_particles() -> Vec<Particle> {
         (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {

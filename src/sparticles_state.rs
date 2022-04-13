@@ -1,8 +1,6 @@
 use crate::camera::*;
-use crate::instance::compute::ComputeData;
+use crate::instance::compute::Compute;
 use crate::instance::particle::*;
-use std::time::Duration;
-use std::time::Instant;
 
 use wgpu::FrontFace;
 use winit::dpi::PhysicalSize;
@@ -15,23 +13,22 @@ use winit::{
     window::WindowBuilder,
 };
 
-struct State {
-    surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    size: winit::dpi::PhysicalSize<u32>,
-    render_pipeline: wgpu::RenderPipeline,
-    mouse_pressed: bool,
-    compute: ComputeData,
-    camera: CameraData,
+pub struct SparticlesState {
+    pub surface: wgpu::Surface,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub config: wgpu::SurfaceConfiguration,
+    pub size: winit::dpi::PhysicalSize<u32>,
+    pub render_pipeline: wgpu::RenderPipeline,
+    pub mouse_pressed: bool,
+    pub compute: Compute,
+    pub camera: CameraData,
 }
 
 const VERTICES_LEN: u32 = 4;
 
-impl State {
-    // Creating some of the wgpu types requires async code
-    async fn new(window: &Window) -> Self {
+impl SparticlesState {
+    pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -44,8 +41,7 @@ impl State {
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
-            .await
-            .unwrap();
+            .await?;
 
         let (device, queue) = adapter
             .request_device(
@@ -62,8 +58,7 @@ impl State {
                 },
                 None, // Trace path
             )
-            .await
-            .unwrap();
+            .await?;
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -115,7 +110,7 @@ impl State {
             multiview: None,
         });
 
-        let compute = ComputeData::new(&device);
+        let compute = Compute::new(&device);
 
         Self {
             config,
@@ -130,7 +125,7 @@ impl State {
         }
     }
 
-    fn resize(&mut self, new_size: PhysicalSize<u32>) {
+    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.camera.resize(new_size);
             self.size = new_size;
@@ -167,11 +162,14 @@ impl State {
         }
     }
 
-    fn update(&mut self, dt: Duration) {
-        self.camera.update(dt, &self.queue)
+    pub fn update(&mut self) {
+        let delta = self.compute.clock.delta();
+
+        self.camera.update(delta, &self.queue);
+        self.compute.update();
     }
 
-    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -183,7 +181,6 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        encoder.push_debug_group("compute particles");
         {
             // compute pass
             let mut compute_pass =
@@ -196,9 +193,7 @@ impl State {
             );
             compute_pass.dispatch(self.compute.work_group_count, 1, 1);
         }
-        encoder.pop_debug_group();
 
-        encoder.push_debug_group("render particles");
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -233,7 +228,6 @@ impl State {
 
             render_pass.draw(0..VERTICES_LEN, 0..self.compute.num_particles);
         }
-        encoder.pop_debug_group();
 
         self.compute.frame += 1;
 
@@ -254,9 +248,7 @@ pub async fn run() {
         .build(&event_loop)
         .unwrap();
 
-    let mut state = State::new(&window).await;
-    let instant = Instant::now();
-    let mut last_render_time = instant.elapsed();
+    let mut state = SparticlesState::new(&window).await;
 
     // main()
     event_loop.run(move |event, _, control_flow| {
@@ -265,13 +257,13 @@ pub async fn run() {
             Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion{ delta, },
                 .. // We're not using device_id currently
-            } => if state.mouse_pressed {
+            } if state.mouse_pressed => {
                 state.camera.process_mouse(delta.0, delta.1)
             }
             Event::WindowEvent {
                 ref event,
                 window_id,
-                } if window_id == window.id() && !state.input(event) => {
+            } if window_id == window.id() && !state.input(event) => {
                 match event {
                     #[cfg(not(target_arch="wasm32"))]
                     WindowEvent::CloseRequested
@@ -294,10 +286,7 @@ pub async fn run() {
                 }
             }
             Event::RedrawRequested(window_id) if window_id == window.id() => {
-                let now = instant.elapsed();
-                let dt = now - last_render_time;
-                last_render_time = now;
-                state.update(dt);
+                state.update();
 
                 match state.render() {
                     Ok(_) => {}

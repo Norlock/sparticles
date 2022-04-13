@@ -1,8 +1,9 @@
-use crate::render::run;
+use crate::sparticles_state::run;
 
 mod camera;
+mod clock;
 mod instance;
-mod render;
+mod sparticles_state;
 mod texture;
 
 fn main() {

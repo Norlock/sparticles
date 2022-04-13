@@ -35,7 +35,7 @@ struct Particles {
 fn main([[builtin(global_invocation_id)]] global_id: vec3<u32>) {
   let total = arrayLength(&particlesSrc.data);
   let index = global_id.x;
-  if (index >= total) {
+  if (index > total) {
     return;
   }
 

@@ -1,3 +1,5 @@
+use crate::{clock::Clock, instance::emitter::Emitter};
+
 use crate::instance::particle::Particle;
 use wgpu::util::DeviceExt;
 
@@ -6,16 +8,18 @@ use crate::instance::particle::Instance;
 // number of single-particle calculations (invocations) in each gpu work group
 const PARTICLES_PER_GROUP: u32 = 64;
 
-pub struct ComputeData {
+pub struct Compute {
     pub num_particles: u32,
     pub particle_buffers: Vec<wgpu::Buffer>,
     pub bind_groups: Vec<wgpu::BindGroup>,
     pub work_group_count: u32,
     pub pipeline: wgpu::ComputePipeline,
     pub frame: usize,
+    pub clock: Clock,
+    pub emitters: Vec<Emitter>,
 }
 
-impl ComputeData {
+impl Compute {
     pub fn new(device: &wgpu::Device) -> Self {
         let particles = Particle::generate_particles();
         let mut particle_buffers = Vec::<wgpu::Buffer>::new();
@@ -24,11 +28,10 @@ impl ComputeData {
         let compute_shader = device.create_shader_module(&wgpu::include_wgsl!("./compute.wgsl"));
 
         let num_particles = particles.len();
-        let field_count = 11;
-        let mut instances = Vec::with_capacity(num_particles * field_count);
+        let mut instances = Particle::create_instance_vec(num_particles);
 
         for particle in particles.iter() {
-            particle.to_instance(&mut instances);
+            particle.map_instance(&mut instances);
         }
 
         for i in 0..2 {
@@ -42,6 +45,7 @@ impl ComputeData {
                 }),
             );
         }
+
         // buffer for simulation parameters uniform
 
         //let sim_param_data = [
@@ -141,6 +145,12 @@ impl ComputeData {
             pipeline,
             num_particles: num_particles as u32,
             frame: 0,
+            clock: Clock::new(),
+            emitters: Vec::new(),
         }
+    }
+
+    pub fn update(&mut self) {
+        //
     }
 }

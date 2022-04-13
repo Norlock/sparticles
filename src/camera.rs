@@ -229,7 +229,7 @@ impl CameraData {
         let transform = Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
         let projection =
             Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 200.0);
-        let controller = CameraController::new(8.0, 0.4);
+        let controller = CameraController::new(12.0, 0.4);
 
         let mut uniform = CameraUniform::new();
         uniform.update_view_proj(&transform, &projection);
