@@ -2,9 +2,8 @@ use crate::camera::*;
 use crate::examples::simple_emitter;
 use crate::instance::compute::Compute;
 use crate::instance::emitter::Emitter;
-use crate::instance::particle::*;
+use crate::render::{create_pipeline, create_pipeline_layout, create_window, PipelineProperties};
 
-use wgpu::FrontFace;
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
 use winit::window::Window;
@@ -12,10 +11,9 @@ use winit::window::Window;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
 };
 
-pub struct SparticlesState {
+pub struct State {
     pub surface: wgpu::Surface,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -24,17 +22,16 @@ pub struct SparticlesState {
     pub render_pipeline: wgpu::RenderPipeline,
     pub mouse_pressed: bool,
     pub compute: Compute,
-    pub camera: CameraData,
+    pub camera: Camera,
 }
 
 const VERTICES_LEN: u32 = 4;
 
-impl SparticlesState {
+impl State {
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
-        // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = wgpu::Instance::new(wgpu::Backends::all());
         let surface = unsafe { instance.create_surface(window) };
         let adapter = instance
@@ -74,47 +71,18 @@ impl SparticlesState {
 
         surface.configure(&device, &config);
 
-        let camera = CameraData::new(&device, &config);
-
-        let draw_shader = device.create_shader_module(&wgpu::include_wgsl!("./instance/draw.wgsl"));
-
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera.bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &draw_shader,
-                entry_point: "vs_main",
-                buffers: &[Instance::descriptor()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &draw_shader,
-                entry_point: "fs_main",
-                targets: &[wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                }],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
-                strip_index_format: Some(wgpu::IndexFormat::Uint32),
-                front_face: FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Front),
-                ..Default::default()
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-        });
-
+        let camera = Camera::new(&device, &config);
         let compute = Compute::new(&device);
+
+        let render_pipeline_layout = create_pipeline_layout(&device, &camera);
+
+        let pipeline_properties = PipelineProperties {
+            device: &device,
+            render_pipeline_layout: &render_pipeline_layout,
+            config: &config,
+        };
+
+        let render_pipeline = create_pipeline(pipeline_properties);
 
         Self {
             config,
@@ -246,16 +214,11 @@ pub async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new();
 
-    let window = WindowBuilder::new()
-        .with_title("Sparticles")
-        .build(&event_loop)
-        .unwrap();
-
-    let mut state = SparticlesState::new(&window).await;
+    let window = create_window(&event_loop);
+    let mut state = State::new(&window).await;
 
     state.add_emitter(simple_emitter());
 
-    // main()
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
         match event {

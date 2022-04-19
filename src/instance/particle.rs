@@ -29,6 +29,10 @@ impl Particle {
         instances.push(self.velocity.z);
     }
 
+    pub fn size_of() -> wgpu::BufferAddress {
+        (FIELD_COUNT * 4) as wgpu::BufferAddress
+    }
+
     pub fn create_instance_vec(num_particles: usize) -> Vec<f32> {
         Vec::with_capacity(num_particles * FIELD_COUNT)
     }
@@ -54,21 +58,11 @@ impl Particle {
             })
             .collect::<Vec<_>>()
     }
-}
 
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Instance {
-    position: [f32; 4],
-    color: [f32; 4],
-    velocity: [f32; 3],
-}
-
-impl Instance {
     pub fn descriptor<'a>() -> wgpu::VertexBufferLayout<'a> {
         use std::mem;
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Instance>() as wgpu::BufferAddress,
+            array_stride: Particle::size_of(),
             // We need to switch from using a step mode of Vertex to Instance
             // This means that our shaders will only change to use the next
             // instance when the shader starts processing a new instance

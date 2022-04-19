@@ -1,5 +1,4 @@
 use super::emitter::SpawnData;
-use super::particle::Instance;
 use super::particle::Particle;
 use crate::instance::particle::FIELD_COUNT;
 use crate::{clock::Clock, instance::emitter::Emitter};
@@ -61,8 +60,7 @@ impl Compute {
 
         // create compute bind layout group and compute pipeline layout
 
-        let instance_size = std::mem::size_of::<Instance>() as u64;
-        let buffer_size = num_particles as u64 * instance_size;
+        let buffer_size = num_particles as u64 * Particle::size_of();
 
         let compute_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

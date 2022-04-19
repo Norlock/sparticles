@@ -1,11 +1,11 @@
-use crate::sparticles_state::run;
+use crate::state::run;
 
 mod camera;
 mod clock;
 mod examples;
 mod instance;
-mod sparticles_state;
-mod texture;
+mod render;
+mod state;
 
 fn main() {
     pollster::block_on(run());

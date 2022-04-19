@@ -16,13 +16,13 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
 #[derive(Debug)]
-pub struct Camera {
+pub struct CameraTransform {
     pub position: Point3<f32>,
     yaw: Rad<f32>,
     pitch: Rad<f32>,
 }
 
-impl Camera {
+impl CameraTransform {
     fn new<V: Into<Point3<f32>>, Y: Into<Rad<f32>>, P: Into<Rad<f32>>>(
         position: V,
         yaw: Y,
@@ -153,7 +153,7 @@ impl CameraController {
         };
     }
 
-    fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
+    fn update_camera(&mut self, camera: &mut CameraTransform, dt: Duration) {
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right
@@ -209,13 +209,13 @@ impl CameraUniform {
         }
     }
 
-    fn update_view_proj(&mut self, camera: &Camera, projection: &Projection) {
+    fn update_view_proj(&mut self, camera: &CameraTransform, projection: &Projection) {
         self.view_proj = (projection.calc_matrix() * camera.calc_matrix()).into()
     }
 }
 
-pub struct CameraData {
-    transform: Camera,
+pub struct Camera {
+    transform: CameraTransform,
     uniform: CameraUniform,
     controller: CameraController,
     projection: Projection,
@@ -224,9 +224,10 @@ pub struct CameraData {
     pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
-impl CameraData {
+impl Camera {
     pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self {
-        let transform = Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+        let transform =
+            CameraTransform::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
         let projection =
             Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 200.0);
         let controller = CameraController::new(12.0, 0.4);
