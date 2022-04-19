@@ -1,17 +1,17 @@
+use super::emitter::SpawnData;
+use super::particle::Instance;
+use super::particle::Particle;
+use crate::instance::particle::FIELD_COUNT;
 use crate::{clock::Clock, instance::emitter::Emitter};
-
-use crate::instance::particle::Particle;
 use wgpu::util::DeviceExt;
-
-use crate::instance::particle::Instance;
 
 // number of single-particle calculations (invocations) in each gpu work group
 const PARTICLES_PER_GROUP: u32 = 64;
 
 pub struct Compute {
     pub num_particles: u32,
-    pub particle_buffers: Vec<wgpu::Buffer>,
-    pub bind_groups: Vec<wgpu::BindGroup>,
+    pub particle_buffer: wgpu::Buffer,
+    pub bind_group: wgpu::BindGroup,
     pub work_group_count: u32,
     pub pipeline: wgpu::ComputePipeline,
     pub frame: usize,
@@ -22,8 +22,6 @@ pub struct Compute {
 impl Compute {
     pub fn new(device: &wgpu::Device) -> Self {
         let particles = Particle::generate_particles();
-        let mut particle_buffers = Vec::<wgpu::Buffer>::new();
-        let mut particle_bind_groups = Vec::<wgpu::BindGroup>::new();
 
         let compute_shader = device.create_shader_module(&wgpu::include_wgsl!("./compute.wgsl"));
 
@@ -34,17 +32,13 @@ impl Compute {
             particle.map_instance(&mut instances);
         }
 
-        for i in 0..2 {
-            particle_buffers.push(
-                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some(&format!("Particle Buffer {}", i)),
-                    contents: bytemuck::cast_slice(&instances),
-                    usage: wgpu::BufferUsages::VERTEX
-                        | wgpu::BufferUsages::STORAGE
-                        | wgpu::BufferUsages::COPY_DST,
-                }),
-            );
-        }
+        let particle_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(&format!("Particle Buffer")),
+            contents: bytemuck::cast_slice(&instances),
+            usage: wgpu::BufferUsages::VERTEX
+                | wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST,
+        });
 
         // buffer for simulation parameters uniform
 
@@ -72,28 +66,16 @@ impl Compute {
 
         let compute_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: wgpu::BufferSize::new(buffer_size),
-                        },
-                        count: None,
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: wgpu::BufferSize::new(buffer_size),
                     },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: false },
-                            has_dynamic_offset: false,
-                            min_binding_size: wgpu::BufferSize::new(buffer_size),
-                        },
-                        count: None,
-                    },
-                ],
+                    count: None,
+                }],
                 label: None,
             });
 
@@ -104,28 +86,14 @@ impl Compute {
                 push_constant_ranges: &[],
             });
 
-        // create two bind groups, one for each buffer as the src
-        // where the alternate buffer is used as the dst
-        for i in 0..2 {
-            particle_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &compute_bind_group_layout,
-                entries: &[
-                    //wgpu::BindGroupEntry {
-                    //binding: 0,
-                    //resource: sim_param_buffer.as_entire_binding(),
-                    //},
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: particle_buffers[i].as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: particle_buffers[(i + 1) % 2].as_entire_binding(), // bind to opposite buffer
-                    },
-                ],
-                label: None,
-            }));
-        }
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &compute_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: particle_buffer.as_entire_binding(),
+            }],
+            label: None,
+        });
 
         // calculates number of work groups from PARTICLES_PER_GROUP constant
         let work_group_count =
@@ -140,8 +108,8 @@ impl Compute {
 
         Self {
             work_group_count,
-            particle_buffers,
-            bind_groups: particle_bind_groups,
+            particle_buffer,
+            bind_group,
             pipeline,
             num_particles: num_particles as u32,
             frame: 0,
@@ -150,7 +118,30 @@ impl Compute {
         }
     }
 
-    pub fn update(&mut self) {
-        //
+    pub fn update(&mut self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder) {
+        // Try create buffer for emitted particles and copy to buffer.
+        //if 1 <= self.frame {
+        //return;
+        //}
+        let mut instances = Vec::new();
+
+        let mut data = SpawnData {
+            clock: &self.clock,
+            instances: &mut instances,
+        };
+
+        for emitter in self.emitters.iter_mut() {
+            emitter.spawn(&mut data);
+        }
+
+        let new_particles_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Particle Buffer"),
+            contents: bytemuck::cast_slice(&instances),
+            usage: wgpu::BufferUsages::VERTEX
+                | wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_SRC,
+        });
+
+        self.num_particles += instances.len() as u32 / FIELD_COUNT as u32;
     }
 }

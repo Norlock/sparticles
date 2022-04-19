@@ -27,22 +27,22 @@ struct Particles {
 };
 
 //[[group(0), binding(0)]] var<uniform> params : SimParams;
-[[group(0), binding(0)]] var<storage, read> particlesSrc: Particles;
-[[group(0), binding(1)]] var<storage, read_write> particlesDst : Particles;
+[[group(0), binding(0)]] var<storage, read_write> particles: Particles;
+//[[group(0), binding(1)]] var<storage, read_write> particlesDst : Particles;
 
 // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 [[stage(compute), workgroup_size(64)]]
 fn main([[builtin(global_invocation_id)]] global_id: vec3<u32>) {
-  let total = arrayLength(&particlesSrc.data);
+  let total = arrayLength(&particles.data);
   let index = global_id.x;
   if (index > total) {
     return;
   }
 
-  var particle = particlesSrc.data[index];
+  var particle = particles.data[index];
 
   // Write back
-  particlesDst.data[index].pos_x = particle.pos_x + particle.vel_x;
-  particlesDst.data[index].pos_y = particle.pos_y + particle.vel_y;
-  particlesDst.data[index].pos_z = particle.pos_z + particle.vel_z;
+  particles.data[index].pos_x = particle.pos_x + particle.vel_x;
+  particles.data[index].pos_y = particle.pos_y + particle.vel_y;
+  particles.data[index].pos_z = particle.pos_z + particle.vel_z;
 }

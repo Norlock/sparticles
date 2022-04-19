@@ -2,6 +2,7 @@ use crate::sparticles_state::run;
 
 mod camera;
 mod clock;
+mod examples;
 mod instance;
 mod sparticles_state;
 mod texture;

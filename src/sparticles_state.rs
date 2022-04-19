@@ -1,5 +1,7 @@
 use crate::camera::*;
+use crate::examples::simple_emitter;
 use crate::instance::compute::Compute;
+use crate::instance::emitter::Emitter;
 use crate::instance::particle::*;
 
 use wgpu::FrontFace;
@@ -41,7 +43,8 @@ impl SparticlesState {
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
-            .await?;
+            .await
+            .unwrap();
 
         let (device, queue) = adapter
             .request_device(
@@ -58,7 +61,8 @@ impl SparticlesState {
                 },
                 None, // Trace path
             )
-            .await?;
+            .await
+            .unwrap();
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -125,6 +129,10 @@ impl SparticlesState {
         }
     }
 
+    pub fn add_emitter(&mut self, emitter: Emitter) {
+        self.compute.emitters.push(emitter);
+    }
+
     pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.camera.resize(new_size);
@@ -166,7 +174,7 @@ impl SparticlesState {
         let delta = self.compute.clock.delta();
 
         self.camera.update(delta, &self.queue);
-        self.compute.update();
+        self.compute.clock.update();
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -181,16 +189,14 @@ impl SparticlesState {
                 label: Some("Render Encoder"),
             });
 
+        //self.compute.update(&self.device, &mut encoder);
+
         {
             // compute pass
             let mut compute_pass =
                 encoder.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
             compute_pass.set_pipeline(&self.compute.pipeline);
-            compute_pass.set_bind_group(
-                0,
-                &self.compute.bind_groups[(self.compute.frame + 1) % 2],
-                &[],
-            );
+            compute_pass.set_bind_group(0, &self.compute.bind_group, &[]);
             compute_pass.dispatch(self.compute.work_group_count, 1, 1);
         }
 
@@ -219,10 +225,7 @@ impl SparticlesState {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_vertex_buffer(
-                0,
-                self.compute.particle_buffers[self.compute.frame % 2].slice(..),
-            );
+            render_pass.set_vertex_buffer(0, self.compute.particle_buffer.slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
 
@@ -249,6 +252,8 @@ pub async fn run() {
         .unwrap();
 
     let mut state = SparticlesState::new(&window).await;
+
+    state.add_emitter(simple_emitter());
 
     // main()
     event_loop.run(move |event, _, control_flow| {

@@ -5,7 +5,7 @@ const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
 );
 
-const FIELD_COUNT: usize = 11;
+pub const FIELD_COUNT: usize = 11;
 
 pub struct Particle {
     pub position: cgmath::Vector3<f32>,
