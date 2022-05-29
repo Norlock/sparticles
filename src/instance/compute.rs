@@ -144,9 +144,7 @@ impl Compute {
             let emitter_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Emitter Buffer"),
                 contents: bytemuck::cast_slice(&instances),
-                usage: wgpu::BufferUsages::VERTEX
-                    | wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_SRC,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             });
 
             let buffer_size = emitted_particles as u64 * Particle::size_of();
@@ -157,7 +155,7 @@ impl Compute {
                         binding: 0,
                         visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(buffer_size),
                         },
@@ -202,12 +200,43 @@ impl Compute {
             compute_pass.set_bind_group(2, &emitter_bind_group, &[]);
             compute_pass.dispatch(self.work_group_count, 1, 1);
         } else {
+            let emitter_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Emitter Buffer"),
+                size: 100,
+                mapped_at_creation: false,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            });
+
+            let emitter_bind_group_layout =
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                    label: None,
+                });
+
+            let emitter_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &emitter_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: emitter_buffer.as_entire_binding(),
+                }],
+                label: None,
+            });
             let compute_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("compute"),
                     bind_group_layouts: &[
                         &metadata_bind_group_layout,
                         &self.particle_bind_group_layout,
+                        &emitter_bind_group_layout,
                     ],
                     push_constant_ranges: &[],
                 });
@@ -225,6 +254,7 @@ impl Compute {
             compute_pass.set_pipeline(&pipeline);
             compute_pass.set_bind_group(0, &metadata_bind_group, &[]);
             compute_pass.set_bind_group(1, &self.particle_bind_group, &[]);
+            compute_pass.set_bind_group(2, &emitter_bind_group, &[]);
             compute_pass.dispatch(self.work_group_count, 1, 1);
         }
     }

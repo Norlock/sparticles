@@ -22,18 +22,22 @@ struct Particles {
 
 [[group(0), binding(0)]] var<uniform> params : Metadata;
 [[group(1), binding(0)]] var<storage, read_write> particles: Particles;
-[[group(2), binding(0)]] var<storage, read_write> new_particles: Particles;
+[[group(2), binding(0)]] var<storage, read> new_particles: Particles;
 
 [[stage(compute), workgroup_size(64)]]
 fn main([[builtin(global_invocation_id)]] global_id: vec3<u32>) {
-  let total = arrayLength(&particles.data);
+  var particles_len = arrayLength(&particles.data);
+
+  if (params.has_new_particles == 1) { 
+      particles_len = particles_len + arrayLength(&new_particles.data);
+  }
+
   let index = global_id.x;
-  if (index > total) {
+  if (particles_len < index) {
     return;
   }
 
   var particle = particles.data[index];
-  var a: i32 = 0;
 
   if (params.has_new_particles == 1) {
     particle.col_g = 1.0;
