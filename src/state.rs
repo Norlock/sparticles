@@ -157,16 +157,7 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        //self.compute.update(&self.device, &mut encoder);
-
-        {
-            // compute pass
-            let mut compute_pass =
-                encoder.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
-            compute_pass.set_pipeline(&self.compute.pipeline);
-            compute_pass.set_bind_group(0, &self.compute.bind_group, &[]);
-            compute_pass.dispatch(self.compute.work_group_count, 1, 1);
-        }
+        self.compute.update(&self.device, &mut encoder);
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -202,7 +193,6 @@ impl State {
 
         self.compute.frame += 1;
 
-        // submit will accept anything that implements IntoIter
         self.queue.submit(Some(encoder.finish()));
         output.present();
 

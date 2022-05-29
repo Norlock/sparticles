@@ -28,7 +28,6 @@ struct Particles {
 
 //[[group(0), binding(0)]] var<uniform> params : SimParams;
 [[group(0), binding(0)]] var<storage, read_write> particles: Particles;
-//[[group(0), binding(1)]] var<storage, read_write> particlesDst : Particles;
 
 // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 [[stage(compute), workgroup_size(64)]]
