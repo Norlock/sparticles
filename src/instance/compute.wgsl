@@ -12,24 +12,18 @@ struct Particle {
   vel_z: f32;
 };
 
-//struct SimParams {
-//  deltaT : f32;
-//  rule1Distance : f32;
-//  rule2Distance : f32;
-//  rule3Distance : f32;
-//  rule1Scale : f32;
-//  rule2Scale : f32;
-//  rule3Scale : f32;
-//};
+struct Metadata {
+   has_new_particles: i32;
+};
 
 struct Particles {
   data : [[stride(44)]] array<Particle>;
 };
 
-//[[group(0), binding(0)]] var<uniform> params : SimParams;
-[[group(0), binding(0)]] var<storage, read_write> particles: Particles;
+[[group(0), binding(0)]] var<uniform> params : Metadata;
+[[group(1), binding(0)]] var<storage, read_write> particles: Particles;
+[[group(2), binding(0)]] var<storage, read_write> new_particles: Particles;
 
-// https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 [[stage(compute), workgroup_size(64)]]
 fn main([[builtin(global_invocation_id)]] global_id: vec3<u32>) {
   let total = arrayLength(&particles.data);
@@ -39,9 +33,18 @@ fn main([[builtin(global_invocation_id)]] global_id: vec3<u32>) {
   }
 
   var particle = particles.data[index];
+  var a: i32 = 0;
+
+  if (params.has_new_particles == 1) {
+    particle.col_g = 1.0;
+  } else {
+    particle.col_g = 0.0;
+  }
+
+  particle.pos_x = particle.pos_x + particle.vel_x;
+  particle.pos_y = particle.pos_y + particle.vel_y;
+  particle.pos_z = particle.pos_z + particle.vel_z;
 
   // Write back
-  particles.data[index].pos_x = particle.pos_x + particle.vel_x;
-  particles.data[index].pos_y = particle.pos_y + particle.vel_y;
-  particles.data[index].pos_z = particle.pos_z + particle.vel_z;
+  particles.data[index] = particle;
 }
