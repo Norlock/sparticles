@@ -157,7 +157,7 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        self.compute.update(&self.device, &mut encoder);
+        self.compute.update(&self.device);
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

@@ -14,6 +14,7 @@ pub struct Emitter {
 pub struct SpawnData<'a> {
     pub clock: &'a Clock,
     pub instances: &'a mut Vec<f32>,
+    pub num_spawned_particles: u32,
 }
 
 impl Emitter {
@@ -25,6 +26,8 @@ impl Emitter {
             self.iteration = new_iteration;
 
             let velocity = cgmath::Vector3::new(self.particle_speed, self.particle_speed, 0.);
+
+            data.num_spawned_particles += self.particles_per_emission;
 
             for _ in 0..self.particles_per_emission {
                 let particle = Particle {
