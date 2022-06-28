@@ -13,7 +13,7 @@ pub struct Emitter {
 
 pub struct SpawnData<'a> {
     pub clock: &'a Clock,
-    pub instances: &'a mut Vec<f32>,
+    pub particles: &'a mut Vec<Particle>,
     pub num_spawned_particles: u32,
 }
 
@@ -30,14 +30,12 @@ impl Emitter {
             data.num_spawned_particles += self.particles_per_emission;
 
             for _ in 0..self.particles_per_emission {
-                let particle = Particle {
+                data.particles.push(Particle {
                     position: self.emitter_position,
                     color: self.particle_color,
                     velocity,
                     size: self.particle_size,
-                };
-
-                particle.map_instance(&mut data.instances);
+                })
             }
         }
     }

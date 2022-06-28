@@ -29,6 +29,16 @@ impl Particle {
         instances.push(self.velocity.z);
     }
 
+    pub fn map_to_instances(vec: &Vec<Particle>) -> Vec<f32> {
+        let mut instances = Particle::create_instance_vec(vec.len());
+
+        for particle in vec.iter() {
+            Particle::map_instance(particle, &mut instances);
+        }
+
+        instances
+    }
+
     pub fn size_of() -> wgpu::BufferAddress {
         (FIELD_COUNT * 4) as wgpu::BufferAddress
     }
@@ -85,17 +95,5 @@ impl Particle {
                 },
             ],
         }
-    }
-}
-
-pub trait ParticleFunctions {
-    fn move_particle(&mut self, start_index: usize, x: f32, y: f32, z: f32);
-}
-
-impl ParticleFunctions for Vec<f32> {
-    fn move_particle(&mut self, start_index: usize, x: f32, y: f32, z: f32) {
-        self[start_index] += x;
-        self[start_index + 1] += y;
-        self[start_index + 2] += z;
     }
 }

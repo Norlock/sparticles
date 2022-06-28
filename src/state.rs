@@ -188,7 +188,7 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
 
-            render_pass.draw(0..VERTICES_LEN, 0..self.compute.num_particles);
+            render_pass.draw(0..VERTICES_LEN, 0..(self.compute.particles.len() as u32));
         }
 
         self.compute.frame += 1;
