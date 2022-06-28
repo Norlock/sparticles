@@ -1,7 +1,7 @@
 use crate::camera::*;
 use crate::examples::simple_emitter;
-use crate::instance::compute::Compute;
 use crate::instance::emitter::Emitter;
+use crate::instance::instance::Instance;
 use crate::render::{create_pipeline, create_pipeline_layout, create_window, PipelineProperties};
 
 use winit::dpi::PhysicalSize;
@@ -21,7 +21,7 @@ pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,
     pub render_pipeline: wgpu::RenderPipeline,
     pub mouse_pressed: bool,
-    pub compute: Compute,
+    pub instances: Instance,
     pub camera: Camera,
 }
 
@@ -72,7 +72,7 @@ impl State {
         surface.configure(&device, &config);
 
         let camera = Camera::new(&device, &config);
-        let compute = Compute::new(&device);
+        let instances = Instance::new(&device);
 
         let render_pipeline_layout = create_pipeline_layout(&device, &camera);
 
@@ -92,13 +92,13 @@ impl State {
             queue,
             render_pipeline,
             camera,
-            compute,
+            instances,
             mouse_pressed: false,
         }
     }
 
     pub fn add_emitter(&mut self, emitter: Emitter) {
-        self.compute.emitters.push(emitter);
+        self.instances.emitters.push(emitter);
     }
 
     pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
@@ -139,10 +139,10 @@ impl State {
     }
 
     pub fn update(&mut self) {
-        let delta = self.compute.clock.delta();
+        let delta = self.instances.clock.delta();
 
         self.camera.update(delta, &self.queue);
-        self.compute.clock.update();
+        self.instances.clock.update();
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -157,7 +157,7 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        self.compute.update(&self.device);
+        self.instances.update(&self.device);
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -184,14 +184,14 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_vertex_buffer(0, self.compute.particle_buffer.slice(..));
+            render_pass.set_vertex_buffer(0, self.instances.particle_buffer.slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
 
-            render_pass.draw(0..VERTICES_LEN, 0..(self.compute.particles.len() as u32));
+            render_pass.draw(0..VERTICES_LEN, 0..(self.instances.particles.len() as u32));
         }
 
-        self.compute.frame += 1;
+        self.instances.frame += 1;
 
         self.queue.submit(Some(encoder.finish()));
         output.present();
