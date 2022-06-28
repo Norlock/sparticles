@@ -47,7 +47,6 @@ impl Instance {
         let mut data = SpawnData {
             clock: &self.clock,
             particles: &mut self.particles,
-            num_spawned_particles: 0,
         };
 
         for emitter in self.emitters.iter_mut() {
@@ -65,5 +64,7 @@ impl Instance {
             contents: bytemuck::cast_slice(&instances),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
+
+        self.frame += 1;
     }
 }
