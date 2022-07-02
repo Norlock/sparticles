@@ -3,10 +3,10 @@
 ## Roadmap
 - [x] Check if I can only pass in index and do the vertex in the shader.
 - [x] Check if I can always rotate circle towards camera.
-- [ ] Correct emitter spawn logic
+- [x] Correct emitter spawn logic
+- [x] Particle lifetimes
+- [x] Particle friction
 - [ ] Particle forces
 - [ ] Particle animations
-- [ ] Particle lifetimes
-- [ ] Particle friction
 - [ ] Improve camera
-- [ ] UI with metadata
+- [ ] UI with metadata (particle count / fps / frame time)

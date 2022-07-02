@@ -25,10 +25,6 @@ impl Clock {
         self.current_delta
     }
 
-    pub fn delta_ms(&self) -> u32 {
-        self.current_delta.as_millis() as u32
-    }
-
     pub fn delta_sec(&self) -> f32 {
         self.current_delta.as_secs_f32()
     }
@@ -37,7 +33,7 @@ impl Clock {
         self.instant.elapsed()
     }
 
-    pub fn lifetime_ms(&self) -> u64 {
-        self.instant.elapsed().as_millis() as u64
+    pub fn lifetime_ms(&self) -> u128 {
+        self.instant.elapsed().as_millis()
     }
 }

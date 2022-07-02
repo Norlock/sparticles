@@ -1,10 +1,3 @@
-const NUM_INSTANCES_PER_ROW: u32 = 2;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-    0.0,
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-);
-
 pub const FIELD_COUNT: usize = 11;
 
 pub struct Particle {
@@ -12,9 +5,27 @@ pub struct Particle {
     pub color: cgmath::Vector4<f32>,
     pub velocity: cgmath::Vector3<f32>,
     pub size: f32,
+    pub spawned_at: u128,
+    pub lifetime_ms: u128,
+    pub friction_coefficient: f32,
+    pub mass: f32,
 }
 
 impl Particle {
+    pub fn update(&mut self, delta: f32) {
+        let x_force = self.velocity.x * self.mass;
+        let y_force = self.velocity.y * self.mass;
+        let z_force = self.velocity.z * self.mass;
+
+        self.velocity.x = x_force * self.friction_coefficient / self.mass;
+        self.velocity.y = y_force * self.friction_coefficient / self.mass;
+        self.velocity.z = z_force * self.friction_coefficient / self.mass;
+
+        self.position.x += self.velocity.x * delta;
+        self.position.y += self.velocity.y * delta;
+        self.position.z += self.velocity.z * delta;
+    }
+
     pub fn map_instance(&self, instances: &mut Vec<f32>) {
         instances.push(self.position.x);
         instances.push(self.position.y);
@@ -35,28 +46,6 @@ impl Particle {
 
     pub fn create_instance_vec(num_particles: usize) -> Vec<f32> {
         Vec::with_capacity(num_particles * FIELD_COUNT)
-    }
-
-    // TODO remove if emitter is done.
-    pub fn generate_particles() -> Vec<Particle> {
-        (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let position = cgmath::Vector3 {
-                        x: x as f32 * 4.0,
-                        y: 0.0,
-                        z: z as f32 * 4.0,
-                    } - INSTANCE_DISPLACEMENT;
-
-                    Particle {
-                        position,
-                        color: cgmath::Vector4::new(0.0, 0.2, 1.0, 1.0),
-                        size: 0.5,
-                        velocity: cgmath::Vector3::new(0.001, 0.001, 0.),
-                    }
-                })
-            })
-            .collect::<Vec<_>>()
     }
 
     pub fn descriptor<'a>() -> wgpu::VertexBufferLayout<'a> {

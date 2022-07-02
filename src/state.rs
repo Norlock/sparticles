@@ -142,7 +142,7 @@ impl State {
         let delta = self.instances.clock.delta();
 
         self.camera.update(delta, &self.queue);
-        self.instances.clock.update();
+        self.instances.update(&self.device);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -156,8 +156,6 @@ impl State {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
-
-        self.instances.update(&self.device);
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

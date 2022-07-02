@@ -13,20 +13,13 @@ pub struct Instance {
 
 impl Instance {
     pub fn new(device: &wgpu::Device) -> Self {
-        let particles = Particle::generate_particles();
+        let particles: Vec<Particle> = Vec::new();
 
-        let mut instances = Particle::create_instance_vec(particles.len());
-
-        for particle in particles.iter() {
-            particle.map_instance(&mut instances);
-        }
-
-        let particle_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let particle_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some(&format!("Particle Buffer")),
-            contents: bytemuck::cast_slice(&instances),
-            usage: wgpu::BufferUsages::VERTEX
-                | wgpu::BufferUsages::STORAGE
-                | wgpu::BufferUsages::COPY_DST,
+            size: 0,
+            mapped_at_creation: true,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
         Self {
@@ -39,13 +32,18 @@ impl Instance {
     }
 
     pub fn update(&mut self, device: &wgpu::Device) {
+        self.clock.update();
+        let elapsed_ms = self.clock.lifetime_ms();
+
+        self.particles
+            .retain(|particle| elapsed_ms - particle.spawned_at < particle.lifetime_ms);
+
         for particle in self.particles.iter_mut() {
-            particle.position.x += 0.01;
-            particle.position.y += 0.01;
+            particle.update(self.clock.delta_sec());
         }
 
         let mut data = SpawnData {
-            clock: &self.clock,
+            elapsed_ms,
             particles: &mut self.particles,
         };
 
