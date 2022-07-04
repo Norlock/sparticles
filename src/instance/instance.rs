@@ -4,7 +4,7 @@ use crate::{clock::Clock, instance::emitter::Emitter};
 use wgpu::util::DeviceExt;
 
 pub struct Instance {
-    pub particle_buffer: wgpu::Buffer,
+    pub buffer: wgpu::Buffer,
     pub frame: usize,
     pub clock: Clock,
     pub emitters: Vec<Emitter>,
@@ -23,7 +23,7 @@ impl Instance {
         });
 
         Self {
-            particle_buffer,
+            buffer: particle_buffer,
             frame: 0,
             clock: Clock::new(),
             emitters: Vec::new(),
@@ -57,7 +57,7 @@ impl Instance {
             Particle::map_instance(particle, &mut instances);
         }
 
-        self.particle_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        self.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(&format!("Particle Buffer")),
             contents: bytemuck::cast_slice(&instances),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,

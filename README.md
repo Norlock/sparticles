@@ -6,6 +6,7 @@
 - [x] Correct emitter spawn logic
 - [x] Particle lifetimes
 - [x] Particle friction
+- [ ] Emitter builder
 - [ ] Particle forces
 - [ ] Particle animations
 - [ ] Improve camera

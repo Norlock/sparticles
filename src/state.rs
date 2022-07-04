@@ -182,7 +182,7 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_vertex_buffer(0, self.instances.particle_buffer.slice(..));
+            render_pass.set_vertex_buffer(0, self.instances.buffer.slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
 
