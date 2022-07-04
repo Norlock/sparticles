@@ -1,4 +1,3 @@
-use super::emitter::SpawnData;
 use super::particle::Particle;
 use crate::{clock::Clock, instance::emitter::Emitter};
 use wgpu::util::DeviceExt;
@@ -8,13 +7,11 @@ pub struct Instance {
     pub frame: usize,
     pub clock: Clock,
     pub emitters: Vec<Emitter>,
-    pub particles: Vec<Particle>,
+    pub num_particles: u32,
 }
 
 impl Instance {
     pub fn new(device: &wgpu::Device) -> Self {
-        let particles: Vec<Particle> = Vec::new();
-
         let particle_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some(&format!("Particle Buffer")),
             size: 0,
@@ -27,35 +24,25 @@ impl Instance {
             frame: 0,
             clock: Clock::new(),
             emitters: Vec::new(),
-            particles,
+            num_particles: 0,
         }
     }
 
     pub fn update(&mut self, device: &wgpu::Device) {
         self.clock.update();
-        let elapsed_ms = self.clock.lifetime_ms();
-
-        self.particles
-            .retain(|particle| elapsed_ms - particle.spawned_at < particle.lifetime_ms);
-
-        for particle in self.particles.iter_mut() {
-            particle.update(self.clock.delta_sec());
-        }
-
-        let mut data = SpawnData {
-            elapsed_ms,
-            particles: &mut self.particles,
-        };
 
         for emitter in self.emitters.iter_mut() {
-            emitter.spawn(&mut data);
+            emitter.spawn(&self.clock);
         }
 
-        let mut instances = Particle::create_instance_vec(self.particles.len());
+        let num_particles = self.emitters.iter().map(|x| x.particles.len()).sum();
+        let mut instances = Particle::create_instance_vec(num_particles);
 
-        for particle in self.particles.iter() {
-            Particle::map_instance(particle, &mut instances);
+        for emitter in self.emitters.iter_mut() {
+            emitter.handle_particles(&mut instances, &self.clock);
         }
+
+        self.num_particles = num_particles as u32;
 
         self.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(&format!("Particle Buffer")),

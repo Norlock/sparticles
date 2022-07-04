@@ -1,6 +1,6 @@
 use super::angles::Angles;
 use super::particle::Particle;
-use crate::clock::Clock;
+use crate::{clock::Clock, forces::force::ForceHandler};
 use cgmath::Zero;
 use rand::{
     prelude::{thread_rng, ThreadRng},
@@ -36,7 +36,7 @@ pub struct Emitter {
     /// Initial spread factor x,y / z
     pub diffusion_radians: Angles,
 
-    pub emission_distortion: f32,
+    pub emission_offset: f32,
     //pub particle_texture: Option<Texture2D>,
     pub particle_lifetime: Duration,
 
@@ -46,7 +46,10 @@ pub struct Emitter {
     pub bounds: Option<Bounds>,
     //pub particle_animation_options: Option<AnimationOptions>,
     //pub emitter_animation_handler: Option<EmitterAnimationHandler>,
-    //pub force_handler: Option<ForceHandler>,
+    pub force_handler: Option<ForceHandler>,
+
+    // TODO add particles here instead of in instance
+    pub particles: Vec<Particle>,
 }
 
 impl Default for Emitter {
@@ -61,17 +64,19 @@ impl Default for Emitter {
             iteration: 0,
             bounds: None,
             particle_mass: 1.,
-            particle_speed: 0.01,
+            particle_speed: 10.0,
             particle_radius: 0.1,
             particle_lifetime: Duration::from_secs(5),
             particles_per_emission: 10,
-            emission_distortion: 0.,
+            emission_offset: 0.,
             diffusion_radians: Angles::new(45_f32.to_radians(), 45_f32.to_radians()),
             angle_radians: Angles::new(45_f32.to_radians(), 0_f32.to_radians()),
             emitter_duration: Duration::from_secs(30),
-            particle_size: 0.4,
-            particle_friction_coefficient: 0.99,
+            particle_size: 0.1,
+            particle_friction_coefficient: 0.997,
             particle_color: cgmath::Vector4::new(0., 1., 0., 1.),
+            force_handler: None,
+            particles: Vec::new(),
         }
     }
 }
@@ -85,14 +90,9 @@ pub struct Bounds {
     pub end_z: Option<f32>,
 }
 
-pub struct SpawnData<'a> {
-    pub elapsed_ms: u128,
-    pub particles: &'a mut Vec<Particle>,
-}
-
 impl Emitter {
-    pub fn spawn(&mut self, data: &mut SpawnData) {
-        let elapsed_ms = data.elapsed_ms;
+    pub fn spawn(&mut self, clock: &Clock) {
+        let elapsed_ms = clock.elapsed_ms();
         let new_iteration = elapsed_ms as u32 / self.delay_between_emission_ms;
 
         if self.iteration == new_iteration {
@@ -101,16 +101,12 @@ impl Emitter {
 
         self.iteration = new_iteration;
 
-        //let velocity = cgmath::Vector3::new(self.particle_speed, self.particle_speed, 0.);
-
         let mut rng = thread_rng();
-
-        //println!("random {}", rng.gen_range());
 
         for _ in 0..self.particles_per_emission {
             let emitter_length = gen_abs_range(&mut rng, self.emitter_size.length);
             let emitter_depth = gen_abs_range(&mut rng, self.emitter_size.depth);
-            let distortion = gen_dyn_range(&mut rng, self.emission_distortion);
+            let distortion = gen_dyn_range(&mut rng, self.emission_offset);
 
             let Angles { elevation, bearing } = self.angle_radians;
 
@@ -134,7 +130,7 @@ impl Emitter {
 
             let velocity = cgmath::Vector3::new(vx, vy, vz);
 
-            data.particles.push(Particle {
+            self.particles.push(Particle {
                 position: particle_position,
                 color: self.particle_color,
                 velocity,
@@ -147,8 +143,26 @@ impl Emitter {
         }
     }
 
+    pub fn handle_particles(&mut self, mut instances: &mut Vec<f32>, clock: &Clock) {
+        let elapsed_ms = clock.elapsed_ms();
+
+        self.particles.retain_mut(|particle| {
+            let is_alive = elapsed_ms - particle.spawned_at < particle.lifetime_ms;
+
+            particle.update(clock.delta_sec());
+            Particle::map_instance(particle, &mut instances);
+
+            return is_alive;
+        });
+    }
+
     pub fn angle_emission_radians(&self) -> f32 {
         self.angle_radians.elevation + EMIT_RADIANS
+    }
+
+    // TODO builder for some options
+    pub fn set_force_handler(&mut self, force_handler: ForceHandler) {
+        self.force_handler = Some(force_handler);
     }
 }
 

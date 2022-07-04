@@ -186,8 +186,7 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
 
-            let num_particles = self.instances.particles.len() as u32;
-            render_pass.draw(0..VERTICES_LEN, 0..num_particles);
+            render_pass.draw(0..VERTICES_LEN, 0..self.instances.num_particles);
         }
 
         self.queue.submit(Some(encoder.finish()));
