@@ -29,11 +29,13 @@ impl Clock {
         self.current_delta.as_secs_f32()
     }
 
-    pub fn elapsed(&self) -> Duration {
-        self.instant.elapsed()
+    /// Elapsed since last update
+    pub fn elapsed_ms(&self) -> u128 {
+        self.last_update.as_millis()
     }
 
-    pub fn elapsed_ms(&self) -> u128 {
-        self.instant.elapsed().as_millis()
+    /// Elapsed now
+    pub fn realtime_elapsed(&self) -> Duration {
+        self.instant.elapsed()
     }
 }

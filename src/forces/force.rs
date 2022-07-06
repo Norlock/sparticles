@@ -1,7 +1,9 @@
+use crate::clock::Clock;
 use crate::instance::particle::Particle;
+use crate::time::Time;
 
 pub trait Force {
-    fn apply(&self, particle: &mut Particle, cycle_ms: u128);
+    fn apply(&self, particle: &mut Particle, time: &Time);
 }
 
 pub struct ForceHandler {
@@ -21,11 +23,16 @@ impl ForceHandler {
         self.forces.push(force);
     }
 
-    pub fn apply(&self, particle: &mut Particle, elapsed_ms: u128) {
-        let forces_cycle_ms = elapsed_ms % self.duration_ms;
+    pub fn apply(&self, particle: &mut Particle, clock: &Clock) {
+        let cycle_ms = clock.elapsed_ms() % self.duration_ms;
+
+        let time = Time {
+            cycle_ms,
+            delta_sec: clock.delta_sec(),
+        };
 
         for force in self.forces.iter() {
-            force.apply(particle, forces_cycle_ms);
+            force.apply(particle, &time);
         }
     }
 }

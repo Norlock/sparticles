@@ -151,7 +151,7 @@ impl Emitter {
             particle.update(clock.delta_sec());
 
             if let Some(force_handler) = &self.force_handler {
-                force_handler.apply(particle, elapsed_ms)
+                force_handler.apply(particle, &clock);
             }
 
             Particle::map_instance(particle, &mut instances);

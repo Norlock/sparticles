@@ -7,6 +7,7 @@ mod forces;
 mod instance;
 mod render;
 mod state;
+mod time;
 
 fn main() {
     pollster::block_on(run());
