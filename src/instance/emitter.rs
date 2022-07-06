@@ -48,7 +48,6 @@ pub struct Emitter {
     //pub emitter_animation_handler: Option<EmitterAnimationHandler>,
     pub force_handler: Option<ForceHandler>,
 
-    // TODO add particles here instead of in instance
     pub particles: Vec<Particle>,
 }
 
@@ -150,6 +149,11 @@ impl Emitter {
             let is_alive = elapsed_ms - particle.spawned_at < particle.lifetime_ms;
 
             particle.update(clock.delta_sec());
+
+            if let Some(force_handler) = &self.force_handler {
+                force_handler.apply(particle, elapsed_ms)
+            }
+
             Particle::map_instance(particle, &mut instances);
 
             return is_alive;
@@ -158,11 +162,6 @@ impl Emitter {
 
     pub fn angle_emission_radians(&self) -> f32 {
         self.angle_radians.elevation + EMIT_RADIANS
-    }
-
-    // TODO builder for some options
-    pub fn set_force_handler(&mut self, force_handler: ForceHandler) {
-        self.force_handler = Some(force_handler);
     }
 }
 
