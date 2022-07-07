@@ -38,7 +38,6 @@ pub struct Emitter {
     //pub particle_texture: Option<Texture2D>,
     pub particle_lifetime: Duration,
 
-    pub particle_radius: f32,
     pub particle_mass: f32,
 
     pub bounds: Option<Bounds>,
@@ -62,9 +61,8 @@ impl Default for Emitter {
             bounds: None,
             particle_mass: 1.,
             particle_speed: 10.0,
-            particle_radius: 0.1,
             particle_lifetime: Duration::from_secs(5),
-            particles_per_emission: 1000,
+            particles_per_emission: 100,
             emission_offset: 0.,
             diffusion_radians: Angles::new(45_f32.to_radians(), 45_f32.to_radians()),
             angle_radians: Angles::new(45_f32.to_radians(), 0_f32.to_radians()),

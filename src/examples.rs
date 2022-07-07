@@ -1,5 +1,6 @@
 use crate::animations::animation::AnimationHandler;
 use crate::animations::color_animation::DuoColorAnimation;
+use crate::animations::size_animation::SizeAnimation;
 use crate::animations::stray_animation::StrayAnimation;
 use crate::forces::accelerating_force::AcceleratingForce;
 use crate::forces::force::ForceHandler;
@@ -11,7 +12,7 @@ use std::time::Duration;
 
 pub fn simple_emitter() -> Emitter {
     let mut emitter = Emitter::default();
-    emitter.particle_size /= 2.;
+    emitter.particle_size = 0.05;
 
     let forces_length = Duration::from_secs(6).as_millis();
     let mut force_handler = ForceHandler::new(forces_length);
@@ -67,6 +68,13 @@ pub fn simple_emitter() -> Emitter {
     }));
 
     animation_handler.add(Box::new(StrayAnimation::new(0, 5000, 7.)));
+
+    animation_handler.add(Box::new(SizeAnimation {
+        from_ms: 2000,
+        until_ms: 3000,
+        start_size: 0.05,
+        end_size: 0.08,
+    }));
 
     emitter.animation_handler = Some(animation_handler);
 
