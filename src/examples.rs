@@ -1,12 +1,16 @@
+use crate::animations::animation::AnimationHandler;
+use crate::animations::color_animation::DuoColorAnimation;
 use crate::forces::accelerating_force::AcceleratingForce;
 use crate::forces::force::ForceHandler;
 use crate::forces::gravitational_force::GravitationalForce;
 use crate::forces::lerp_force::LerpForce;
+use crate::instance::color::Color;
 use crate::instance::emitter::Emitter;
 use std::time::Duration;
 
 pub fn simple_emitter() -> Emitter {
     let mut emitter = Emitter::default();
+    emitter.particle_size /= 2.;
 
     let forces_length = Duration::from_secs(6).as_millis();
     let mut force_handler = ForceHandler::new(forces_length);
@@ -43,17 +47,39 @@ pub fn simple_emitter() -> Emitter {
         end_pos: cgmath::Vector3::new(1., -1., 0.),
     }));
 
-    //force_handler.add(Box::new(GravitationalForce {
-    //from_ms: 5000,
-    //until_ms: 10000,
-    //gravitation_force: -0.4,
-    //dead_zone: 20.,
-    //mass: 1000.,
-    //start: Point(400., 800.),
-    //end: Point(400., 400.),
+    emitter.force_handler = Some(force_handler);
+
+    let mut animation_handler = AnimationHandler::new(6000);
+
+    animation_handler.add(Box::new(DuoColorAnimation {
+        color_from: Color::rgb(0, 255, 0),
+        color_to: Color::rgb(0, 0, 255),
+        from_ms: 0000,
+        until_ms: 3000,
+    }));
+
+    animation_handler.add(Box::new(DuoColorAnimation {
+        color_from: Color::rgb(0, 0, 255),
+        color_to: Color::rgb(255, 0, 0),
+        from_ms: 3000,
+        until_ms: 6000,
+    }));
+
+    emitter.animation_handler = Some(animation_handler);
+
+    //animation_handler.add(Box::new(DuoColorAnimation {
+    //color_from: Color::rgba(0., 0., 1., 1.),
+    //color_to: Color::rgba(0., 0., 1., 0.),
+    //from_ms: 3000,
+    //until_ms: 4000,
     //}));
 
-    emitter.force_handler = Some(force_handler);
+    //animation_handler.add(Box::new(DuoColorAnimation {
+    //color_from: Color::rgba(0., 0., 1., 0.),
+    //color_to: Color::rgba(0., 0., 1., 1.),
+    //from_ms: 4000,
+    //until_ms: 5000,
+    //}));
 
     emitter
 }

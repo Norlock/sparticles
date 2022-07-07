@@ -1,8 +1,10 @@
+use crate::instance::color::Color;
+
 pub const FIELD_COUNT: usize = 11;
 
 pub struct Particle {
     pub position: cgmath::Vector3<f32>,
-    pub color: cgmath::Vector4<f32>,
+    pub color: Color,
     pub velocity: cgmath::Vector3<f32>,
     pub size: f32,
     pub spawned_at: u128,
@@ -31,10 +33,10 @@ impl Particle {
         instances.push(self.position.y);
         instances.push(self.position.z);
         instances.push(self.size);
-        instances.push(self.color.x);
-        instances.push(self.color.y);
-        instances.push(self.color.z);
-        instances.push(self.color.w);
+        instances.push(self.color.r);
+        instances.push(self.color.g);
+        instances.push(self.color.b);
+        instances.push(self.color.a);
         instances.push(self.velocity.x);
         instances.push(self.velocity.y);
         instances.push(self.velocity.z);

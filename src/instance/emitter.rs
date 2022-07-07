@@ -1,6 +1,6 @@
-use super::angles::Angles;
 use super::particle::Particle;
-use crate::{clock::Clock, forces::force::ForceHandler};
+use super::{angles::Angles, color::Color};
+use crate::{animations::animation::AnimationHandler, clock::Clock, forces::force::ForceHandler};
 use cgmath::Zero;
 use rand::{
     prelude::{thread_rng, ThreadRng},
@@ -20,7 +20,7 @@ pub struct Emitter {
 
     pub particles_per_emission: u32,
     pub delay_between_emission_ms: u32,
-    pub particle_color: cgmath::Vector4<f32>,
+    pub particle_color: Color,
 
     /// Newton force
     pub particle_speed: f32,
@@ -44,7 +44,7 @@ pub struct Emitter {
     pub particle_mass: f32,
 
     pub bounds: Option<Bounds>,
-    //pub particle_animation_options: Option<AnimationOptions>,
+    pub animation_handler: Option<AnimationHandler>,
     //pub emitter_animation_handler: Option<EmitterAnimationHandler>,
     pub force_handler: Option<ForceHandler>,
 
@@ -66,15 +66,16 @@ impl Default for Emitter {
             particle_speed: 10.0,
             particle_radius: 0.1,
             particle_lifetime: Duration::from_secs(5),
-            particles_per_emission: 10,
+            particles_per_emission: 1000,
             emission_offset: 0.,
             diffusion_radians: Angles::new(45_f32.to_radians(), 45_f32.to_radians()),
             angle_radians: Angles::new(45_f32.to_radians(), 0_f32.to_radians()),
             emitter_duration: Duration::from_secs(30),
             particle_size: 0.1,
             particle_friction_coefficient: 0.997,
-            particle_color: cgmath::Vector4::new(0., 1., 0., 1.),
+            particle_color: Color::rgb(0, 255, 0),
             force_handler: None,
+            animation_handler: None,
             particles: Vec::new(),
         }
     }
@@ -152,6 +153,10 @@ impl Emitter {
 
             if let Some(force_handler) = &self.force_handler {
                 force_handler.apply(particle, &clock);
+            }
+
+            if let Some(animation_handler) = &self.animation_handler {
+                animation_handler.apply(particle, &clock);
             }
 
             Particle::map_instance(particle, &mut instances);

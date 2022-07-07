@@ -1,5 +1,6 @@
 use crate::state::run;
 
+mod animations;
 mod camera;
 mod clock;
 mod examples;
