@@ -5,9 +5,9 @@ mod clock;
 mod examples;
 mod forces;
 mod instance;
+mod life_cycle;
 mod render;
 mod state;
-mod time;
 
 fn main() {
     pollster::block_on(run());

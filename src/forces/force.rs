@@ -1,9 +1,9 @@
 use crate::clock::Clock;
 use crate::instance::particle::Particle;
-use crate::time::Time;
+use crate::life_cycle::LifeCycle;
 
 pub trait Force {
-    fn apply(&self, particle: &mut Particle, time: &Time);
+    fn apply(&self, particle: &mut Particle, time: &LifeCycle);
 }
 
 pub struct ForceHandler {
@@ -26,7 +26,7 @@ impl ForceHandler {
     pub fn apply(&self, particle: &mut Particle, clock: &Clock) {
         let cycle_ms = clock.elapsed_ms() % self.duration_ms;
 
-        let time = Time {
+        let time = LifeCycle {
             cycle_ms,
             delta_sec: clock.delta_sec(),
         };

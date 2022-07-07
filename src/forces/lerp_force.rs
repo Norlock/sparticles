@@ -1,5 +1,5 @@
 use super::force::Force;
-use crate::{instance::particle::Particle, time::Time};
+use crate::{instance::particle::Particle, life_cycle::LifeCycle};
 
 pub struct LerpForce {
     pub min_nx: f32,
@@ -13,7 +13,7 @@ pub struct LerpForce {
 }
 
 impl Force for LerpForce {
-    fn apply(&self, particle: &mut Particle, time: &Time) {
+    fn apply(&self, particle: &mut Particle, time: &LifeCycle) {
         if time.cycle_ms < self.from_ms || self.until_ms <= time.cycle_ms {
             return;
         }

@@ -1,6 +1,6 @@
 use super::force::Force;
 use crate::instance::particle::Particle;
-use crate::time::Time;
+use crate::life_cycle::LifeCycle;
 
 /**
  * Builds up applying force form 0 to nx/ny over time.
@@ -20,15 +20,15 @@ pub struct AcceleratingForce {
 const MS_PER_SEC: f32 = 1000.;
 
 impl Force for AcceleratingForce {
-    fn apply(&self, particle: &mut Particle, time: &Time) {
+    fn apply(&self, particle: &mut Particle, time: &LifeCycle) {
         if time.cycle_ms < self.from_ms || self.until_ms <= time.cycle_ms {
             return;
         }
 
         let acceleration = ((time.cycle_ms - self.from_ms) as f32 / MS_PER_SEC).powf(2.);
-        let vx = self.nx * acceleration / particle.mass;
-        let vy = self.ny * acceleration / particle.mass;
-        let vz = self.nz * acceleration / particle.mass;
+        let vx = self.nx * acceleration / particle.mass * time.delta_sec;
+        let vy = self.ny * acceleration / particle.mass * time.delta_sec;
+        let vz = self.nz * acceleration / particle.mass * time.delta_sec;
 
         let velocity = &mut particle.velocity;
         let new_vx = velocity.x + vx;
