@@ -1,11 +1,9 @@
 use super::particle::Particle;
 use super::{angles::Angles, color::Color};
+use crate::random::{gen_abs_range, gen_dyn_range};
 use crate::{animations::animation::AnimationHandler, clock::Clock, forces::force::ForceHandler};
 use cgmath::Zero;
-use rand::{
-    prelude::{thread_rng, ThreadRng},
-    Rng,
-};
+use rand::prelude::thread_rng;
 use std::time::Duration;
 
 const EMIT_RADIANS: f32 = 90_f32 * (std::f32::consts::PI / 180_f32); // 0 deg will be emitting above
@@ -167,21 +165,5 @@ impl Emitter {
 
     pub fn angle_emission_radians(&self) -> f32 {
         self.angle_radians.elevation + EMIT_RADIANS
-    }
-}
-
-pub fn gen_dyn_range(rng: &mut ThreadRng, val: f32) -> f32 {
-    if 0. < val {
-        rng.gen_range(-val..val)
-    } else {
-        0.
-    }
-}
-
-pub fn gen_abs_range(rng: &mut ThreadRng, val: f32) -> f32 {
-    if 0. < val {
-        rng.gen_range(0_f32..val)
-    } else {
-        0.
     }
 }

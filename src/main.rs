@@ -7,6 +7,7 @@ mod examples;
 mod forces;
 mod instance;
 mod life_cycle;
+mod random;
 mod render;
 mod state;
 

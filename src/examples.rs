@@ -1,5 +1,6 @@
 use crate::animations::animation::AnimationHandler;
 use crate::animations::color_animation::DuoColorAnimation;
+use crate::animations::stray_animation::StrayAnimation;
 use crate::forces::accelerating_force::AcceleratingForce;
 use crate::forces::force::ForceHandler;
 use crate::forces::gravitational_force::GravitationalForce;
@@ -37,15 +38,15 @@ pub fn simple_emitter() -> Emitter {
         max_nz: 0.,
     }));
 
-    force_handler.add(Box::new(GravitationalForce {
-        from_ms: 0,
-        until_ms: 5000,
-        gravitational_force: 0.015,
-        dead_zone: 10.,
-        mass: 1000_000.,
-        start_pos: cgmath::Vector3::new(-1., 1., 0.),
-        end_pos: cgmath::Vector3::new(1., -1., 0.),
-    }));
+    //force_handler.add(Box::new(GravitationalForce {
+    //from_ms: 0,
+    //until_ms: 5000,
+    //gravitational_force: 0.015,
+    //dead_zone: 10.,
+    //mass: 1000_000.,
+    //start_pos: cgmath::Vector3::new(-1., 1., 0.),
+    //end_pos: cgmath::Vector3::new(1., -1., 0.),
+    //}));
 
     emitter.force_handler = Some(force_handler);
 
@@ -64,6 +65,8 @@ pub fn simple_emitter() -> Emitter {
         from_ms: 3000,
         until_ms: 6000,
     }));
+
+    animation_handler.add(Box::new(StrayAnimation::new(0, 5000, 7.)));
 
     emitter.animation_handler = Some(animation_handler);
 
