@@ -63,7 +63,7 @@ impl State {
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_preferred_format(&adapter).unwrap(),
+            format: surface.get_supported_formats(&adapter)[0],
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -160,25 +160,19 @@ impl State {
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachment {
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        // Not clearing here in order to test wgpu's zero texture initialization on a surface texture.
-                        // Users should avoid loading uninitialized memory since this can cause additional overhead.
-                        load: wgpu::LoadOp::Load,
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
+                            a: 1.0,
+                        }),
                         store: true,
                     },
-                    //ops: wgpu::Operations {
-                    //load: wgpu::LoadOp::Clear(wgpu::Color {
-                    //r: 0.0,
-                    //g: 0.0,
-                    //b: 0.0,
-                    //a: 1.0,
-                    //}),
-                    //store: true,
-                    //},
-                }],
+                })],
                 depth_stencil_attachment: None,
             });
 

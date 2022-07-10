@@ -29,7 +29,7 @@ pub fn create_pipeline(pipeline_properties: PipelineProperties) -> wgpu::RenderP
         render_pipeline_layout,
     } = pipeline_properties;
 
-    let draw_shader = device.create_shader_module(&wgpu::include_wgsl!("./instance/draw.wgsl"));
+    let draw_shader = device.create_shader_module(wgpu::include_wgsl!("./instance/draw.wgsl"));
 
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("Render Pipeline"),
@@ -42,11 +42,11 @@ pub fn create_pipeline(pipeline_properties: PipelineProperties) -> wgpu::RenderP
         fragment: Some(wgpu::FragmentState {
             module: &draw_shader,
             entry_point: "fs_main",
-            targets: &[wgpu::ColorTargetState {
+            targets: &[Some(wgpu::ColorTargetState {
                 format: config.format,
                 blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                 write_mask: wgpu::ColorWrites::ALL,
-            }],
+            })],
         }),
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleStrip,

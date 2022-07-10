@@ -12,15 +12,15 @@ pub struct Instance {
 
 impl Instance {
     pub fn new(device: &wgpu::Device) -> Self {
-        let particle_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some(&format!("Particle Buffer")),
             size: 0,
-            mapped_at_creation: true,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+            usage: wgpu::BufferUsages::VERTEX,
         });
 
         Self {
-            buffer: particle_buffer,
+            buffer,
             frame: 0,
             clock: Clock::new(),
             emitters: Vec::new(),
