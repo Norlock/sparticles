@@ -1,8 +1,14 @@
+use std::fmt::format;
+
 use crate::camera::*;
 use crate::examples::simple_emitter;
 use crate::instance::emitter::Emitter;
 use crate::instance::instance::Instance;
 use crate::render::{create_pipeline, create_pipeline_layout, create_window, PipelineProperties};
+use wgpu_text::font::FontRef;
+use wgpu_text::section::HorizontalAlign;
+use wgpu_text::section::{Layout, OwnedSection, Section, Text};
+use wgpu_text::BrushBuilder;
 
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
@@ -145,7 +151,10 @@ impl State {
         self.instances.update(&self.device);
     }
 
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(
+        &mut self,
+        brush: &mut wgpu_text::TextBrush<FontRef>,
+    ) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -183,7 +192,16 @@ impl State {
             render_pass.draw(0..VERTICES_LEN, 0..self.instances.num_particles);
         }
 
-        self.queue.submit(Some(encoder.finish()));
+        let particle_count_text = format!("Number of particles: {}", self.instances.num_particles);
+
+        let section = Section::default()
+            .add_text(Text::new(&particle_count_text).with_color([1., 1., 1., 1.]))
+            .with_layout(Layout::default().h_align(HorizontalAlign::Left));
+
+        brush.queue(&section);
+        let text_buffer = brush.draw(&self.device, &view, &self.queue);
+
+        self.queue.submit([encoder.finish(), text_buffer]);
         output.present();
 
         Ok(())
@@ -198,6 +216,11 @@ pub async fn run() {
     let mut state = State::new(&window).await;
 
     state.add_emitter(simple_emitter());
+
+    let font: &[u8] = include_bytes!("../assets/fonts/FiraMono-Medium.ttf");
+    let mut brush = BrushBuilder::using_font_bytes(font)
+        .unwrap()
+        .build(&state.device, &state.config);
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -226,6 +249,8 @@ pub async fn run() {
                     } => *control_flow = ControlFlow::Exit,
                     WindowEvent::Resized(physical_size) => {
                         state.resize(*physical_size);
+
+                        brush.resize_view(state.config.width as f32, state.config.height as f32, &state.queue);
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                         state.resize(**new_inner_size);
@@ -236,7 +261,7 @@ pub async fn run() {
             Event::RedrawRequested(window_id) if window_id == window.id() => {
                 state.update();
 
-                match state.render() {
+                match state.render(&mut brush) {
                     Ok(_) => {}
                     // Reconfigure the surface if lost
                     Err(wgpu::SurfaceError::Lost) => state.resize(state.size),
