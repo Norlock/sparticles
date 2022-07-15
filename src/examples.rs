@@ -3,6 +3,7 @@ use crate::animations::color_animation::DuoColorAnimation;
 use crate::animations::diffusion_animation::DiffusionAnimation;
 use crate::animations::emitter_animation::EmitterAnimate;
 use crate::animations::emitter_animation::EmitterAnimationHandler;
+use crate::animations::sway_animation::SwayAnimation;
 
 use crate::animations::size_animation::SizeAnimation;
 use crate::animations::stray_animation::StrayAnimation;
@@ -106,6 +107,24 @@ pub fn simple_emitter() -> Emitter {
         end_elevation_degrees: 90_f32,
         start_bearing_degrees: 10_f32,
         end_bearing_degrees: 90_f32,
+    }));
+
+    emitter_animations.push(Box::new(SwayAnimation {
+        from_ms: 0,
+        until_ms: 6000,
+        start_elevation_degrees: 0_f32,
+        end_elevation_degrees: 130_f32,
+        start_bearing_degrees: 10_f32,
+        end_bearing_degrees: 60_f32,
+    }));
+
+    emitter_animations.push(Box::new(SwayAnimation {
+        from_ms: 6000,
+        until_ms: 12000,
+        start_elevation_degrees: 130_f32,
+        end_elevation_degrees: 0_f32,
+        start_bearing_degrees: 60_f32,
+        end_bearing_degrees: 10_f32,
     }));
 
     emitter.emitter_animation_handler =
