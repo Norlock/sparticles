@@ -192,10 +192,16 @@ impl State {
             render_pass.draw(0..VERTICES_LEN, 0..self.instances.num_particles);
         }
 
-        let particle_count_text = format!("Number of particles: {}", self.instances.num_particles);
+        let mut performance_text = String::from("");
+
+        performance_text.push_str(&format!(
+            "Number of particles: {}",
+            self.instances.num_particles
+        ));
+        performance_text.push_str(&format!("\nFPS: {}", self.instances.frame));
 
         let section = Section::default()
-            .add_text(Text::new(&particle_count_text).with_color([1., 1., 1., 1.]))
+            .add_text(Text::new(&performance_text).with_color([1., 1., 1., 1.]))
             .with_layout(Layout::default().h_align(HorizontalAlign::Left));
 
         brush.queue(&section);

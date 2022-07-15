@@ -40,6 +40,7 @@ impl Instance {
 
         for emitter in self.emitters.iter_mut() {
             emitter.handle_particles(&mut instances, &self.clock);
+            emitter.animate_emitter(&self.clock);
         }
 
         self.num_particles = num_particles as u32;

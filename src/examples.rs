@@ -1,10 +1,13 @@
 use crate::animations::animation::AnimationHandler;
 use crate::animations::color_animation::DuoColorAnimation;
+use crate::animations::diffusion_animation::DiffusionAnimation;
+use crate::animations::emitter_animation::EmitterAnimate;
+use crate::animations::emitter_animation::EmitterAnimationHandler;
+
 use crate::animations::size_animation::SizeAnimation;
 use crate::animations::stray_animation::StrayAnimation;
 use crate::forces::accelerating_force::AcceleratingForce;
 use crate::forces::force::ForceHandler;
-use crate::forces::gravitational_force::GravitationalForce;
 use crate::forces::lerp_force::LerpForce;
 use crate::instance::color::Color;
 use crate::instance::emitter::Emitter;
@@ -13,6 +16,8 @@ use std::time::Duration;
 pub fn simple_emitter() -> Emitter {
     let mut emitter = Emitter::default();
     emitter.particle_size = 0.05;
+    emitter.particle_speed = 20.;
+    //emitter.particles_per_emission = 10000;
 
     let forces_length = Duration::from_secs(6).as_millis();
     let mut force_handler = ForceHandler::new(forces_length);
@@ -91,6 +96,20 @@ pub fn simple_emitter() -> Emitter {
     //from_ms: 4000,
     //until_ms: 5000,
     //}));
+
+    let loop_ms = 12000;
+    let mut emitter_animations: Vec<Box<dyn EmitterAnimate>> = Vec::new();
+    emitter_animations.push(Box::new(DiffusionAnimation {
+        from_ms: 0,
+        until_ms: loop_ms,
+        start_elevation_degrees: 10_f32,
+        end_elevation_degrees: 90_f32,
+        start_bearing_degrees: 10_f32,
+        end_bearing_degrees: 90_f32,
+    }));
+
+    emitter.emitter_animation_handler =
+        Some(EmitterAnimationHandler::new(emitter_animations, loop_ms));
 
     emitter
 }

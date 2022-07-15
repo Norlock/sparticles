@@ -1,5 +1,6 @@
 use super::particle::Particle;
 use super::{angles::Angles, color::Color};
+use crate::animations::emitter_animation::{EmitterAnimationData, EmitterAnimationHandler};
 use crate::random::{gen_abs_range, gen_dyn_range};
 use crate::{animations::animation::AnimationHandler, clock::Clock, forces::force::ForceHandler};
 use cgmath::Zero;
@@ -7,6 +8,7 @@ use rand::prelude::thread_rng;
 use std::time::Duration;
 
 const EMIT_RADIANS: f32 = 90_f32 * (std::f32::consts::PI / 180_f32); // 0 deg will be emitting above
+#[derive(Clone, Copy)]
 pub struct EmitterSize {
     pub length: f32,
     pub depth: f32,
@@ -42,9 +44,8 @@ pub struct Emitter {
 
     pub bounds: Option<Bounds>,
     pub animation_handler: Option<AnimationHandler>,
-    //pub emitter_animation_handler: Option<EmitterAnimationHandler>,
+    pub emitter_animation_handler: Option<EmitterAnimationHandler>,
     pub force_handler: Option<ForceHandler>,
-
     pub particles: Vec<Particle>,
 }
 
@@ -53,7 +54,7 @@ impl Default for Emitter {
         Self {
             emitter_position: cgmath::Vector3::zero(),
             emitter_size: EmitterSize {
-                length: 8.,
+                length: 4.,
                 depth: 4.,
             },
             delay_between_emission_ms: 400,
@@ -72,11 +73,13 @@ impl Default for Emitter {
             particle_color: Color::rgb(0, 255, 0),
             force_handler: None,
             animation_handler: None,
+            emitter_animation_handler: None,
             particles: Vec::new(),
         }
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Bounds {
     pub start_x: Option<f32>,
     pub start_y: Option<f32>,
@@ -159,6 +162,31 @@ impl Emitter {
 
             return is_alive;
         });
+    }
+
+    pub fn animate_emitter(&mut self, clock: &Clock) {
+        if let Some(emitter_animation_handler) = &mut self.emitter_animation_handler {
+            let mut data = EmitterAnimationData {
+                angle_degrees: self.angle_radians.to_degrees(),
+                diffusion_degrees: self.diffusion_radians.to_degrees(),
+                emitter_position: self.emitter_position,
+                emitter_size: self.emitter_size,
+                emission_offset: self.emission_offset,
+                particles_per_emission: self.particles_per_emission,
+                delay_between_emission_ms: self.delay_between_emission_ms,
+                bounds: self.bounds,
+            };
+
+            emitter_animation_handler.animate(&mut data, clock);
+
+            self.angle_radians = data.angle_degrees.to_radians();
+            self.diffusion_radians = data.diffusion_degrees.to_radians();
+            self.emitter_position = data.emitter_position;
+            self.emitter_size = data.emitter_size;
+            self.emission_offset = data.emission_offset;
+            self.particles_per_emission = data.particles_per_emission;
+            self.delay_between_emission_ms = data.delay_between_emission_ms;
+        }
     }
 
     pub fn angle_emission_radians(&self) -> f32 {
