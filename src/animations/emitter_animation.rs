@@ -17,6 +17,8 @@ pub struct EmitterAnimationData {
     pub delay_between_emission_ms: u32,
     pub angle_degrees: Angles,
 
+    pub particle_speed: f32,
+
     /// Initial spread factor x,y / z
     pub diffusion_degrees: Angles,
 

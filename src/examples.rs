@@ -3,6 +3,7 @@ use crate::animations::color_animation::DuoColorAnimation;
 use crate::animations::diffusion_animation::DiffusionAnimation;
 use crate::animations::emitter_animation::EmitterAnimate;
 use crate::animations::emitter_animation::EmitterAnimationHandler;
+use crate::animations::particle_speed_animation::ParticleSpeedAnimation;
 use crate::animations::sway_animation::SwayAnimation;
 
 use crate::animations::size_animation::SizeAnimation;
@@ -98,6 +99,12 @@ pub fn simple_emitter() -> Emitter {
     //until_ms: 5000,
     //}));
 
+    emitter.emitter_animation_handler = create_emitter_animation_hanlder();
+
+    return emitter;
+}
+
+pub fn create_emitter_animation_hanlder() -> Option<EmitterAnimationHandler> {
     let loop_ms = 12000;
     let mut emitter_animations: Vec<Box<dyn EmitterAnimate>> = Vec::new();
     emitter_animations.push(Box::new(DiffusionAnimation {
@@ -127,8 +134,12 @@ pub fn simple_emitter() -> Emitter {
         end_bearing_degrees: 10_f32,
     }));
 
-    emitter.emitter_animation_handler =
-        Some(EmitterAnimationHandler::new(emitter_animations, loop_ms));
+    emitter_animations.push(Box::new(ParticleSpeedAnimation {
+        from_ms: 0,
+        until_ms: 2000,
+        from_speed: 30.,
+        to_speed: 40.,
+    }));
 
-    emitter
+    return Some(EmitterAnimationHandler::new(emitter_animations, loop_ms));
 }

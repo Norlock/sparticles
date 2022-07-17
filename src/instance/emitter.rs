@@ -175,6 +175,7 @@ impl Emitter {
                 particles_per_emission: self.particles_per_emission,
                 delay_between_emission_ms: self.delay_between_emission_ms,
                 bounds: self.bounds,
+                particle_speed: self.particle_speed,
             };
 
             emitter_animation_handler.animate(&mut data, clock);

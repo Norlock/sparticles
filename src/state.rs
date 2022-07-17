@@ -169,7 +169,8 @@ impl State {
             self.performance_text
                 .push_str(&format!("\nCPU time μs: {}", cpu_time));
 
-            self.performance_text.push_str(&format!("\nFPS: {}", fps));
+            self.performance_text
+                .push_str(&format!("\nFPS: {:.0}", fps));
         }
     }
 
