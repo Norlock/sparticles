@@ -1,4 +1,4 @@
-use std::fmt::format;
+use crate::clock::Clock;
 
 use crate::camera::*;
 use crate::examples::simple_emitter;
@@ -7,7 +7,7 @@ use crate::instance::instance::Instance;
 use crate::render::{create_pipeline, create_pipeline_layout, create_window, PipelineProperties};
 use wgpu_text::font::FontRef;
 use wgpu_text::section::HorizontalAlign;
-use wgpu_text::section::{Layout, OwnedSection, Section, Text};
+use wgpu_text::section::{Layout, Section, Text};
 use wgpu_text::BrushBuilder;
 
 use winit::dpi::PhysicalSize;
@@ -29,6 +29,9 @@ pub struct State {
     pub mouse_pressed: bool,
     pub instances: Instance,
     pub camera: Camera,
+    pub clock: Clock,
+    pub frame: usize,
+    pub performance_text: String,
 }
 
 const VERTICES_LEN: u32 = 4;
@@ -100,6 +103,9 @@ impl State {
             camera,
             instances,
             mouse_pressed: false,
+            clock: Clock::new(),
+            frame: 0,
+            performance_text: "".to_string(),
         }
     }
 
@@ -145,10 +151,26 @@ impl State {
     }
 
     pub fn update(&mut self) {
-        let delta = self.instances.clock.delta();
+        self.clock.update();
 
-        self.camera.update(delta, &self.queue);
-        self.instances.update(&self.device);
+        self.camera.update(self.clock.delta(), &self.queue);
+        self.instances.update(&self.device, &self.clock);
+
+        self.frame += 1;
+
+        if self.frame % 20 == 0 {
+            let cpu_time =
+                self.clock.realtime_elapsed().as_micros() - (self.clock.elapsed_ms() * 1000);
+            let fps = 1. / self.clock.delta_sec();
+
+            self.performance_text =
+                format!("Number of particles: {}", self.instances.num_particles);
+
+            self.performance_text
+                .push_str(&format!("\nCPU time μs: {}", cpu_time));
+
+            self.performance_text.push_str(&format!("\nFPS: {}", fps));
+        }
     }
 
     pub fn render(
@@ -192,16 +214,8 @@ impl State {
             render_pass.draw(0..VERTICES_LEN, 0..self.instances.num_particles);
         }
 
-        let mut performance_text = String::from("");
-
-        performance_text.push_str(&format!(
-            "Number of particles: {}",
-            self.instances.num_particles
-        ));
-        performance_text.push_str(&format!("\nFPS: {}", self.instances.frame));
-
         let section = Section::default()
-            .add_text(Text::new(&performance_text).with_color([1., 1., 1., 1.]))
+            .add_text(Text::new(&self.performance_text).with_color([1., 1., 1., 1.]))
             .with_layout(Layout::default().h_align(HorizontalAlign::Left));
 
         brush.queue(&section);

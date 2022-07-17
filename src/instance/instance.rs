@@ -4,8 +4,6 @@ use wgpu::util::DeviceExt;
 
 pub struct Instance {
     pub buffer: wgpu::Buffer,
-    pub frame: usize,
-    pub clock: Clock,
     pub emitters: Vec<Emitter>,
     pub num_particles: u32,
 }
@@ -21,26 +19,22 @@ impl Instance {
 
         Self {
             buffer,
-            frame: 0,
-            clock: Clock::new(),
             emitters: Vec::new(),
             num_particles: 0,
         }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device) {
-        self.clock.update();
-
+    pub fn update(&mut self, device: &wgpu::Device, clock: &Clock) {
         for emitter in self.emitters.iter_mut() {
-            emitter.spawn(&self.clock);
+            emitter.spawn(&clock);
         }
 
         let num_particles = self.emitters.iter().map(|x| x.particles.len()).sum();
         let mut instances = Particle::create_instance_vec(num_particles);
 
         for emitter in self.emitters.iter_mut() {
-            emitter.handle_particles(&mut instances, &self.clock);
-            emitter.animate_emitter(&self.clock);
+            emitter.handle_particles(&mut instances, &clock);
+            emitter.animate_emitter(&clock);
         }
 
         self.num_particles = num_particles as u32;
@@ -50,7 +44,5 @@ impl Instance {
             contents: bytemuck::cast_slice(&instances),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
-
-        self.frame += 1;
     }
 }

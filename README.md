@@ -7,7 +7,7 @@
 - [x] Particle lifetimes
 - [x] Particle friction
 - [ ] Emitter builder
-- [ ] Particle forces
-- [ ] Particle animations
+- [x] Particle forces
+- [x] Particle animations
 - [ ] Improve camera
 - [ ] UI with metadata (particle count / fps / frame time)
