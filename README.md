@@ -12,3 +12,6 @@
 - [ ] Improve camera
 - [x] UI with metadata (particle count / fps / frame time)
 - [ ] Create builder macro
+- [ ] Shaders
+  - [ ] Glow
+  - [ ] Trail

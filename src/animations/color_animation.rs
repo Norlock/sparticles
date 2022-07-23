@@ -26,5 +26,15 @@ impl Animate for DuoColorAnimation {
         particle.color.g = self.color_from.g + fraction * (self.color_to.g - self.color_from.g);
         particle.color.b = self.color_from.b + fraction * (self.color_to.b - self.color_from.b);
         particle.color.a = self.color_from.a + fraction * (self.color_to.a - self.color_from.a);
+
+        if 1. < particle.color.r {
+            println!("r: {} ", particle.color.r);
+        } else if 1. < particle.color.g {
+            println!("g: {} ", particle.color.g);
+        } else if 1. < particle.color.b {
+            println!("b: {} ", particle.color.b);
+        } else if 1. < particle.color.a {
+            println!("a: {} ", particle.color.a);
+        }
     }
 }

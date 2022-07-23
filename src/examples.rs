@@ -70,14 +70,12 @@ pub fn simple_emitter() -> Emitter {
 
     animation_handler.add(Box::new(StrayAnimation::new(0, 5000, 7.)));
 
-    animation_handler.add(Box::new(SizeAnimation {
-        from_ms: 2000,
-        until_ms: 3000,
-        start_size: 0.05,
-        end_size: 0.08,
-    }));
-
-    //emitter.particles_per_emission = 10000;
+    //animation_handler.add(Box::new(SizeAnimation {
+    //from_ms: 2000,
+    //until_ms: 3000,
+    //start_size: 0.1,
+    //end_size: 0.15,
+    //}));
 
     //animation_handler.add(Box::new(DuoColorAnimation {
     //color_from: Color::rgba(0., 0., 1., 1.),
@@ -94,8 +92,9 @@ pub fn simple_emitter() -> Emitter {
     //}));
 
     return EmitterBuilder::default()
-        .particle_size(0.05)
+        .particle_size(1.)
         .particle_speed(20.)
+        .particles_per_emission(1)
         .animation_handler(animation_handler)
         .emitter_animation_handler(create_emitter_animation_handler())
         .force_handler(force_handler)

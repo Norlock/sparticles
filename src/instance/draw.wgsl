@@ -14,6 +14,7 @@ struct VertexInput {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
+    @location(1) position: vec2<f32>,
 };
 
 @vertex
@@ -53,10 +54,35 @@ fn vs_main(
 
     out.color = model.color;
     out.clip_position = camera.view_proj * vec4<f32>(world_space, 1.0);
+    out.position = vertex_position;
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color;
+    let len = length(in.position);
+
+    if (1.0 < len) {
+      return vec4<f32>(0.0,0.0,0.0,0.0);
+    }
+
+    var dist = 1.0 / len * 0.5;
+    var dist = pow(dist, 1.5);
+
+    let col = dist * in.color.xyz;
+    return vec4<f32>(1.0 - exp(-col), 1.0);
+}
+
+@fragment
+fn fs_bubbles(in: VertexOutput) -> @location(0) vec4<f32> {
+    let len = length(in.position);
+
+    if (1.0 < len) {
+      return vec4<f32>(0.0,0.0,0.0,0.0);
+    }
+
+    var dist = pow(len, 3.0);
+
+    var col = dist * in.color;
+    return 1.0 - exp(-col);
 }
