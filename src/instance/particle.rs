@@ -1,8 +1,9 @@
+use std::collections::VecDeque;
+
 use crate::instance::color::Color;
 
 pub const FIELD_COUNT: usize = 11;
 
-#[derive(Clone)]
 pub struct Particle {
     pub position: cgmath::Vector3<f32>,
     pub color: Color,
@@ -12,6 +13,7 @@ pub struct Particle {
     pub lifetime_ms: u128,
     pub friction_coefficient: f32,
     pub mass: f32,
+    pub history: VecDeque<cgmath::Vector3<f32>>,
 }
 
 impl Particle {
@@ -41,6 +43,22 @@ impl Particle {
         instances.push(self.velocity.x);
         instances.push(self.velocity.y);
         instances.push(self.velocity.z);
+
+        let history_fraction = 1. / self.history.len() as f32;
+        for (index, pos) in self.history.iter().enumerate().rev() {
+            let mul_factor = history_fraction * (index + 1) as f32;
+            instances.push(pos.x);
+            instances.push(pos.y);
+            instances.push(pos.z);
+            instances.push(self.size / 1.2 * mul_factor);
+            instances.push(self.color.r);
+            instances.push(self.color.g);
+            instances.push(self.color.b);
+            instances.push(self.color.a * mul_factor);
+            instances.push(self.velocity.x);
+            instances.push(self.velocity.y);
+            instances.push(self.velocity.z);
+        }
     }
 
     pub fn size_of() -> wgpu::BufferAddress {

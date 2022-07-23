@@ -30,7 +30,7 @@ pub struct State {
     pub instances: Instance,
     pub camera: Camera,
     pub clock: Clock,
-    pub frame: usize,
+    pub frame: u32,
     pub performance_text: String,
 }
 
@@ -151,12 +151,11 @@ impl State {
     }
 
     pub fn update(&mut self) {
+        self.frame += 1;
         self.clock.update();
 
         self.camera.update(self.clock.delta(), &self.queue);
         self.instances.update(&self.device, &self.clock);
-
-        self.frame += 1;
 
         if self.frame % 20 == 0 {
             let cpu_time =

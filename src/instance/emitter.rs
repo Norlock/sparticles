@@ -5,6 +5,7 @@ use crate::random::{gen_abs_range, gen_dyn_range};
 use crate::{animations::animation::AnimationHandler, clock::Clock, forces::force::ForceHandler};
 use cgmath::Zero;
 use rand::prelude::thread_rng;
+use std::collections::VecDeque;
 use std::time::Duration;
 
 const EMIT_RADIANS: f32 = 90_f32 * (std::f32::consts::PI / 180_f32); // 0 deg will be emitting above
@@ -43,6 +44,8 @@ pub struct Emitter {
     emitter_animation_handler: Option<EmitterAnimationHandler>,
     force_handler: Option<ForceHandler>,
     particles: Vec<Particle>,
+    particle_shader_count: usize,
+    trail_length: u32,
 }
 
 pub struct EmitterBuilder {
@@ -75,6 +78,8 @@ impl EmitterBuilder {
             animation_handler: None,
             emitter_animation_handler: None,
             particles: Vec::new(),
+            particle_shader_count: 0,
+            trail_length: 0,
         };
 
         Self { em }
@@ -192,6 +197,12 @@ impl EmitterBuilder {
         self
     }
 
+    #[allow(dead_code)]
+    pub fn trail_length(mut self, trail_length: u32) -> Self {
+        self.em.trail_length = trail_length;
+        self
+    }
+
     pub fn build(self) -> Emitter {
         self.em
     }
@@ -208,18 +219,50 @@ pub struct Bounds {
 }
 
 impl Emitter {
-    pub fn spawn(&mut self, clock: &Clock) {
+    pub fn update(&mut self, clock: &Clock) {
         let elapsed_ms = clock.elapsed_ms();
         let new_iteration = elapsed_ms as u32 / self.delay_between_emission_ms;
+        let update_trail = 0 < self.trail_length;
+        self.particle_shader_count = 0;
+
+        // Update particles
+        self.particles.retain_mut(|particle| {
+            if particle.lifetime_ms < elapsed_ms - particle.spawned_at {
+                return false;
+            }
+
+            self.particle_shader_count += particle.history.len() + 1;
+            particle.update(clock.delta_sec());
+
+            if let Some(force_handler) = &self.force_handler {
+                force_handler.apply(particle, &clock);
+            }
+
+            if let Some(animation_handler) = &self.animation_handler {
+                animation_handler.apply(particle, &clock);
+            }
+
+            if update_trail {
+                particle.history.push_back(particle.position);
+
+                if self.trail_length < particle.history.len() as u32 {
+                    particle.history.pop_front();
+                }
+            }
+
+            return true;
+        });
 
         if self.iteration == new_iteration {
             return;
         }
 
         self.iteration = new_iteration;
+        self.particle_shader_count += self.particles_per_emission as usize;
 
         let mut rng = thread_rng();
 
+        // Spawn particles
         for _ in 0..self.particles_per_emission {
             let emitter_length = gen_abs_range(&mut rng, self.emitter_size.length);
             let emitter_depth = gen_abs_range(&mut rng, self.emitter_size.depth);
@@ -256,30 +299,15 @@ impl Emitter {
                 lifetime_ms: self.particle_lifetime.as_millis(),
                 friction_coefficient: self.particle_friction_coefficient,
                 mass: self.particle_mass,
+                history: VecDeque::new(),
             });
         }
     }
 
-    pub fn handle_particles(&mut self, mut instances: &mut Vec<f32>, clock: &Clock) {
-        let elapsed_ms = clock.elapsed_ms();
-
-        self.particles.retain_mut(|particle| {
-            let is_alive = elapsed_ms - particle.spawned_at < particle.lifetime_ms;
-
-            particle.update(clock.delta_sec());
-
-            if let Some(force_handler) = &self.force_handler {
-                force_handler.apply(particle, &clock);
-            }
-
-            if let Some(animation_handler) = &self.animation_handler {
-                animation_handler.apply(particle, &clock);
-            }
-
-            Particle::map_instance(particle, &mut instances);
-
-            return is_alive;
-        });
+    pub fn map_particles(&mut self, instances: &mut Vec<f32>) {
+        self.particles
+            .iter()
+            .for_each(|p| p.map_instance(instances));
     }
 
     pub fn animate_emitter(&mut self, clock: &Clock) {
@@ -313,6 +341,6 @@ impl Emitter {
     }
 
     pub fn particle_count(&self) -> usize {
-        self.particles.len()
+        self.particle_shader_count
     }
 }

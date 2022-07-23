@@ -26,14 +26,14 @@ impl Instance {
 
     pub fn update(&mut self, device: &wgpu::Device, clock: &Clock) {
         for emitter in self.emitters.iter_mut() {
-            emitter.spawn(&clock);
+            emitter.update(&clock);
         }
 
         let num_particles = self.emitters.iter().map(|x| x.particle_count()).sum();
         let mut instances = Particle::create_instance_vec(num_particles);
 
         for emitter in self.emitters.iter_mut() {
-            emitter.handle_particles(&mut instances, &clock);
+            emitter.map_particles(&mut instances);
             emitter.animate_emitter(&clock);
         }
 

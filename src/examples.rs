@@ -92,12 +92,13 @@ pub fn simple_emitter() -> Emitter {
     //}));
 
     return EmitterBuilder::default()
-        .particle_size(1.)
+        .particle_size(0.1)
         .particle_speed(20.)
-        .particles_per_emission(1)
+        .particles_per_emission(100)
         .animation_handler(animation_handler)
         .emitter_animation_handler(create_emitter_animation_handler())
         .force_handler(force_handler)
+        .trail_length(7)
         .build();
 }
 
