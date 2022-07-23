@@ -2,6 +2,7 @@ use crate::instance::color::Color;
 
 pub const FIELD_COUNT: usize = 11;
 
+#[derive(Clone)]
 pub struct Particle {
     pub position: cgmath::Vector3<f32>,
     pub color: Color,

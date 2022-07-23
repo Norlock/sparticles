@@ -15,43 +15,43 @@ pub struct EmitterSize {
 }
 
 pub struct Emitter {
-    pub emitter_position: cgmath::Vector3<f32>,
-    pub emitter_size: EmitterSize,
+    emitter_position: cgmath::Vector3<f32>,
+    emitter_size: EmitterSize,
+    emitter_duration: Duration,
 
-    pub particles_per_emission: u32,
-    pub delay_between_emission_ms: u32,
-    pub particle_color: Color,
+    particles_per_emission: u32,
+    particle_color: Color,
+    particle_speed: f32,
+    particle_friction_coefficient: f32,
+    particle_size: f32,
+    particle_lifetime: Duration,
+    particle_mass: f32,
 
-    /// Newton force
-    pub particle_speed: f32,
-    /// number between 0 and 1, e.g. 0.001
-    pub particle_friction_coefficient: f32,
+    iteration: u32,
+    delay_between_emission_ms: u32,
 
-    pub particle_size: f32,
-    pub iteration: u32,
+    /// Angle of emitter x,y,z
+    angle_radians: Angles,
 
-    pub emitter_duration: Duration,
-    pub angle_radians: Angles,
+    /// Spread factor x,y,z
+    diffusion_radians: Angles,
 
-    /// Initial spread factor x,y / z
-    pub diffusion_radians: Angles,
-
-    pub emission_offset: f32,
-    //pub particle_texture: Option<Texture2D>,
-    pub particle_lifetime: Duration,
-
-    pub particle_mass: f32,
-
-    pub bounds: Option<Bounds>,
-    pub animation_handler: Option<AnimationHandler>,
-    pub emitter_animation_handler: Option<EmitterAnimationHandler>,
-    pub force_handler: Option<ForceHandler>,
-    pub particles: Vec<Particle>,
+    emission_offset: f32,
+    //particle_texture: Option<Texture2D>,
+    bounds: Vec<Bounds>,
+    animation_handler: Option<AnimationHandler>,
+    emitter_animation_handler: Option<EmitterAnimationHandler>,
+    force_handler: Option<ForceHandler>,
+    particles: Vec<Particle>,
 }
 
-impl Default for Emitter {
-    fn default() -> Self {
-        Self {
+pub struct EmitterBuilder {
+    em: Emitter,
+}
+
+impl EmitterBuilder {
+    pub fn default() -> Self {
+        let em = Emitter {
             emitter_position: cgmath::Vector3::zero(),
             emitter_size: EmitterSize {
                 length: 4.,
@@ -59,7 +59,7 @@ impl Default for Emitter {
             },
             delay_between_emission_ms: 400,
             iteration: 0,
-            bounds: None,
+            bounds: Vec::new(),
             particle_mass: 1.,
             particle_speed: 10.0,
             particle_lifetime: Duration::from_secs(5),
@@ -75,7 +75,125 @@ impl Default for Emitter {
             animation_handler: None,
             emitter_animation_handler: None,
             particles: Vec::new(),
-        }
+        };
+
+        Self { em }
+    }
+
+    #[allow(dead_code)]
+    pub fn emitter_position(mut self, emitter_position: cgmath::Vector3<f32>) -> Self {
+        self.em.emitter_position = emitter_position;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn emitter_size(mut self, emitter_size: EmitterSize) -> Self {
+        self.em.emitter_size = emitter_size;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn particles_per_emission(mut self, particles_per_emission: u32) -> Self {
+        self.em.particles_per_emission = particles_per_emission;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn delay_between_emission_ms(mut self, delay_between_emission_ms: u32) -> Self {
+        self.em.delay_between_emission_ms = delay_between_emission_ms;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn particle_color(mut self, particle_color: Color) -> Self {
+        self.em.particle_color = particle_color;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn particle_speed(mut self, particle_speed: f32) -> Self {
+        self.em.particle_speed = particle_speed;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn particle_friction_coefficient(mut self, particle_friction_coefficient: f32) -> Self {
+        self.em.particle_friction_coefficient = particle_friction_coefficient;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn particle_size(mut self, particle_size: f32) -> Self {
+        self.em.particle_size = particle_size;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn emitter_duation(mut self, emitter_duration: Duration) -> Self {
+        self.em.emitter_duration = emitter_duration;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn angle_degrees(mut self, angle_degrees: Angles) -> Self {
+        self.em.angle_radians = angle_degrees.to_radians();
+        self
+    }
+
+    /// Initial spread factor x,y / z
+    #[allow(dead_code)]
+    pub fn diffusion_degrees(mut self, diffusion_degrees: Angles) -> Self {
+        self.em.diffusion_radians = diffusion_degrees.to_radians();
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn emission_offset(mut self, emission_offset: f32) -> Self {
+        self.em.emission_offset = emission_offset;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn particle_lifetime(mut self, particle_lifetime: Duration) -> Self {
+        self.em.particle_lifetime = particle_lifetime;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn particle_mass(mut self, particle_mass: f32) -> Self {
+        self.em.particle_mass = particle_mass;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn bounds(mut self, bounds: Vec<Bounds>) -> Self {
+        self.em.bounds = bounds;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn animation_handler(mut self, animation_handler: AnimationHandler) -> Self {
+        self.em.animation_handler = Some(animation_handler);
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn emitter_animation_handler(
+        mut self,
+        emitter_animation_handler: EmitterAnimationHandler,
+    ) -> Self {
+        self.em.emitter_animation_handler = Some(emitter_animation_handler);
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn force_handler(mut self, force_handler: ForceHandler) -> Self {
+        self.em.force_handler = Some(force_handler);
+        self
+    }
+
+    pub fn build(self) -> Emitter {
+        self.em
     }
 }
 
@@ -174,7 +292,7 @@ impl Emitter {
                 emission_offset: self.emission_offset,
                 particles_per_emission: self.particles_per_emission,
                 delay_between_emission_ms: self.delay_between_emission_ms,
-                bounds: self.bounds,
+                bounds: &self.bounds,
                 particle_speed: self.particle_speed,
             };
 
@@ -192,5 +310,9 @@ impl Emitter {
 
     pub fn angle_emission_radians(&self) -> f32 {
         self.angle_radians.elevation + EMIT_RADIANS
+    }
+
+    pub fn particle_count(&self) -> usize {
+        self.particles.len()
     }
 }

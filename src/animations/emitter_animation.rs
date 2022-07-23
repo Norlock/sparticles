@@ -8,7 +8,7 @@ pub trait EmitterAnimate {
     fn animate(&mut self, data: &mut EmitterAnimationData, life_cycle: &LifeCycle);
 }
 
-pub struct EmitterAnimationData {
+pub struct EmitterAnimationData<'a> {
     pub emitter_position: cgmath::Vector3<f32>,
     pub emitter_size: EmitterSize,
     pub emission_offset: f32,
@@ -22,7 +22,7 @@ pub struct EmitterAnimationData {
     /// Initial spread factor x,y / z
     pub diffusion_degrees: Angles,
 
-    pub bounds: Option<Bounds>,
+    pub bounds: &'a Vec<Bounds>,
 }
 
 pub struct EmitterAnimationHandler {

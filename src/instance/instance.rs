@@ -29,7 +29,7 @@ impl Instance {
             emitter.spawn(&clock);
         }
 
-        let num_particles = self.emitters.iter().map(|x| x.particles.len()).sum();
+        let num_particles = self.emitters.iter().map(|x| x.particle_count()).sum();
         let mut instances = Particle::create_instance_vec(num_particles);
 
         for emitter in self.emitters.iter_mut() {

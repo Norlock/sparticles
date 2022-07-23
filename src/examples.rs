@@ -5,6 +5,7 @@ use crate::animations::emitter_animation::EmitterAnimate;
 use crate::animations::emitter_animation::EmitterAnimationHandler;
 use crate::animations::particle_speed_animation::ParticleSpeedAnimation;
 use crate::animations::sway_animation::SwayAnimation;
+use crate::instance::emitter::EmitterBuilder;
 
 use crate::animations::size_animation::SizeAnimation;
 use crate::animations::stray_animation::StrayAnimation;
@@ -16,11 +17,6 @@ use crate::instance::emitter::Emitter;
 use std::time::Duration;
 
 pub fn simple_emitter() -> Emitter {
-    let mut emitter = Emitter::default();
-    emitter.particle_size = 0.05;
-    emitter.particle_speed = 20.;
-    //emitter.particles_per_emission = 10000;
-
     let forces_length = Duration::from_secs(6).as_millis();
     let mut force_handler = ForceHandler::new(forces_length);
 
@@ -56,8 +52,6 @@ pub fn simple_emitter() -> Emitter {
     //end_pos: cgmath::Vector3::new(1., -1., 0.),
     //}));
 
-    emitter.force_handler = Some(force_handler);
-
     let mut animation_handler = AnimationHandler::new(6000);
 
     animation_handler.add(Box::new(DuoColorAnimation {
@@ -83,7 +77,7 @@ pub fn simple_emitter() -> Emitter {
         end_size: 0.08,
     }));
 
-    emitter.animation_handler = Some(animation_handler);
+    //emitter.particles_per_emission = 10000;
 
     //animation_handler.add(Box::new(DuoColorAnimation {
     //color_from: Color::rgba(0., 0., 1., 1.),
@@ -99,12 +93,16 @@ pub fn simple_emitter() -> Emitter {
     //until_ms: 5000,
     //}));
 
-    emitter.emitter_animation_handler = create_emitter_animation_hanlder();
-
-    return emitter;
+    return EmitterBuilder::default()
+        .particle_size(0.05)
+        .particle_speed(20.)
+        .animation_handler(animation_handler)
+        .emitter_animation_handler(create_emitter_animation_handler())
+        .force_handler(force_handler)
+        .build();
 }
 
-pub fn create_emitter_animation_hanlder() -> Option<EmitterAnimationHandler> {
+pub fn create_emitter_animation_handler() -> EmitterAnimationHandler {
     let loop_ms = 12000;
     let mut emitter_animations: Vec<Box<dyn EmitterAnimate>> = Vec::new();
     emitter_animations.push(Box::new(DiffusionAnimation {
@@ -141,5 +139,5 @@ pub fn create_emitter_animation_hanlder() -> Option<EmitterAnimationHandler> {
         to_speed: 40.,
     }));
 
-    return Some(EmitterAnimationHandler::new(emitter_animations, loop_ms));
+    return EmitterAnimationHandler::new(emitter_animations, loop_ms);
 }
