@@ -12,6 +12,9 @@
 - [ ] Improve camera
 - [x] UI with metadata (particle count / fps / frame time)
 - [ ] Create builder macro
+- [ ] Use textures instead of colors
+- [ ] Add lighting
 - [ ] Shaders
-  - [ ] Glow
-  - [ ] Trail
+  - [x] Glow
+  - [x] Trail
+  - [ ] Ray tracing

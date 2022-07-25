@@ -5,6 +5,7 @@ use crate::animations::emitter_animation::EmitterAnimate;
 use crate::animations::emitter_animation::EmitterAnimationHandler;
 use crate::animations::particle_speed_animation::ParticleSpeedAnimation;
 use crate::animations::sway_animation::SwayAnimation;
+use crate::forces::gravitational_force::GravitationalForce;
 use crate::instance::emitter::EmitterBuilder;
 
 use crate::animations::size_animation::SizeAnimation;
@@ -42,15 +43,15 @@ pub fn simple_emitter() -> Emitter {
         max_nz: 0.,
     }));
 
-    //force_handler.add(Box::new(GravitationalForce {
-    //from_ms: 0,
-    //until_ms: 5000,
-    //gravitational_force: 0.015,
-    //dead_zone: 10.,
-    //mass: 1000_000.,
-    //start_pos: cgmath::Vector3::new(-1., 1., 0.),
-    //end_pos: cgmath::Vector3::new(1., -1., 0.),
-    //}));
+    force_handler.add(Box::new(GravitationalForce {
+        from_ms: 0,
+        until_ms: 5000,
+        gravitational_force: 0.015,
+        dead_zone: 10.,
+        mass: 1000_000.,
+        start_pos: cgmath::Vector3::new(-1., 1., 0.),
+        end_pos: cgmath::Vector3::new(1., -1., 0.),
+    }));
 
     let mut animation_handler = AnimationHandler::new(6000);
 
@@ -94,7 +95,7 @@ pub fn simple_emitter() -> Emitter {
     return EmitterBuilder::default()
         .particle_size(0.1)
         .particle_speed(20.)
-        .particles_per_emission(100)
+        .particles_per_emission(10)
         .animation_handler(animation_handler)
         .emitter_animation_handler(create_emitter_animation_handler())
         .force_handler(force_handler)

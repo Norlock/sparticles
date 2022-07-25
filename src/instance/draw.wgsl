@@ -66,6 +66,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
       return vec4<f32>(0.0,0.0,0.0,0.0);
     }
 
+    if (in.color.w < 1.0) {
+        return in.color;
+    }
+
     var dist = 1.0 / len * 0.5;
     var dist = pow(dist, 1.5);
 
