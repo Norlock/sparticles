@@ -1673,6 +1673,7 @@ dependencies = [
 name = "sparticles-egui"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "egui 0.22.0",
  "egui_demo_lib",
  "egui_wgpu_backend",

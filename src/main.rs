@@ -1,12 +1,10 @@
 use egui_wgpu_backend::wgpu;
-use model::Clock;
+use model::app_state;
 use model::gfx_state;
 use std::sync::Mutex;
 use winit::event::Event::*;
 use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoopProxy;
-const INITIAL_WIDTH: u32 = 1920;
-const INITIAL_HEIGHT: u32 = 1080;
 
 pub mod model;
 pub mod shaders;
@@ -36,36 +34,37 @@ fn main() {
     let event_loop = winit::event_loop::EventLoopBuilder::<CustomEvent>::with_user_event().build();
     let instance = wgpu::Instance::default();
 
-    let mut gui_state = pollster::block_on(gfx_state::GfxState::new(gfx_state::Options {
+    let mut gfx_state = pollster::block_on(gfx_state::GfxState::new(gfx_state::Options {
         instance: &instance,
         event_loop: &event_loop,
     }));
 
-    let clock = Clock::new();
+    let mut app_state = app_state::AppState::new(&gfx_state);
 
     event_loop.run(move |event, _, control_flow| {
         // Pass the winit events to the platform integration.
-        gui_state.handle_event(&event);
+        gfx_state.handle_event(&event);
 
         match event {
             RedrawRequested(window_id) => {
-                if window_id == gui_state.window_id() {
-                    gui_state.update(&clock);
-                    gui_state.render();
+                if window_id == gfx_state.window_id() {
+                    app_state.update();
+                    gfx_state.update(&app_state);
+                    gfx_state.render(&app_state);
                 }
             }
             MainEventsCleared | UserEvent(CustomEvent::RequestRedraw) => {
-                gui_state.request_redraw();
+                gfx_state.request_redraw();
             }
             WindowEvent { event, window_id } => match event {
                 winit::event::WindowEvent::Resized(size) => {
-                    if window_id == gui_state.window_id() {
-                        gui_state.window_resize(size);
+                    if window_id == gfx_state.window_id() {
+                        gfx_state.window_resize(size);
                     }
                 }
                 winit::event::WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                    if window_id == gui_state.window_id() {
-                        gui_state.window_resize(*new_inner_size);
+                    if window_id == gfx_state.window_id() {
+                        gfx_state.window_resize(*new_inner_size);
                     }
                 }
                 winit::event::WindowEvent::CloseRequested => {

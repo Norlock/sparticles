@@ -1,14 +1,15 @@
 use std::iter;
 
-use crate::model::Clock;
 use crate::CustomEvent;
 use egui::FontDefinitions;
 use egui_wgpu_backend::{wgpu, RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
-use winit::dpi::{self, PhysicalSize};
+use winit::dpi::PhysicalSize;
 use winit::event::Event;
 use winit::event_loop::EventLoop;
 use winit::window;
+
+use super::app_state;
 
 pub struct Options<'a> {
     pub instance: &'a wgpu::Instance,
@@ -16,12 +17,12 @@ pub struct Options<'a> {
 }
 
 pub struct GfxState {
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub surface_config: wgpu::SurfaceConfiguration,
     platform: Platform,
     window: window::Window,
     surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    surface_config: wgpu::SurfaceConfiguration,
     render_pass: RenderPass,
 }
 
@@ -117,7 +118,9 @@ impl GfxState {
         self.platform.handle_event(event);
     }
 
-    pub fn update(&mut self, clock: &Clock) {
+    // TODO naar kijken of dit misschien gelijk in render kan
+    pub fn update(&mut self, app_state: &app_state::AppState) {
+        let clock = app_state.clock;
         self.platform.update_time(clock.elapsed_sec_f64());
     }
 
@@ -133,7 +136,7 @@ impl GfxState {
         }
     }
 
-    pub fn render(&mut self) {
+    pub fn render(&mut self, app_state: &app_state::AppState) {
         let output_frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Outdated) => {
@@ -204,6 +207,10 @@ impl GfxState {
                 depth_stencil_attachment: None,
             });
 
+            render_pass.set_pipeline(&app_state.render_pipeline);
+            render_pass.set_bind_group(0, &app_state.diffuse_bind_group, &[]);
+            render_pass.draw(0..4, 0..1);
+
             let result = self.render_pass.execute_with_renderpass(
                 &mut render_pass,
                 &paint_jobs,
@@ -215,7 +222,7 @@ impl GfxState {
                 Err(err) => {
                     println!("{}", err);
                 }
-            }         
+            }
         }
 
         // Submit the commands.

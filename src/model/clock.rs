@@ -33,18 +33,8 @@ impl Clock {
         self.current_delta.as_secs_f32()
     }
 
-    /// Elapsed last update since start
-    pub fn elapsed_sec(&self) -> f32 {
-        self.last_update.as_secs_f32()
-    }
-
     pub fn elapsed_sec_f64(&self) -> f64 {
-        self.last_update.as_secs_f64()
-    }
-
-    /// Elapsed now
-    pub fn realtime_elapsed(&self) -> Duration {
-        self.instant.elapsed()
+        self.instant.elapsed().as_secs_f64()
     }
 
     pub fn frame(&self) -> u32 {
