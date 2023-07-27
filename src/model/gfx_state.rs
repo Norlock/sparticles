@@ -10,16 +10,14 @@ use winit::event::Event;
 use winit::event_loop::EventLoop;
 use winit::window;
 
-pub struct Properties<'a> {
-    pub width: u32,
-    pub height: u32,
+pub struct Options<'a> {
     pub instance: &'a wgpu::Instance,
     pub event_loop: &'a EventLoop<CustomEvent>,
 }
 
-pub struct GuiState {
-    pub platform: Platform,
-    pub window: window::Window,
+pub struct GfxState {
+    platform: Platform,
+    window: window::Window,
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -27,21 +25,17 @@ pub struct GuiState {
     render_pass: RenderPass,
 }
 
-impl GuiState {
-    pub fn new(props: Properties) -> Self {
-        let Properties {
-            width,
-            height,
+impl GfxState {
+    pub async fn new<'a>(options: Options<'a>) -> Self {
+        let Options {
             instance,
             event_loop,
-        } = props;
+        } = options;
 
         let window = window::WindowBuilder::new()
             .with_decorations(true)
             .with_resizable(true)
             .with_transparent(false)
-            .with_title("Sparticles")
-            .with_inner_size(dpi::PhysicalSize { width, height })
             .build(&event_loop)
             .unwrap();
 
@@ -51,22 +45,26 @@ impl GuiState {
                 .expect("Can't load surface")
         };
 
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: Some(&surface),
-            force_fallback_adapter: false,
-        }))
-        .unwrap();
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            })
+            .await
+            .unwrap();
 
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                features: wgpu::Features::default(),
-                limits: wgpu::Limits::default(),
-                label: None,
-            },
-            None,
-        ))
-        .unwrap();
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    features: wgpu::Features::default(),
+                    limits: wgpu::Limits::default(),
+                    label: None,
+                },
+                None,
+            )
+            .await
+            .unwrap();
 
         let size = window.inner_size();
         let surface_caps = surface.get_capabilities(&adapter);
@@ -90,7 +88,6 @@ impl GuiState {
 
         surface.configure(&device, &surface_config);
 
-        // We use the egui_winit_platform crate as the platform.
         let platform = Platform::new(PlatformDescriptor {
             physical_width: size.width as u32,
             physical_height: size.height as u32,
@@ -99,11 +96,7 @@ impl GuiState {
             style: Default::default(),
         });
 
-        // We use the egui_wgpu_backend crate as the render backend.
         let render_pass = RenderPass::new(&device, surface_format, 1);
-
-        // Display the demo application that ships with egui.
-        //let mut demo_app = egui_demo_lib::DemoWindows::default();
 
         Self {
             platform,
@@ -116,6 +109,10 @@ impl GuiState {
         }
     }
 
+    pub fn window_id(&self) -> window::WindowId {
+        self.window.id()
+    }
+
     pub fn handle_event(&mut self, event: &Event<CustomEvent>) {
         self.platform.handle_event(event);
     }
@@ -125,13 +122,10 @@ impl GuiState {
     }
 
     pub fn request_redraw(&self) {
-        self.window.request_redraw(); // TODO maak functie in state
+        self.window.request_redraw();
     }
 
     pub fn window_resize(&mut self, size: PhysicalSize<u32>) {
-        // Resize with 0 width and height is used by winit to signal a minimize event on Windows.
-        // See: https://github.com/rust-windowing/winit/issues/208
-        // This solves an issue where the app would panic when minimizing on Windows.
         if size.width > 0 && size.height > 0 {
             self.surface_config.width = size.width;
             self.surface_config.height = size.height;
@@ -143,9 +137,6 @@ impl GuiState {
         let output_frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Outdated) => {
-                // This error occurs when the app is minimized on Windows.
-                // Silently return here to prevent spamming the console with:
-                // "The underlying surface has changed, and therefore the swap chain must be updated"
                 return;
             }
             Err(e) => {
@@ -163,7 +154,9 @@ impl GuiState {
 
         // End the UI frame. We could now handle the output and draw the UI with the backend.
         let full_output = self.platform.end_frame(Some(&self.window));
-        let paint_jobs = self.platform.context().tessellate(full_output.shapes);
+
+        let ctx = &self.platform.context();
+        let paint_jobs = ctx.tessellate(full_output.shapes);
 
         let mut encoder = self
             .device
@@ -188,20 +181,42 @@ impl GuiState {
             .update_buffers(&self.device, &self.queue, &paint_jobs, &screen_descriptor);
 
         // Draw the demo application.
-        egui::CentralPanel::default().show(&self.platform.context(), |ui| {
-            ui.heading("My egui Application");
+        egui::Window::new("My Window").show(ctx, |ui| {
+            ui.label("Hello World!");
         });
 
-        // Record all render passes.
-        self.render_pass
-            .execute(
-                &mut encoder,
-                &output_view,
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &output_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
+
+            let result = self.render_pass.execute_with_renderpass(
+                &mut render_pass,
                 &paint_jobs,
                 &screen_descriptor,
-                Some(wgpu::Color::BLACK),
-            )
-            .unwrap();
+            );
+
+            match result {
+                Ok(..) => {}
+                Err(err) => {
+                    println!("{}", err);
+                }
+            }         
+        }
 
         // Submit the commands.
         self.queue.submit(iter::once(encoder.finish()));

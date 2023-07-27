@@ -1,12 +1,7 @@
-use ::egui::FontDefinitions;
 use egui_wgpu_backend::wgpu;
-use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
-use egui_winit_platform::{Platform, PlatformDescriptor};
-use model::{gui_state, Clock};
-use model::GuiState;
-use std::iter;
+use model::Clock;
+use model::gfx_state;
 use std::sync::Mutex;
-use std::time::Instant;
 use winit::event::Event::*;
 use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoopProxy;
@@ -35,29 +30,16 @@ impl epi::backend::RepaintSignal for ExampleRepaintSignal {
     }
 }
 
-/// A simple egui + wgpu + winit based example.
 fn main() {
-    let event_loop = winit::event_loop::EventLoopBuilder::<CustomEvent>::with_user_event().build();
-    //let window = winit::window::WindowBuilder::new()
-    //.with_decorations(true)
-    //.with_resizable(true)
-    //.with_transparent(false)
-    //.with_title("Sparticles")
-    //.with_inner_size(winit::dpi::PhysicalSize {
-    //width: INITIAL_WIDTH,
-    //height: INITIAL_HEIGHT,
-    //})
-    //.build(&event_loop)
-    //.unwrap();
+    env_logger::init();
 
+    let event_loop = winit::event_loop::EventLoopBuilder::<CustomEvent>::with_user_event().build();
     let instance = wgpu::Instance::default();
 
-    let mut gui_state = GuiState::new(gui_state::Properties {
-        width: 500,
-        height: 500,
+    let mut gui_state = pollster::block_on(gfx_state::GfxState::new(gfx_state::Options {
         instance: &instance,
         event_loop: &event_loop,
-    });
+    }));
 
     let clock = Clock::new();
 
@@ -66,16 +48,25 @@ fn main() {
         gui_state.handle_event(&event);
 
         match event {
-            RedrawRequested(..) => {
-                gui_state.update(&clock);
-                gui_state.render();
+            RedrawRequested(window_id) => {
+                if window_id == gui_state.window_id() {
+                    gui_state.update(&clock);
+                    gui_state.render();
+                }
             }
             MainEventsCleared | UserEvent(CustomEvent::RequestRedraw) => {
                 gui_state.request_redraw();
             }
-            WindowEvent { event, .. } => match event {
+            WindowEvent { event, window_id } => match event {
                 winit::event::WindowEvent::Resized(size) => {
-                    gui_state.window_resize(size);
+                    if window_id == gui_state.window_id() {
+                        gui_state.window_resize(size);
+                    }
+                }
+                winit::event::WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    if window_id == gui_state.window_id() {
+                        gui_state.window_resize(*new_inner_size);
+                    }
                 }
                 winit::event::WindowEvent::CloseRequested => {
                     *control_flow = ControlFlow::Exit;
@@ -85,8 +76,4 @@ fn main() {
             _ => (),
         }
     });
-}
-
-pub fn seconds_since_midnight() -> f64 {
-    0.4f64
 }
