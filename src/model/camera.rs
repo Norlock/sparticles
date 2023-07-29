@@ -22,6 +22,12 @@ pub struct Camera {
     buffer: wgpu::Buffer,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
+
+    speed: f32,
+    is_forward_pressed: bool,
+    is_backward_pressed: bool,
+    is_left_pressed: bool,
+    is_right_pressed: bool,
 }
 
 impl Camera {
@@ -80,6 +86,11 @@ impl Camera {
             bind_group,
             focus_point,
             aspect,
+            is_forward_pressed: false,
+            is_backward_pressed: false,
+            is_left_pressed: false,
+            is_right_pressed: false,
+            speed: 0.2,
         }
     }
 

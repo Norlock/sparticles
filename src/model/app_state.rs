@@ -17,7 +17,6 @@ impl AppState {
 
         let clock = Clock::new();
         let camera = Camera::new(gfx_state);
-
         let diffuse_texture = DiffuseTexture::new(&gfx_state);
 
         let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/particle.wgsl"));
@@ -82,5 +81,12 @@ impl AppState {
 
     pub fn window_resize(&mut self, gfx_state: &gfx_state::GfxState) {
         self.camera.window_resize(&gfx_state);
+    }
+
+    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &self.diffuse_texture.bind_group, &[]);
+        render_pass.set_bind_group(1, &self.camera.bind_group, &[]);
+        render_pass.draw(0..4, 0..1);
     }
 }

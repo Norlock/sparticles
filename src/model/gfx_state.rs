@@ -6,15 +6,9 @@ use egui_wgpu_backend::{wgpu, RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use winit::dpi::PhysicalSize;
 use winit::event::Event;
-use winit::event_loop::EventLoop;
 use winit::window;
 
-use super::app_state;
-
-pub struct Options<'a> {
-    pub instance: &'a wgpu::Instance,
-    pub event_loop: &'a EventLoop<CustomEvent>,
-}
+use super::{app_state, GuiState};
 
 /**
 GfxState is used to pass around to others modules.
@@ -31,18 +25,8 @@ pub struct GfxState {
 }
 
 impl GfxState {
-    pub async fn new<'a>(options: Options<'a>) -> Self {
-        let Options {
-            instance,
-            event_loop,
-        } = options;
-
-        let window = window::WindowBuilder::new()
-            .with_decorations(true)
-            .with_resizable(true)
-            .with_transparent(false)
-            .build(&event_loop)
-            .unwrap();
+    pub async fn new<'a>(window: window::Window) -> Self {
+        let instance = wgpu::Instance::default();
 
         let surface = unsafe {
             instance
@@ -77,8 +61,8 @@ impl GfxState {
         let surface_format = surface_caps
             .formats
             .iter()
-            .copied()
             .find(|f| f.is_srgb())
+            .copied()
             .unwrap_or(surface_caps.formats[0]);
 
         let surface_config = wgpu::SurfaceConfiguration {
@@ -133,7 +117,6 @@ impl GfxState {
 
     pub fn window_resize(&mut self, size: PhysicalSize<u32>) {
         if size.width > 0 && size.height > 0 {
-            println!("has resized");
             self.surface_config.width = size.width;
             self.surface_config.height = size.height;
             self.surface.configure(&self.device, &self.surface_config);
@@ -165,6 +148,8 @@ impl GfxState {
         let ctx = &self.platform.context();
         let paint_jobs = ctx.tessellate(full_output.shapes);
 
+        GuiState::create_gui(ctx);
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -187,11 +172,6 @@ impl GfxState {
         self.render_pass
             .update_buffers(&self.device, &self.queue, &paint_jobs, &screen_descriptor);
 
-        // Draw the demo application.
-        egui::Window::new("My Window").show(ctx, |ui| {
-            ui.label("Hello World!");
-        });
-
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -201,8 +181,8 @@ impl GfxState {
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
                             r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
+                            g: 0.1,
+                            b: 0.1,
                             a: 1.0,
                         }),
                         store: true,
@@ -211,10 +191,7 @@ impl GfxState {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_pipeline(&app_state.render_pipeline);
-            render_pass.set_bind_group(0, &app_state.diffuse_texture.bind_group, &[]);
-            render_pass.set_bind_group(1, &app_state.camera.bind_group, &[]);
-            render_pass.draw(0..4, 0..1);
+            app_state.render(&mut render_pass);
 
             let result = self.render_pass.execute_with_renderpass(
                 &mut render_pass,

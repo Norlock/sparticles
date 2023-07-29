@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use winit::event::Event::*;
 use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoopProxy;
+use winit::window;
 
 pub mod model;
 pub mod shaders;
@@ -33,13 +34,16 @@ fn main() {
     env_logger::init();
 
     let event_loop = winit::event_loop::EventLoopBuilder::<CustomEvent>::with_user_event().build();
-    let instance = wgpu::Instance::default();
 
-    let mut gfx_state = pollster::block_on(gfx_state::GfxState::new(gfx_state::Options {
-        instance: &instance,
-        event_loop: &event_loop,
-    }));
+    let window = window::WindowBuilder::new()
+        .with_decorations(true)
+        .with_transparent(false)
+        .with_resizable(true)
+        .with_title("Sparticles")
+        .build(&event_loop)
+        .unwrap();
 
+    let mut gfx_state = pollster::block_on(gfx_state::GfxState::new(window));
     let mut app_state = app_state::AppState::new(&gfx_state);
 
     event_loop.run(move |event, _, control_flow| {
