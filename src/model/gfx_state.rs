@@ -16,6 +16,10 @@ pub struct Options<'a> {
     pub event_loop: &'a EventLoop<CustomEvent>,
 }
 
+/**
+GfxState is used to pass around to others modules.
+See for example camera.rs
+*/
 pub struct GfxState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -118,7 +122,6 @@ impl GfxState {
         self.platform.handle_event(event);
     }
 
-    // TODO naar kijken of dit misschien gelijk in render kan
     pub fn update(&mut self, app_state: &app_state::AppState) {
         let clock = app_state.clock;
         self.platform.update_time(clock.elapsed_sec_f64());
@@ -130,6 +133,7 @@ impl GfxState {
 
     pub fn window_resize(&mut self, size: PhysicalSize<u32>) {
         if size.width > 0 && size.height > 0 {
+            println!("has resized");
             self.surface_config.width = size.width;
             self.surface_config.height = size.height;
             self.surface.configure(&self.device, &self.surface_config);
@@ -208,7 +212,8 @@ impl GfxState {
             });
 
             render_pass.set_pipeline(&app_state.render_pipeline);
-            render_pass.set_bind_group(0, &app_state.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(0, &app_state.diffuse_texture.bind_group, &[]);
+            render_pass.set_bind_group(1, &app_state.camera.bind_group, &[]);
             render_pass.draw(0..4, 0..1);
 
             let result = self.render_pass.execute_with_renderpass(

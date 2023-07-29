@@ -21,7 +21,7 @@ pub struct Camera {
     far: f32,                // What is too far to show
     buffer: wgpu::Buffer,
     pub bind_group_layout: wgpu::BindGroupLayout,
-    bind_group: wgpu::BindGroup,
+    pub bind_group: wgpu::BindGroup,
 }
 
 impl Camera {
@@ -37,12 +37,13 @@ impl Camera {
         let fov = (45.0f32).to_radians();
         let up = glam::Vec3::Y;
 
-        let aspect = surface_config.width as f32 / surface_config.height as f32;
+        let aspect = create_aspect(surface_config);
 
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            size: 16 * 4,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             label: Some("Camera buffer"),
-            contents: bytemuck::cast_slice(&[0.0; 16]),
+            mapped_at_creation: false,
         });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -82,10 +83,24 @@ impl Camera {
         }
     }
 
-    fn create_view_projection_matrix(&self) -> [f32; 16] {
+    pub fn update(&mut self, gfx_state: &gfx_state::GfxState) {
+        let result = self.create_buffer_content();
+        let buf_content = bytemuck::cast_slice(&result);
+        gfx_state.queue.write_buffer(&self.buffer, 0, buf_content);
+    }
+
+    pub fn window_resize(&mut self, gfx_state: &gfx_state::GfxState) {
+        self.aspect = create_aspect(&gfx_state.surface_config);
+    }
+
+    fn create_buffer_content(&self) -> [f32; 16] {
         let view = glam::Mat4::look_at_rh(self.position, self.focus_point, self.up);
-        let proj = glam::Mat4::perspective_lh(self.fov, self.aspect, self.near, self.far);
+        let proj = glam::Mat4::perspective_rh(self.fov, self.aspect, self.near, self.far);
 
         (OPENGL_TO_WGPU_MATRIX * proj * view).to_cols_array()
     }
+}
+
+fn create_aspect(surface_config: &wgpu::SurfaceConfiguration) -> f32 {
+    surface_config.width as f32 / surface_config.height as f32
 }

@@ -8,6 +8,7 @@ use winit::event_loop::EventLoopProxy;
 
 pub mod model;
 pub mod shaders;
+pub mod texture;
 
 /// A custom event type for the winit app.
 pub enum CustomEvent {
@@ -48,7 +49,7 @@ fn main() {
         match event {
             RedrawRequested(window_id) => {
                 if window_id == gfx_state.window_id() {
-                    app_state.update();
+                    app_state.update(&gfx_state);
                     gfx_state.update(&app_state);
                     gfx_state.render(&app_state);
                 }
@@ -60,11 +61,13 @@ fn main() {
                 winit::event::WindowEvent::Resized(size) => {
                     if window_id == gfx_state.window_id() {
                         gfx_state.window_resize(size);
+                        app_state.window_resize(&gfx_state);
                     }
                 }
                 winit::event::WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                     if window_id == gfx_state.window_id() {
                         gfx_state.window_resize(*new_inner_size);
+                        app_state.window_resize(&gfx_state);
                     }
                 }
                 winit::event::WindowEvent::CloseRequested => {
