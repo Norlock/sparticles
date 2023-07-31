@@ -2,21 +2,25 @@ use egui_wgpu_backend::wgpu::{self};
 use glam::*;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 
-use super::gfx_state::{self, GfxState};
+use super::{
+    gfx_state::{self, GfxState},
+    Clock,
+};
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4 {
     x_axis: Vec4::new(1.0, 0.0, 0.0, 0.0),
     y_axis: Vec4::new(0.0, 1.0, 0.0, 0.0),
-    z_axis: Vec4::new(0.0, 0.0, 0.5, 0.0),
-    w_axis: Vec4::new(0.0, 0.0, 0.5, 1.0),
+    z_axis: Vec4::new(0.0, 0.0, 0.5, 0.5),
+    w_axis: Vec4::new(0.0, 0.0, 0.0, 1.0),
 };
 
 type Mat4x2 = [[f32; 2]; 4];
 
+#[allow(dead_code)]
 pub struct Camera {
     look_from: glam::Vec3, // Camera position
-    look_at: glam::Vec3,   // Where does the camera look at?
+    look_at: glam::Vec3,   // Camera aimed at
     up: glam::Vec3,        // What way is up
     fov: f32,              // Field of view (frustum vertical degrees)
     aspect: f32,           // Make sure x/y stays in aspect
@@ -34,6 +38,7 @@ pub struct Camera {
 
     vertex_positions: Mat4x2,
     forward_length: f32,
+    proj: Mat4,
 }
 
 impl Camera {
@@ -44,17 +49,33 @@ impl Camera {
         let look_from = glam::Vec3::new(0., 0., 10.);
         let look_at = glam::Vec3::new(0., 0., 0.);
         let vertex_positions = vertex_positions();
+        let forward_length = (look_from - look_at).length();
 
         let near = 0.1;
         let far = 100.0;
         let fov = (45.0f32).to_radians();
-        let up = glam::Vec3::Y;
+        let up = Vec3::Y;
         let speed = 0.01;
 
         let aspect = create_aspect(surface_config);
+        let proj = Mat4::perspective_rh(fov, aspect, near, far);
+
+        let view_proj_size = 16;
+        let view_mat_size = 16;
+        let rotated_vertices_size = 16;
+        let vertex_positions_size = 12;
+        let view_pos_size = 4;
+        let f32_mem_size = 4;
+
+        let buff_size = (view_proj_size
+            + view_mat_size
+            + rotated_vertices_size
+            + vertex_positions_size
+            + view_pos_size)
+            * f32_mem_size;
 
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            size: 48 * 4, // F32 fields * 4
+            size: buff_size, // F32 fields * 4
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             label: Some("Camera buffer"),
             mapped_at_creation: false,
@@ -100,34 +121,35 @@ impl Camera {
             is_right_pressed: false,
             speed,
             vertex_positions,
-            forward_length: (look_from - look_at).length(),
+            forward_length,
+            proj,
         }
     }
 
-    fn recalcate_forward(&mut self) {
+    fn recalculate_forward(&mut self) {
         self.forward_length = (self.look_from - self.look_at).length();
     }
 
-    pub fn update(&mut self, gfx_state: &GfxState) {
+    pub fn update(&mut self, gfx_state: &GfxState, clock: &Clock) {
         let queue = &gfx_state.queue;
         let forward = self.look_from - self.look_at;
         let forward_norm = forward.normalize();
+        let rotation = 1f32 * clock.delta_sec();
 
         // Prevents glitching when camera gets too close to the
         // center of the scene.
         if self.is_forward_pressed {
             self.look_from -= forward_norm * self.speed;
-            self.recalcate_forward();
+            self.recalculate_forward();
         }
 
         if self.is_backward_pressed {
             self.look_from += forward_norm * self.speed;
-            self.recalcate_forward();
+            self.recalculate_forward();
         }
 
-        let forward = self.look_from - self.look_at;
-
         let mut rotate = |theta: f32| {
+            let forward = self.look_from - self.look_at;
             let sin_cos = Vec2::new(theta.cos(), theta.sin());
             let rotation = Mat2::from_cols_array(&[sin_cos.x, -sin_cos.y, sin_cos.y, sin_cos.x]);
 
@@ -140,11 +162,11 @@ impl Camera {
         };
 
         if self.is_left_pressed {
-            rotate(0.01f32.to_radians());
+            rotate(-rotation);
         }
 
         if self.is_right_pressed {
-            rotate(-0.01f32.to_radians());
+            rotate(rotation);
         }
 
         let buf_content_raw = self.create_buffer_content();
@@ -155,6 +177,7 @@ impl Camera {
 
     pub fn window_resize(&mut self, gfx_state: &gfx_state::GfxState) {
         self.aspect = create_aspect(&gfx_state.surface_config);
+        self.proj = Mat4::perspective_rh(self.fov, self.aspect, self.near, self.far);
     }
 
     pub fn process_input(&mut self, input: KeyboardInput) {
@@ -183,59 +206,48 @@ impl Camera {
     }
 
     fn create_buffer_content(&self) -> Vec<f32> {
-        let view = glam::Mat4::look_at_rh(self.look_from, self.look_at, self.up);
-        let proj = glam::Mat4::perspective_rh(self.fov, self.aspect, self.near, self.far);
+        let view = Mat4::look_at_rh(self.look_from, self.look_at, self.up);
 
-        let view_proj = OPENGL_TO_WGPU_MATRIX * proj * view;
-        let view_mat_arr = view.to_cols_array();
+        let view_proj = OPENGL_TO_WGPU_MATRIX * self.proj * view;
+        let view_proj_arr = view_proj.to_cols_array().to_vec();
+        let view_arr = view.to_cols_array().to_vec();
         let rotated_vertices_arr = self.get_rotated_vertices(view_proj);
+        let vertex_positions: Vec<f32> = self.vertex_positions.into_iter().flatten().collect();
+        let view_pos = self.look_from.extend(0.0).to_array().to_vec();
 
         [
-            view_proj.to_cols_array(),
-            view_mat_arr,
+            view_proj_arr,
+            view_arr,
             rotated_vertices_arr,
+            vertex_positions,
+            view_pos,
         ]
         .concat()
     }
 
-    fn get_rotated_vertices(&self, view_proj: Mat4) -> [f32; 16] {
-        let camera_right = view_proj.col(0).xyz().normalize();
-        let camera_up = view_proj.col(1).xyz().normalize();
+    fn get_rotated_vertices(&self, view_proj: Mat4) -> Vec<f32> {
+        let camera_right = view_proj.row(0).truncate().normalize();
+        let camera_up = view_proj.row(1).truncate().normalize();
 
         self.vertex_positions
             .into_iter()
             .map(|v_pos| camera_right * v_pos[0] + camera_up * v_pos[1])
-            .map(|v3| v3.extend(0.).to_array())
+            .map(|v3| v3.extend(1.0).to_array())
             .flatten()
             .collect::<Vec<f32>>()
-            .try_into()
-            .unwrap()
-
-        //for (i, v_pos) in self.vertex_positions.iter().enumerate() {
-        //let loc_space = camera_right * v_pos[0] + camera_up * v_pos[1];
-        //*result.col_mut(i) = loc_space.extend(0.);
-        //}
-
-        //return result.to_cols_array();
     }
 }
 
 fn vertex_positions() -> Mat4x2 {
     let theta: f32 = 1.0;
     let sin_cos = Vec2::new(theta.cos(), theta.sin());
-
-    let vertex_1 = Vec2::new(-1., -1.);
-    let vertex_2 = Vec2::new(1., -1.);
-    let vertex_3 = Vec2::new(-1., 1.);
-    let vertex_4 = Vec2::new(1., 1.);
-
     let rotation = Mat2::from_cols_array(&[sin_cos.x, -sin_cos.y, sin_cos.y, sin_cos.x]);
 
     [
-        (rotation * vertex_1).into(),
-        (rotation * vertex_2).into(),
-        (rotation * vertex_3).into(),
-        (rotation * vertex_4).into(),
+        (rotation * Vec2::new(-1., -1.)).into(),
+        (rotation * Vec2::new(1., -1.)).into(),
+        (rotation * Vec2::new(-1., 1.)).into(),
+        (rotation * Vec2::new(1., 1.)).into(),
     ]
 }
 

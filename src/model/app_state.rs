@@ -80,7 +80,7 @@ impl AppState {
 
     pub fn update(&mut self, gfx_state: &GfxState) {
         self.clock.update();
-        self.camera.update(gfx_state);
+        self.camera.update(gfx_state, &self.clock);
     }
 
     pub fn window_resize(&mut self, gfx_state: &GfxState) {

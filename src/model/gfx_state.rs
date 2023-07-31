@@ -2,7 +2,10 @@ use std::iter;
 
 use crate::CustomEvent;
 use egui::FontDefinitions;
-use egui_wgpu_backend::{wgpu, RenderPass, ScreenDescriptor};
+use egui_wgpu_backend::{
+    wgpu::{self, TextureFormat},
+    RenderPass, ScreenDescriptor,
+};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use winit::dpi::PhysicalSize;
 use winit::event::Event;
@@ -58,6 +61,7 @@ impl GfxState {
         let size = window.inner_size();
         let surface_caps = surface.get_capabilities(&adapter);
 
+        //let surface_format = TextureFormat::Rgba8Unorm;
         let surface_format = surface_caps
             .formats
             .iter()
