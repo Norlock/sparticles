@@ -1,4 +1,3 @@
-use egui_wgpu_backend::wgpu;
 use model::app_state;
 use model::gfx_state;
 use std::sync::Mutex;
@@ -7,6 +6,7 @@ use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoopProxy;
 use winit::window;
 
+pub mod debug;
 pub mod model;
 pub mod shaders;
 pub mod texture;
@@ -76,6 +76,9 @@ fn main() {
                 }
                 winit::event::WindowEvent::CloseRequested => {
                     *control_flow = ControlFlow::Exit;
+                }
+                winit::event::WindowEvent::KeyboardInput { input, .. } => {
+                    app_state.process_events(input);
                 }
                 _ => {}
             },

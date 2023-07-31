@@ -1,21 +1,24 @@
-use crate::texture::DiffuseTexture;
+use crate::{debug::Debugger, texture::DiffuseTexture};
 
-use super::{gfx_state, Camera, Clock};
+use super::{gfx_state::GfxState, Camera, Clock};
 use egui_wgpu_backend::wgpu;
+use winit::event::KeyboardInput;
 
 pub struct AppState {
     pub camera: Camera,
     pub diffuse_texture: DiffuseTexture,
     pub clock: Clock,
     pub render_pipeline: wgpu::RenderPipeline,
+    pub debugger: Debugger,
 }
 
 impl AppState {
-    pub fn new(gfx_state: &gfx_state::GfxState) -> Self {
+    pub fn new(gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
         let surface_config = &gfx_state.surface_config;
 
         let clock = Clock::new();
+        let debugger = Debugger::new();
         let camera = Camera::new(gfx_state);
         let diffuse_texture = DiffuseTexture::new(&gfx_state);
 
@@ -68,19 +71,24 @@ impl AppState {
 
         Self {
             clock,
+            debugger,
             camera,
             render_pipeline,
             diffuse_texture,
         }
     }
 
-    pub fn update(&mut self, gfx_state: &gfx_state::GfxState) {
+    pub fn update(&mut self, gfx_state: &GfxState) {
         self.clock.update();
         self.camera.update(gfx_state);
     }
 
-    pub fn window_resize(&mut self, gfx_state: &gfx_state::GfxState) {
+    pub fn window_resize(&mut self, gfx_state: &GfxState) {
         self.camera.window_resize(&gfx_state);
+    }
+
+    pub fn process_events(&mut self, input: KeyboardInput) {
+        self.camera.process_input(input);
     }
 
     pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
