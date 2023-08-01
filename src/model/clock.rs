@@ -1,11 +1,12 @@
 use std::time::{Duration, Instant};
 
-#[derive(Clone, Copy)]
 pub struct Clock {
     instant: Instant,
     last_update: Duration,
     current_delta: Duration,
     frame: usize,
+    pub fps_text: String,
+    pub cpu_time_text: String,
 }
 
 impl Clock {
@@ -15,6 +16,8 @@ impl Clock {
             last_update: Duration::ZERO,
             current_delta: Duration::ZERO,
             frame: 0,
+            cpu_time_text: "".to_string(),
+            fps_text: "".to_string(),
         }
     }
 
@@ -23,6 +26,14 @@ impl Clock {
         self.current_delta = now - self.last_update;
         self.last_update = now;
         self.frame += 1;
+
+        if self.frame() % 20 == 0 {
+            let cpu_time = self.delta_sec();
+
+            // TODO cpu_time fixen, begin tot einde van, update render meten
+            self.cpu_time_text = format!("\nCPU time ms: {}", cpu_time * 1000.);
+            self.fps_text = format!("\nFPS: {:.0}", 1. / self.delta_sec());
+        }
     }
 
     pub fn delta(&self) -> Duration {
@@ -39,10 +50,6 @@ impl Clock {
 
     pub fn elapsed_sec_f64(&self) -> f64 {
         self.instant.elapsed().as_secs_f64()
-    }
-
-    pub fn fps(&self) -> f32 {
-        1. / self.delta_sec()
     }
 
     pub fn frame(&self) -> usize {

@@ -1,6 +1,6 @@
 use std::iter;
 
-use crate::CustomEvent;
+use crate::{traits::CreateGui, CustomEvent};
 use egui::FontDefinitions;
 use egui_wgpu_backend::{wgpu, RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
@@ -8,7 +8,7 @@ use winit::dpi::PhysicalSize;
 use winit::event::Event;
 use winit::window;
 
-use super::{app_state::AppState, GuiState};
+use super::app_state::AppState;
 
 /**
 GfxState is used to pass around to others modules.
@@ -87,6 +87,8 @@ impl GfxState {
 
         let render_pass = RenderPass::new(&device, surface_format, 1);
 
+        // TODO use refresh_rate
+        //self.window.current_monitor().unwrap().refresh_rate_millihertz();
         Self {
             platform,
             surface,
@@ -146,7 +148,7 @@ impl GfxState {
         let ctx = &self.platform.context();
         let paint_jobs = ctx.tessellate(full_output.shapes);
 
-        GuiState::create_gui(ctx);
+        ctx.create_gui(&app_state);
 
         let mut encoder = self
             .device
@@ -186,9 +188,9 @@ impl GfxState {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.1,
-                            b: 0.1,
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
                             a: 1.0,
                         }),
                         store: true,
