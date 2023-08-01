@@ -14,3 +14,11 @@ pub trait CustomShader {
 pub trait CreateGui {
     fn create_gui(&self, app_state: &AppState);
 }
+
+pub trait ToVecF32 {
+    fn to_vec_f32(&self) -> Vec<f32>;
+}
+
+pub trait CreateAspect {
+    fn aspect(&self) -> f32;
+}

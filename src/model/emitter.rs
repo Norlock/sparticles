@@ -15,9 +15,9 @@ pub struct Emitter {
     pub box_pos: Vec3,
 
     /// width, height, depth
-    pub box_dim: Vec3,
+    pub box_dimensions: Vec3,
     /// pitch, roll, yaw
-    pub box_rot: Vec3,
+    pub box_rotation: Vec3,
 
     pub particle_color: Vec4,
     pub particle_friction_coefficient: f32,
@@ -51,8 +51,8 @@ impl Emitter {
             spawn_batches_count,
 
             box_pos,
-            box_dim,
-            box_rot,
+            box_dimensions: box_dim,
+            box_rotation: box_rot,
 
             particle_mass: 1.,
             particle_velocity: Vec3::new(0., 15., 0.),
@@ -102,12 +102,12 @@ impl Emitter {
             self.box_pos.x,
             self.box_pos.y,
             self.box_pos.z,
-            self.box_dim.x,
-            self.box_dim.y,
-            self.box_dim.z,
-            self.box_rot.x,
-            self.box_rot.y,
-            self.box_rot.z,
+            self.box_dimensions.x,
+            self.box_dimensions.y,
+            self.box_dimensions.z,
+            self.box_rotation.x,
+            self.box_rotation.y,
+            self.box_rotation.z,
             self.particle_color.x,
             self.particle_color.y,
             self.particle_color.z,

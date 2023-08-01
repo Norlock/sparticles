@@ -2,6 +2,8 @@ use egui_wgpu_backend::wgpu::{self};
 use glam::*;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 
+use crate::traits::{CreateAspect, ToVecF32};
+
 use super::{
     gfx_state::{self, GfxState},
     Clock,
@@ -20,9 +22,8 @@ type Mat4x2 = [[f32; 2]; 4];
 #[allow(dead_code)]
 pub struct Camera {
     position: glam::Vec3, // Camera position
-    look_dir: glam::Vec3, // Camera aimed at
+    view_dir: glam::Vec3, // Camera aimed at
     fov: f32,             // Field of view (frustum vertical degrees)
-    aspect: f32,          // Make sure x/y stays in aspect
     near: f32,            // What is too close to show
     far: f32,             // What is too far to show
     pitch: f32,
@@ -52,8 +53,8 @@ impl Camera {
         let device = &gfx_state.device;
         let surface_config = &gfx_state.surface_config;
 
-        let look_from = glam::Vec3::new(0., 0., 10.);
-        let look_at = glam::Vec3::new(0., 0., -10.);
+        let position = glam::Vec3::new(0., 0., 10.);
+        let view_dir = glam::Vec3::new(0., 0., -10.);
         let vertex_positions = vertex_positions();
 
         let pitch = 0.;
@@ -63,7 +64,7 @@ impl Camera {
         let fov = (45.0f32).to_radians();
         let speed = 2.0;
 
-        let aspect = create_aspect(surface_config);
+        let aspect = surface_config.aspect();
         let proj = Mat4::perspective_rh(fov, aspect, near, far);
 
         let view_proj_size = 16;
@@ -116,12 +117,11 @@ impl Camera {
             near,
             pitch,
             yaw,
-            position: look_from,
+            position,
+            view_dir,
             buffer,
             bind_group_layout,
             bind_group,
-            look_dir: look_at,
-            aspect,
             speed,
             vertex_positions,
             proj,
@@ -189,9 +189,9 @@ impl Camera {
         queue.write_buffer(&self.buffer, 0, buf_content);
     }
 
-    pub fn window_resize(&mut self, gfx_state: &gfx_state::GfxState) {
-        self.aspect = create_aspect(&gfx_state.surface_config);
-        self.proj = Mat4::perspective_rh(self.fov, self.aspect, self.near, self.far);
+    pub fn window_resize(&mut self, gfx_state: &GfxState) {
+        let aspect = gfx_state.surface_config.aspect();
+        self.proj = Mat4::perspective_rh(self.fov, aspect, self.near, self.far);
     }
 
     pub fn process_input(&mut self, input: KeyboardInput) {
@@ -238,23 +238,23 @@ impl Camera {
         let pitch_mat = Mat3::from_rotation_x(self.pitch);
         let yaw_mat = Mat3::from_rotation_y(self.yaw);
 
-        let local_view_dir = pitch_mat * yaw_mat * self.look_dir;
+        let rotated_view_dir = pitch_mat * yaw_mat * self.view_dir;
 
-        let view_mat = Mat4::look_at_rh(self.position, self.position + local_view_dir, Vec3::Y);
-
+        let view_mat = Mat4::look_at_rh(self.position, self.position + rotated_view_dir, Vec3::Y);
         let view_proj = OPENGL_TO_WGPU_MATRIX * self.proj * view_mat;
+
         let view_proj_arr = view_proj.to_cols_array().to_vec();
         let view_arr = view_mat.to_cols_array().to_vec();
         let rotated_vertices_arr = self.get_rotated_vertices(view_proj);
-        let vertex_positions: Vec<f32> = self.vertex_positions.into_iter().flatten().collect();
-        let view_pos = self.position.extend(1.0).to_array().to_vec();
+        let vertex_positions_arr = self.vertex_positions.to_vec_f32();
+        let view_pos_arr = self.position.to_vec_f32();
 
         [
             view_proj_arr,
             view_arr,
             rotated_vertices_arr,
-            vertex_positions,
-            view_pos,
+            vertex_positions_arr,
+            view_pos_arr,
         ]
         .concat()
     }
@@ -266,9 +266,21 @@ impl Camera {
         self.vertex_positions
             .into_iter()
             .map(|v_pos| camera_right * v_pos[0] + camera_up * v_pos[1])
-            .map(|v3| vec![v3.x, v3.y, v3.z, 1.0])
+            .map(|v3| vec![v3.x, v3.y, v3.z, 0.])
             .flatten()
             .collect::<Vec<f32>>()
+    }
+}
+
+impl ToVecF32 for Mat4x2 {
+    fn to_vec_f32(&self) -> Vec<f32> {
+        self.into_iter().flatten().copied().collect()
+    }
+}
+
+impl ToVecF32 for Vec3 {
+    fn to_vec_f32(&self) -> Vec<f32> {
+        vec![self.x, self.y, self.z, 0.0]
     }
 }
 
@@ -281,6 +293,8 @@ fn vertex_positions() -> Mat4x2 {
     ]
 }
 
-fn create_aspect(surface_config: &wgpu::SurfaceConfiguration) -> f32 {
-    surface_config.width as f32 / surface_config.height as f32
+impl CreateAspect for wgpu::SurfaceConfiguration {
+    fn aspect(&self) -> f32 {
+        self.width as f32 / self.height as f32
+    }
 }
