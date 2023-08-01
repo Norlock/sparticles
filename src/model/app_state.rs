@@ -18,6 +18,16 @@ impl AppState {
         self.clock.update();
         self.camera.update(gfx_state, &self.clock);
         self.compute.update(gfx_state, &self.clock);
+
+        if self.clock.frame() % 20 == 0 {
+            let cpu_time = self.clock.delta_sec();
+
+            let mut performance_text = String::new();
+
+            performance_text.push_str(&format!("\nCPU time ms: {}", cpu_time * 1000.));
+            performance_text.push_str(&format!("\nFPS: {:.0}", self.clock.fps()));
+            println!("{}", performance_text);
+        }
     }
 
     pub fn window_resize(&mut self, gfx_state: &GfxState) {

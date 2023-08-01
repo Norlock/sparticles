@@ -1,11 +1,10 @@
-use model::app_state;
-use model::gfx_state;
 use model::GfxState;
 use std::sync::Mutex;
 use winit::event::Event::*;
 use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoopProxy;
 use winit::window;
+use winit::window::WindowId;
 
 pub mod debug;
 pub mod model;
@@ -51,29 +50,24 @@ fn main() {
     event_loop.run(move |event, _, control_flow| {
         // Pass the winit events to the platform integration.
         gfx_state.handle_event(&event);
+        let do_exec = |window_id: WindowId| window_id == gfx_state.window_id();
 
         match event {
-            RedrawRequested(window_id) => {
-                if window_id == gfx_state.window_id() {
-                    app_state.update(&gfx_state);
-                    gfx_state.render(&app_state);
-                }
+            RedrawRequested(window_id) if do_exec(window_id) => {
+                app_state.update(&gfx_state);
+                gfx_state.render(&app_state);
             }
             MainEventsCleared | UserEvent(CustomEvent::RequestRedraw) => {
                 gfx_state.request_redraw();
             }
-            WindowEvent { event, window_id } => match event {
+            WindowEvent { event, window_id } if do_exec(window_id) => match event {
                 winit::event::WindowEvent::Resized(size) => {
-                    if window_id == gfx_state.window_id() {
-                        gfx_state.window_resize(size);
-                        app_state.window_resize(&gfx_state);
-                    }
+                    gfx_state.window_resize(size);
+                    app_state.window_resize(&gfx_state);
                 }
                 winit::event::WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                    if window_id == gfx_state.window_id() {
-                        gfx_state.window_resize(*new_inner_size);
-                        app_state.window_resize(&gfx_state);
-                    }
+                    gfx_state.window_resize(*new_inner_size);
+                    app_state.window_resize(&gfx_state);
                 }
                 winit::event::WindowEvent::CloseRequested => {
                     *control_flow = ControlFlow::Exit;

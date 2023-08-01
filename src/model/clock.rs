@@ -41,6 +41,10 @@ impl Clock {
         self.instant.elapsed().as_secs_f64()
     }
 
+    pub fn fps(&self) -> f32 {
+        1. / self.delta_sec()
+    }
+
     pub fn frame(&self) -> usize {
         self.frame
     }
