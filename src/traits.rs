@@ -12,7 +12,7 @@ pub trait CustomShader {
 }
 
 pub trait CreateGui {
-    fn create_gui(&self, app_state: &AppState);
+    fn create_gui(&self, app_state: &mut AppState);
 }
 
 pub trait ToVecF32 {

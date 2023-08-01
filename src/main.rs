@@ -55,7 +55,7 @@ fn main() {
         match event {
             RedrawRequested(window_id) if do_exec(window_id) => {
                 app_state.update(&gfx_state);
-                gfx_state.render(&app_state);
+                gfx_state.render(&mut app_state);
             }
             MainEventsCleared | UserEvent(CustomEvent::RequestRedraw) => {
                 gfx_state.request_redraw();

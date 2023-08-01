@@ -49,6 +49,13 @@ pub struct Camera {
 }
 
 impl Camera {
+    pub fn reset(&mut self) {
+        self.pitch = 0.;
+        self.yaw = 0.;
+        self.position = glam::Vec3::new(0., 0., 10.);
+        self.view_dir = glam::Vec3::new(0., 0., -10.);
+    }
+
     pub fn new(gfx_state: &gfx_state::GfxState) -> Self {
         let device = &gfx_state.device;
         let surface_config = &gfx_state.surface_config;
@@ -56,33 +63,17 @@ impl Camera {
         let position = glam::Vec3::new(0., 0., 10.);
         let view_dir = glam::Vec3::new(0., 0., -10.);
         let vertex_positions = vertex_positions();
-
         let pitch = 0.;
         let yaw = 0.;
         let near = 0.1;
         let far = 100.0;
         let fov = (45.0f32).to_radians();
         let speed = 2.0;
-
         let aspect = surface_config.aspect();
         let proj = Mat4::perspective_rh(fov, aspect, near, far);
 
-        let view_proj_size = 16;
-        let view_mat_size = 16;
-        let rotated_vertices_size = 16;
-        let vertex_positions_size = 12;
-        let view_pos_size = 4;
-        let f32_mem_size = 4;
-
-        let buff_size = (view_proj_size
-            + view_mat_size
-            + rotated_vertices_size
-            + vertex_positions_size
-            + view_pos_size)
-            * f32_mem_size;
-
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            size: buff_size, // F32 fields * 4
+            size: buffer_size(), // F32 fields * 4
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             label: Some("Camera buffer"),
             mapped_at_creation: false,
@@ -291,6 +282,18 @@ fn vertex_positions() -> Mat4x2 {
         Vec2::new(-1., 1.).into(),
         Vec2::new(1., 1.).into(),
     ]
+}
+
+fn buffer_size() -> u64 {
+    let view_proj_size = 16;
+    let view_mat_size = 16;
+    let rotated_vertices_size = 16;
+    let vertex_positions_size = 12;
+    let view_pos_size = 4;
+    let f32_mem_size = 4;
+
+    (view_proj_size + view_mat_size + rotated_vertices_size + vertex_positions_size + view_pos_size)
+        * f32_mem_size
 }
 
 impl CreateAspect for wgpu::SurfaceConfiguration {

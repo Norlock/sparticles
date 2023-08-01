@@ -120,7 +120,7 @@ impl GfxState {
         }
     }
 
-    pub fn render(&mut self, app_state: &AppState) {
+    pub fn render(&mut self, app_state: &mut AppState) {
         // Need to update for animations
         self.platform.update_time(app_state.clock.elapsed_sec_f64());
 
@@ -148,7 +148,7 @@ impl GfxState {
         let ctx = &self.platform.context();
         let paint_jobs = ctx.tessellate(full_output.shapes);
 
-        ctx.create_gui(&app_state);
+        ctx.create_gui(app_state);
 
         let mut encoder = self
             .device
