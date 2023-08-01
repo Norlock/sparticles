@@ -232,22 +232,18 @@ impl Camera {
         self.vertex_positions
             .into_iter()
             .map(|v_pos| camera_right * v_pos[0] + camera_up * v_pos[1])
-            .map(|v3| v3.extend(1.0).to_array())
+            .map(|v3| vec![v3.x, v3.y, v3.z, 1.0])
             .flatten()
             .collect::<Vec<f32>>()
     }
 }
 
 fn vertex_positions() -> Mat4x2 {
-    let theta: f32 = 1.0;
-    let sin_cos = Vec2::new(theta.cos(), theta.sin());
-    let rotation = Mat2::from_cols_array(&[sin_cos.x, -sin_cos.y, sin_cos.y, sin_cos.x]);
-
     [
-        (rotation * Vec2::new(-1., -1.)).into(),
-        (rotation * Vec2::new(1., -1.)).into(),
-        (rotation * Vec2::new(-1., 1.)).into(),
-        (rotation * Vec2::new(1., 1.)).into(),
+        Vec2::new(-1., -1.).into(),
+        Vec2::new(1., -1.).into(),
+        Vec2::new(-1., 1.).into(),
+        Vec2::new(1., 1.).into(),
     ]
 }
 

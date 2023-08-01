@@ -1,4 +1,4 @@
-use crate::model::gfx_state;
+use crate::model::gfx_state::GfxState;
 use egui_wgpu_backend::wgpu;
 use image::GenericImageView;
 
@@ -7,11 +7,8 @@ pub struct DiffuseTexture {
     pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
-impl DiffuseTexture {
-    pub fn new(gfx_state: &gfx_state::GfxState) -> Self {
-        let device = &gfx_state.device;
-        let queue = &gfx_state.queue;
-
+impl GfxState {
+    pub fn create_diffuse_texture(&self) -> DiffuseTexture {
         let diffuse_bytes = include_bytes!("assets/particle-diffuse.jpg");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
         let diffuse_rgba = diffuse_image.to_rgba8();
@@ -24,7 +21,7 @@ impl DiffuseTexture {
             depth_or_array_layers: 1, // by setting depth to 1.
         };
 
-        let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
+        let diffuse_texture = self.device.create_texture(&wgpu::TextureDescriptor {
             size: texture_size,
             mip_level_count: 1,
             sample_count: 1,
@@ -35,7 +32,7 @@ impl DiffuseTexture {
             view_formats: &[],
         });
 
-        queue.write_texture(
+        self.queue.write_texture(
             wgpu::ImageCopyTexture {
                 texture: &diffuse_texture,
                 mip_level: 0,
@@ -53,7 +50,7 @@ impl DiffuseTexture {
 
         let diffuse_texture_view =
             diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let diffuse_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        let diffuse_sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -63,29 +60,31 @@ impl DiffuseTexture {
             ..Default::default()
         });
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: Some("texture_bind_group_layout"),
-        });
+        let bind_group_layout =
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                    label: Some("texture_bind_group_layout"),
+                });
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -100,7 +99,7 @@ impl DiffuseTexture {
             label: Some("diffuse_bind_group"),
         });
 
-        Self {
+        DiffuseTexture {
             bind_group,
             bind_group_layout,
         }

@@ -1,38 +1,22 @@
-#[derive(Clone, Copy, Debug)]
-pub struct Color {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-    pub a: f32,
-}
+use glam::Vec4;
 
-impl Color {
-    /// values from 0 - 255
-    pub fn rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self {
-            r: (r as f32 / 255.),
-            g: (g as f32 / 255.),
-            b: (b as f32 / 255.),
-            a: (a as f32 / 255.),
-        }
+use crate::traits::FromRGB;
+
+impl FromRGB for Vec4 {
+    fn from_rgb(ru: u8, gu: u8, bu: u8) -> Self {
+        let r = ru as f32 / 255.;
+        let g = gu as f32 / 255.;
+        let b = bu as f32 / 255.;
+
+        Self::new(r, g, b, 1.0)
     }
 
-    /// values from 0 - 255
-    pub fn rgb(r: u8, g: u8, b: u8) -> Self {
-        Self {
-            r: (r as f32 / 255.),
-            g: (g as f32 / 255.),
-            b: (b as f32 / 255.),
-            a: 1.,
-        }
-    }
+    fn from_rgba(ru: u8, gu: u8, bu: u8, au: u8) -> Self {
+        let r = ru as f32 / 255.;
+        let g = gu as f32 / 255.;
+        let b = bu as f32 / 255.;
+        let a = au as f32 / 255.;
 
-    pub fn transparent() -> Self {
-        Self {
-            r: 0.,
-            g: 0.,
-            b: 0.,
-            a: 0.,
-        }
+        Self::new(r, g, b, a)
     }
 }

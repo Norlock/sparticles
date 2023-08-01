@@ -5,7 +5,7 @@ pub struct Clock {
     instant: Instant,
     last_update: Duration,
     current_delta: Duration,
-    frame: u32,
+    frame: usize,
 }
 
 impl Clock {
@@ -33,11 +33,23 @@ impl Clock {
         self.current_delta.as_secs_f32()
     }
 
+    pub fn elapsed_sec(&self) -> f32 {
+        self.instant.elapsed().as_secs_f32()
+    }
+
     pub fn elapsed_sec_f64(&self) -> f64 {
         self.instant.elapsed().as_secs_f64()
     }
 
-    pub fn frame(&self) -> u32 {
+    pub fn frame(&self) -> usize {
         self.frame
+    }
+
+    pub fn get_bindgroup_nr(&self) -> usize {
+        (self.frame) % 2
+    }
+
+    pub fn get_alt_bindgroup_nr(&self) -> usize {
+        (self.frame + 1) % 2
     }
 }

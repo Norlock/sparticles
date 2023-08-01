@@ -1,5 +1,6 @@
 use model::app_state;
 use model::gfx_state;
+use model::GfxState;
 use std::sync::Mutex;
 use winit::event::Event::*;
 use winit::event_loop::ControlFlow;
@@ -10,6 +11,7 @@ pub mod debug;
 pub mod model;
 pub mod shaders;
 pub mod texture;
+pub mod traits;
 
 /// A custom event type for the winit app.
 pub enum CustomEvent {
@@ -43,8 +45,8 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
-    let mut gfx_state = pollster::block_on(gfx_state::GfxState::new(window));
-    let mut app_state = app_state::AppState::new(&gfx_state);
+    let mut gfx_state = pollster::block_on(GfxState::new(window));
+    let mut app_state = gfx_state.create_app_state();
 
     event_loop.run(move |event, _, control_flow| {
         // Pass the winit events to the platform integration.
@@ -54,7 +56,6 @@ fn main() {
             RedrawRequested(window_id) => {
                 if window_id == gfx_state.window_id() {
                     app_state.update(&gfx_state);
-                    gfx_state.update(&app_state);
                     gfx_state.render(&app_state);
                 }
             }

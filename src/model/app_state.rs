@@ -1,6 +1,6 @@
-use crate::{debug::Debugger, texture::DiffuseTexture};
+use crate::{texture::DiffuseTexture, traits::CustomShader};
 
-use super::{gfx_state::GfxState, Camera, Clock};
+use super::{gfx_state::GfxState, Camera, Clock, ComputeState};
 use egui_wgpu_backend::wgpu;
 use winit::event::KeyboardInput;
 
@@ -8,21 +8,71 @@ pub struct AppState {
     pub camera: Camera,
     pub diffuse_texture: DiffuseTexture,
     pub clock: Clock,
-    pub render_pipeline: wgpu::RenderPipeline,
-    pub debugger: Debugger,
+
+    render_pipeline: wgpu::RenderPipeline,
+    compute: ComputeState,
 }
 
 impl AppState {
-    pub fn new(gfx_state: &GfxState) -> Self {
-        let device = &gfx_state.device;
-        let surface_config = &gfx_state.surface_config;
+    pub fn update(&mut self, gfx_state: &GfxState) {
+        self.clock.update();
+        self.camera.update(gfx_state, &self.clock);
+        self.compute.update(gfx_state, &self.clock);
+    }
 
+    pub fn window_resize(&mut self, gfx_state: &GfxState) {
+        self.camera.window_resize(&gfx_state);
+    }
+
+    pub fn process_events(&mut self, input: KeyboardInput) {
+        self.camera.process_input(input);
+    }
+
+    pub fn compute<'a>(&'a self, compute_pass: &mut wgpu::ComputePass<'a>) {
+        self.compute.compute(&self.clock, compute_pass);
+    }
+
+    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+        let nr = self.clock.get_alt_bindgroup_nr();
+
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &self.diffuse_texture.bind_group, &[]);
+        render_pass.set_bind_group(1, &self.camera.bind_group, &[]);
+        render_pass.set_bind_group(2, &self.compute.bind_groups[nr], &[]);
+        // TODO look at maybe multiple draws if really big ??
+        render_pass.draw(0..4, 0..self.compute.particle_count() as u32);
+    }
+}
+
+impl GfxState {
+    pub fn create_app_state(&self) -> AppState {
         let clock = Clock::new();
-        let debugger = Debugger::new();
-        let camera = Camera::new(gfx_state);
-        let diffuse_texture = DiffuseTexture::new(&gfx_state);
+        let camera = Camera::new(&self);
+        let diffuse_texture = self.create_diffuse_texture();
+        let compute_state = self.create_compute_state();
+        let render_pipeline =
+            self.create_render_pipeline(&diffuse_texture, &camera, &compute_state);
 
-        let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/particle.wgsl"));
+        AppState {
+            clock,
+            camera,
+            render_pipeline,
+            diffuse_texture,
+            compute: compute_state,
+        }
+    }
+
+    fn create_render_pipeline(
+        &self,
+        diffuse_texture: &DiffuseTexture,
+        camera: &Camera,
+        compute_state: &ComputeState,
+    ) -> wgpu::RenderPipeline {
+        let device = &self.device;
+        let surface_config = &self.surface_config;
+
+        let shader_str = include_str!("../shaders/particle.wgsl");
+        let shader = device.create_shader(shader_str, "Particle render");
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -30,11 +80,12 @@ impl AppState {
                 bind_group_layouts: &[
                     &diffuse_texture.bind_group_layout,
                     &camera.bind_group_layout,
+                    &compute_state.bind_group_layout,
                 ],
                 push_constant_ranges: &[],
             });
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
@@ -67,34 +118,6 @@ impl AppState {
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
-        });
-
-        Self {
-            clock,
-            debugger,
-            camera,
-            render_pipeline,
-            diffuse_texture,
-        }
-    }
-
-    pub fn update(&mut self, gfx_state: &GfxState) {
-        self.clock.update();
-        self.camera.update(gfx_state, &self.clock);
-    }
-
-    pub fn window_resize(&mut self, gfx_state: &GfxState) {
-        self.camera.window_resize(&gfx_state);
-    }
-
-    pub fn process_events(&mut self, input: KeyboardInput) {
-        self.camera.process_input(input);
-    }
-
-    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
-        render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_bind_group(0, &self.diffuse_texture.bind_group, &[]);
-        render_pass.set_bind_group(1, &self.camera.bind_group, &[]);
-        render_pass.draw(0..4, 0..1);
+        })
     }
 }

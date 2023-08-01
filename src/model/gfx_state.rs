@@ -2,16 +2,13 @@ use std::iter;
 
 use crate::CustomEvent;
 use egui::FontDefinitions;
-use egui_wgpu_backend::{
-    wgpu::{self, TextureFormat},
-    RenderPass, ScreenDescriptor,
-};
+use egui_wgpu_backend::{wgpu, RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use winit::dpi::PhysicalSize;
 use winit::event::Event;
 use winit::window;
 
-use super::{app_state, GuiState};
+use super::{app_state::AppState, GuiState};
 
 /**
 GfxState is used to pass around to others modules.
@@ -110,11 +107,6 @@ impl GfxState {
         self.platform.handle_event(event);
     }
 
-    pub fn update(&mut self, app_state: &app_state::AppState) {
-        let clock = app_state.clock;
-        self.platform.update_time(clock.elapsed_sec_f64());
-    }
-
     pub fn request_redraw(&self) {
         self.window.request_redraw();
     }
@@ -127,7 +119,10 @@ impl GfxState {
         }
     }
 
-    pub fn render(&mut self, app_state: &app_state::AppState) {
+    pub fn render(&mut self, app_state: &AppState) {
+        // Need to update for animations
+        self.platform.update_time(app_state.clock.elapsed_sec_f64());
+
         let output_frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Outdated) => {
@@ -159,6 +154,14 @@ impl GfxState {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("encoder"),
             });
+
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("transform pipeline"),
+            });
+
+            app_state.compute(&mut compute_pass);
+        }
 
         // Upload all resources for the GPU.
         let screen_descriptor = ScreenDescriptor {
