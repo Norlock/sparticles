@@ -1,6 +1,6 @@
 use std::num::NonZeroU64;
 
-use crate::traits::CustomShader;
+use crate::traits::{CalculateBufferSize, CustomShader};
 
 use super::{emitter::Emitter, gfx_state::GfxState, Clock};
 use egui_wgpu_backend::wgpu::{self, util::DeviceExt};
@@ -49,7 +49,7 @@ impl GfxState {
         let emitter_buf_content = emitter.create_buffer_content();
 
         let particle_buffer_size = NonZeroU64::new(emitter.particle_buffer_size());
-        let emitter_buffer_size = NonZeroU64::new(emitter_buf_content.len() as u64 * 4);
+        let emitter_buffer_size = emitter_buf_content.cal_buffer_size();
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[

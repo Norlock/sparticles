@@ -128,17 +128,21 @@ impl Camera {
 
     pub fn update(&mut self, gfx_state: &GfxState, clock: &Clock) {
         let queue = &gfx_state.queue;
-        let speed = 2.0;
+        let speed = 3.0;
 
         let move_delta = speed * clock.delta_sec();
-        let rotation = move_delta / 2.0;
+        let rotation = move_delta / 3.0;
+        let pitch_mat = Mat3::from_rotation_x(self.pitch);
+        let yaw_mat = Mat3::from_rotation_y(self.yaw);
+
+        let rotate_vec = |unrotated_vec: Vec3| pitch_mat * yaw_mat * unrotated_vec;
 
         if self.is_forward_pressed {
-            self.position.z -= move_delta;
+            self.position += rotate_vec(Vec3::new(0., 0., -move_delta));
         }
 
         if self.is_backward_pressed {
-            self.position.z += move_delta;
+            self.position += rotate_vec(Vec3::new(0., 0., move_delta));
         }
 
         if self.is_up_pressed {
@@ -150,11 +154,11 @@ impl Camera {
         }
 
         if self.is_left_pressed {
-            self.position.x -= move_delta;
+            self.position += rotate_vec(Vec3::new(-move_delta, 0., 0.));
         }
 
         if self.is_right_pressed {
-            self.position.x += move_delta;
+            self.position += rotate_vec(Vec3::new(move_delta, 0., 0.));
         }
 
         if self.is_rotate_up_pressed {

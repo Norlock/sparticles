@@ -1,38 +1,56 @@
-use crate::{
-    model::{Clock, ComputeState, GfxState},
-    traits::{Animation, CalculateBufferSize, CreateAnimation, CustomShader},
-};
 use egui_wgpu_backend::wgpu;
+use glam::Vec4;
 use wgpu::util::DeviceExt;
 
-pub struct StrayAnimation {
-    pub stray_radians: f32,
+use crate::{
+    model::{Clock, ComputeState, GfxState},
+    traits::*,
+};
+
+pub struct ColorAnimation {
+    pub from_color: Vec4,
+    pub to_color: Vec4,
     pub from_sec: f32,
     pub until_sec: f32,
 }
 
-impl StrayAnimation {
-    fn create_buffer_content(&self) -> [f32; 4] {
-        [self.stray_radians, self.from_sec, self.until_sec, 0.]
+impl ColorAnimation {
+    fn create_buffer_content(&self) -> [f32; 10] {
+        [
+            self.from_color.x,
+            self.from_color.y,
+            self.from_color.z,
+            self.from_color.w,
+            self.to_color.x,
+            self.to_color.y,
+            self.to_color.z,
+            self.to_color.w,
+            self.from_sec,
+            self.until_sec,
+        ]
     }
 }
 
-impl CreateAnimation for StrayAnimation {
+impl CreateAnimation for ColorAnimation {
     fn create_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
         compute: &ComputeState,
     ) -> Box<dyn Animation> {
-        Box::new(StrayAnimationState::new(*self, compute, &gfx_state.device))
+        Box::new(ColorAnimationPipeline::new(
+            *self,
+            compute,
+            &gfx_state.device,
+        ))
     }
 }
 
-struct StrayAnimationState {
+struct ColorAnimationPipeline {
     pipeline: wgpu::ComputePipeline,
-    bind_group: wgpu::BindGroup,
+    animation_bind_group: wgpu::BindGroup,
 }
 
-impl Animation for StrayAnimationState {
+impl Animation for ColorAnimationPipeline {
     fn update(&mut self, _clock: &Clock, _gfx_state: &GfxState) {}
 
     fn compute<'a>(
@@ -43,20 +61,20 @@ impl Animation for StrayAnimationState {
     ) {
         compute_pass.set_pipeline(&self.pipeline);
         compute_pass.set_bind_group(0, &compute.bind_groups[clock.get_bindgroup_nr()], &[]);
-        compute_pass.set_bind_group(1, &self.bind_group, &[]);
+        compute_pass.set_bind_group(1, &self.animation_bind_group, &[]);
         compute_pass.dispatch_workgroups(compute.dispatch_x_count, 1, 1);
     }
 }
 
-impl StrayAnimationState {
-    fn new(animation: StrayAnimation, compute: &ComputeState, device: &wgpu::Device) -> Self {
-        let anim_shader_str = include_str!("../shaders/stray_anim.wgsl");
-        let shader = device.create_shader(anim_shader_str, "Stray animation");
+impl ColorAnimationPipeline {
+    fn new(animation: ColorAnimation, compute: &ComputeState, device: &wgpu::Device) -> Self {
+        let anim_shader_str = include_str!("../shaders/color_anim.wgsl");
+        let shader = device.create_shader(anim_shader_str, "Color animation");
 
         let animation_uniform = animation.create_buffer_content();
 
         let animation_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Stray buffer"),
+            label: Some("Color buffer"),
             contents: bytemuck::cast_slice(&animation_uniform),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
@@ -84,17 +102,17 @@ impl StrayAnimationState {
                 binding: 0,
                 resource: animation_buffer.as_entire_binding(),
             }],
-            label: Some("Stray animation"),
+            label: Some("Color animation"),
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Stray layout"),
+            label: Some("Compute layout"),
             bind_group_layouts: &[&compute.bind_group_layout, &animation_layout],
             push_constant_ranges: &[],
         });
 
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Stray animation pipeline"),
+            label: Some("Color animation pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader,
             entry_point: "main",
@@ -102,7 +120,7 @@ impl StrayAnimationState {
 
         Self {
             pipeline,
-            bind_group: animation_bind_group,
+            animation_bind_group,
         }
     }
 }

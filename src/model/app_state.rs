@@ -1,7 +1,6 @@
 use crate::{
-    animations::{self, stray_animation::StrayAnimation},
     texture::DiffuseTexture,
-    traits::{Animation, CreateAnimation, CustomShader},
+    traits::{Animation, CustomShader},
     InitialiseApp,
 };
 
@@ -42,7 +41,7 @@ impl AppState {
         self.compute.compute(&self.clock, compute_pass);
 
         for anim in self.animations.iter() {
-            anim.compute(&self.compute, compute_pass);
+            anim.compute(&self.clock, &self.compute, compute_pass);
         }
     }
 

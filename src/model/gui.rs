@@ -6,6 +6,7 @@ pub struct GuiState {
     show: bool,
     fps_text: String,
     cpu_time_text: String,
+    elapsed_text: String,
 }
 
 impl GuiState {
@@ -14,6 +15,7 @@ impl GuiState {
             show: init_app.show_gui,
             cpu_time_text: "".to_string(),
             fps_text: "".to_string(),
+            elapsed_text: "".to_string(),
         }
     }
 
@@ -27,14 +29,17 @@ impl GuiState {
         if clock.frame() % 20 == 0 {
             self.cpu_time_text = clock.cpu_time_text();
             self.fps_text = clock.fps_text();
+            self.elapsed_text = clock.elapsed_text();
         }
 
         let fps_text = RichText::new(&self.fps_text).color(Color32::WHITE);
         let cpu_time_text = RichText::new(&self.cpu_time_text).color(Color32::WHITE);
+        let elapsed_text = RichText::new(&self.elapsed_text).color(Color32::WHITE);
 
         egui::Window::new("Emitter settings").show(ctx, |ui| {
             ui.label(fps_text);
             ui.label(cpu_time_text);
+            ui.label(elapsed_text);
 
             if ui.button("Reset camera").clicked() {
                 app_state.camera.reset();
