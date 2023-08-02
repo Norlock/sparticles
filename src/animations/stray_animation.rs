@@ -6,14 +6,14 @@ use egui_wgpu_backend::wgpu;
 use wgpu::util::DeviceExt;
 
 pub struct StrayAnimation {
-    pub stray_factor: f32,
+    pub stray_radians: f32,
     pub from_sec: f32,
     pub until_sec: f32,
 }
 
 impl StrayAnimation {
     fn create_buffer_content(&self) -> [f32; 4] {
-        [self.stray_factor, self.from_sec, self.until_sec, 0.]
+        [self.stray_radians, self.from_sec, self.until_sec, 0.]
     }
 }
 

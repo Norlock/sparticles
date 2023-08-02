@@ -6,39 +6,6 @@ fn is_decayed(par: Particle) -> bool {
     return em.particle_lifetime < par.lifetime;
 }
 
-fn pitch_matrix() -> mat3x3<f32> {
-    let s = sin(em.box_pitch);
-    let c = cos(em.box_pitch);
-
-    return mat3x3<f32>(
-        vec3<f32>(c, s, 0.),
-        vec3<f32>(-s, c, 0.),
-        vec3<f32>(0., 0., 1.),
-    );
-}
-
-fn roll_matrix() -> mat3x3<f32> {
-    let s = sin(em.box_roll);
-    let c = cos(em.box_roll);
-
-    return mat3x3<f32>(
-        vec3<f32>(1., 0., 0.),
-        vec3<f32>(0., c, s),
-        vec3<f32>(0., -s, c),
-    );
-}
-
-fn yaw_matrix() -> mat3x3<f32> {
-    let s = sin(em.box_yaw);
-    let c = cos(em.box_yaw);
-
-    return mat3x3<f32>(
-        vec3<f32>(c, 0., -s),
-        vec3<f32>(0., 1., 0.),
-        vec3<f32>(s, 0., c),
-    );
-}
-
 fn create_particle_position(input_random: f32) -> vec3<f32> {
     let half_width = em.box_width / 2.0;
     let half_height = em.box_height / 2.0;
@@ -53,9 +20,13 @@ fn create_particle_position(input_random: f32) -> vec3<f32> {
     let unrotated_z = random_depth * em.box_depth - half_depth;
 
     let local_pos = vec3<f32>(unrotated_x, unrotated_y, unrotated_z);
-    let local = local_pos * roll_matrix() * yaw_matrix() * pitch_matrix();
+
+    let local_rot = local_pos * 
+        roll_matrix(em.box_pitch) * 
+        yaw_matrix(em.box_yaw) *
+        pitch_matrix(em.box_roll);
     
-    return vec3<f32>(em.box_x, em.box_y, em.box_z) + local;
+    return vec3<f32>(em.box_x, em.box_y, em.box_z) + local_rot;
 }
 
 fn spawn_particle(index: u32) {
