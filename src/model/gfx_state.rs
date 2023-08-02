@@ -1,7 +1,7 @@
 use std::iter;
 
+use crate::CustomEvent;
 use crate::InitialiseApp;
-use crate::{traits::CreateGui, CustomEvent};
 use egui::FontDefinitions;
 use egui_wgpu_backend::{wgpu, RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};

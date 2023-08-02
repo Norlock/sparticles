@@ -132,8 +132,8 @@ impl Camera {
 
         let move_delta = speed * clock.delta_sec();
         let rotation = move_delta / 3.0;
-        let pitch_mat = Mat3::from_rotation_x(self.pitch);
-        let yaw_mat = Mat3::from_rotation_y(self.yaw);
+        let yaw_mat = Mat3::from_rotation_x(self.yaw);
+        let pitch_mat = Mat3::from_rotation_y(self.pitch);
 
         let rotate_vec = |unrotated_vec: Vec3| yaw_mat * pitch_mat * unrotated_vec;
 
@@ -162,19 +162,19 @@ impl Camera {
         }
 
         if self.is_rotate_up_pressed {
-            self.pitch += rotation;
-        }
-
-        if self.is_rotate_down_pressed {
-            self.pitch -= rotation;
-        }
-
-        if self.is_rotate_left_pressed {
             self.yaw += rotation;
         }
 
-        if self.is_rotate_right_pressed {
+        if self.is_rotate_down_pressed {
             self.yaw -= rotation;
+        }
+
+        if self.is_rotate_left_pressed {
+            self.pitch += rotation;
+        }
+
+        if self.is_rotate_right_pressed {
+            self.pitch -= rotation;
         }
 
         let buf_content_raw = self.create_buffer_content();
@@ -229,8 +229,8 @@ impl Camera {
     }
 
     fn create_buffer_content(&self) -> Vec<f32> {
-        let pitch_mat = Mat3::from_rotation_x(self.pitch);
-        let yaw_mat = Mat3::from_rotation_y(self.yaw);
+        let yaw_mat = Mat3::from_rotation_x(self.yaw);
+        let pitch_mat = Mat3::from_rotation_y(self.pitch);
 
         let rotated_view_dir = yaw_mat * pitch_mat * self.view_dir;
 

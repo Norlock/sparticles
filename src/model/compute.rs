@@ -5,13 +5,14 @@ use crate::traits::{CalculateBufferSize, CustomShader};
 use super::{emitter::Emitter, gfx_state::GfxState, Clock};
 use egui_wgpu_backend::wgpu::{self, util::DeviceExt};
 
+#[allow(dead_code)]
 pub struct ComputeState {
     pipeline: wgpu::ComputePipeline,
-    emitter: Emitter,
+    particle_buffers: Vec<wgpu::Buffer>,
+    emitter_buffer: wgpu::Buffer,
 
+    pub emitter: Emitter,
     pub dispatch_x_count: u32,
-    pub particle_buffers: Vec<wgpu::Buffer>,
-    pub emitter_buffer: wgpu::Buffer,
     pub bind_groups: Vec<wgpu::BindGroup>,
     pub bind_group_layout: wgpu::BindGroupLayout,
 }

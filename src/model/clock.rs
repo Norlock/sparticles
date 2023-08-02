@@ -57,12 +57,12 @@ impl Clock {
     }
 
     pub fn elapsed_text(&self) -> String {
-        format!("Elapsed: {:.5}", self.elapsed_sec())
+        format!("Time running: {:.2}", self.elapsed_sec())
     }
 
     pub fn cpu_time_text(&self) -> String {
         // TODO fixen
         let cpu_time = self.delta_sec();
-        format!("CPU time ms: {}", cpu_time * 1000.)
+        format!("CPU time ms: {:.0}", cpu_time * 1000.)
     }
 }

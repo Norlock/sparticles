@@ -18,9 +18,9 @@ struct Emitter {
     box_width: f32,
     box_height: f32,
     box_depth: f32,
+    box_yaw: f32,
     box_pitch: f32,
     box_roll: f32,
-    box_yaw: f32,
     diffusion_width: f32,
     diffusion_depth: f32,
     particle_color_r: f32,
@@ -47,7 +47,7 @@ fn gen_dyn_range(unique: f32, value: f32, elapsed_sec: f32) -> f32 {
     return sin(random(unique, elapsed_sec) * 60.) * value;
 }
 
-fn pitch_matrix(pitch: f32) -> mat3x3<f32> {
+fn yaw_matrix(pitch: f32) -> mat3x3<f32> {
     let s = sin(pitch);
     let c = cos(pitch);
 
@@ -69,7 +69,7 @@ fn roll_matrix(roll: f32) -> mat3x3<f32> {
     );
 }
 
-fn yaw_matrix(yaw: f32) -> mat3x3<f32> {
+fn pitch_matrix(yaw: f32) -> mat3x3<f32> {
     let s = sin(yaw);
     let c = cos(yaw);
 

@@ -12,9 +12,9 @@ pub struct AppState {
     pub camera: Camera,
     pub diffuse_texture: DiffuseTexture,
     pub clock: Clock,
+    pub compute: ComputeState,
 
     render_pipeline: wgpu::RenderPipeline,
-    compute: ComputeState,
     animations: Vec<Box<dyn Animation>>,
 }
 
