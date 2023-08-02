@@ -7,15 +7,13 @@ fn is_decayed(par: Particle) -> bool {
 }
 
 fn create_velocity(input_random: f32) -> vec3<f32> {
-    let velocity = vec3<f32>(0., em.particle_speed, 0.) * 
-        yaw_matrix(em.box_yaw) *
-        pitch_matrix(em.box_pitch) *
-        roll_matrix(em.box_roll); 
+    let diff_width = gen_dyn_range(input_random * 0.12, em.diffusion_width, em.elapsed_sec) / 2.; 
+    let diff_depth = gen_dyn_range(input_random * 0.45, em.diffusion_depth, em.elapsed_sec) / 2.;
 
-    let pitch_diff = gen_dyn_range(input_random * 0.12, em.diffusion_depth, em.elapsed_sec);
-    let yaw_diff = gen_dyn_range(input_random * 0.45, em.diffusion_width, em.elapsed_sec);
-
-    return velocity * yaw_matrix(pitch_diff) * pitch_matrix(yaw_diff);
+    return vec3<f32>(0., em.particle_speed, 0.) * 
+        yaw_matrix(em.box_yaw + diff_width + diff_depth) *
+        pitch_matrix(em.box_pitch + diff_width) *
+        roll_matrix(em.box_roll + diff_depth); 
 }
 
 fn create_particle_position(input_random: f32) -> vec3<f32> {

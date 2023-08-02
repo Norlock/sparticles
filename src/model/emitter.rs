@@ -38,7 +38,7 @@ pub struct Emitter {
 
 impl Emitter {
     pub fn new() -> Self {
-        let spawn_count: u32 = 4;
+        let spawn_count: u32 = 6;
         let particle_lifetime_sec: f32 = 6.;
         let spawn_delay_sec: f32 = 0.5;
 

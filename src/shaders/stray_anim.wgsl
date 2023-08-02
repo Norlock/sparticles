@@ -15,8 +15,12 @@ fn create_stray(input_random: f32, vel: vec3<f32>) -> vec3<f32> {
     
     let pitch_stray = gen_dyn_range(input_random * 0.11, stray, em.elapsed_sec);
     let yaw_stray = gen_dyn_range(input_random * 0.44, stray, em.elapsed_sec);
+    let roll_stray = gen_dyn_range(input_random * 0.342, stray, em.elapsed_sec);
 
-    return vel * yaw_matrix(pitch_stray) * pitch_matrix(yaw_stray);
+    return vel 
+        * yaw_matrix(pitch_stray) 
+        * pitch_matrix(yaw_stray) 
+        * roll_matrix(roll_stray);
 }
 
 @compute

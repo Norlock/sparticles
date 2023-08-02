@@ -1,4 +1,4 @@
-use glam::{Vec3, Vec4};
+use glam::Vec4;
 use sparticles::{
     animations::{ColorAnimation, StrayAnimation},
     traits::FromRGB,
