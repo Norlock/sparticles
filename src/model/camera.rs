@@ -135,7 +135,7 @@ impl Camera {
         let pitch_mat = Mat3::from_rotation_x(self.pitch);
         let yaw_mat = Mat3::from_rotation_y(self.yaw);
 
-        let rotate_vec = |unrotated_vec: Vec3| pitch_mat * yaw_mat * unrotated_vec;
+        let rotate_vec = |unrotated_vec: Vec3| yaw_mat * pitch_mat * unrotated_vec;
 
         if self.is_forward_pressed {
             self.position += rotate_vec(Vec3::new(0., 0., -move_delta));
@@ -232,7 +232,7 @@ impl Camera {
         let pitch_mat = Mat3::from_rotation_x(self.pitch);
         let yaw_mat = Mat3::from_rotation_y(self.yaw);
 
-        let rotated_view_dir = pitch_mat * yaw_mat * self.view_dir;
+        let rotated_view_dir = yaw_mat * pitch_mat * self.view_dir;
 
         let view_mat = Mat4::look_at_rh(self.position, self.position + rotated_view_dir, Vec3::Y);
         let view_proj = OPENGL_TO_WGPU_MATRIX * self.proj * view_mat;

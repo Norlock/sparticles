@@ -6,6 +6,18 @@ fn is_decayed(par: Particle) -> bool {
     return em.particle_lifetime < par.lifetime;
 }
 
+fn create_velocity(input_random: f32) -> vec3<f32> {
+    let velocity = vec3<f32>(0., em.particle_speed, 0.) * 
+        yaw_matrix(em.box_yaw) *
+        pitch_matrix(em.box_pitch) *
+        roll_matrix(em.box_roll); 
+
+    let pitch_diff = gen_dyn_range(input_random * 0.12, em.diffusion_depth, em.elapsed_sec);
+    let yaw_diff = gen_dyn_range(input_random * 0.45, em.diffusion_width, em.elapsed_sec);
+
+    return velocity * yaw_matrix(pitch_diff) * pitch_matrix(yaw_diff);
+}
+
 fn create_particle_position(input_random: f32) -> vec3<f32> {
     let half_width = em.box_width / 2.0;
     let half_height = em.box_height / 2.0;
@@ -22,9 +34,9 @@ fn create_particle_position(input_random: f32) -> vec3<f32> {
     let local_pos = vec3<f32>(unrotated_x, unrotated_y, unrotated_z);
 
     let local_rot = local_pos * 
-        roll_matrix(em.box_pitch) * 
         yaw_matrix(em.box_yaw) *
-        pitch_matrix(em.box_roll);
+        pitch_matrix(em.box_pitch) *
+        roll_matrix(em.box_roll);
     
     return vec3<f32>(em.box_x, em.box_y, em.box_z) + local_rot;
 }
@@ -33,7 +45,6 @@ fn spawn_particle(index: u32) {
     var particle = particles_src[index];
 
     let input_random = f32(index);
-    let particle_position = create_particle_position(input_random);
 
     let particle_color = vec4<f32>(
         em.particle_color_r,
@@ -42,14 +53,8 @@ fn spawn_particle(index: u32) {
         em.particle_color_a,
     );
 
-    let velocity = vec3<f32>(
-        em.particle_velocity_x,
-        em.particle_velocity_y,
-        em.particle_velocity_z,
-    );
-
-    particle.position = particle_position;
-    particle.velocity = velocity;
+    particle.position = create_particle_position(input_random);
+    particle.velocity = create_velocity(input_random);
     particle.color = particle_color;
     particle.size = em.particle_size;
     particle.lifetime = 0.;

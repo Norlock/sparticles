@@ -19,9 +19,14 @@ pub struct Emitter {
     /// pitch, roll, yaw
     pub box_rotation: Vec3,
 
+    /// Diffusion emission in radians
+    diffusion_width_rad: f32,
+    /// Diffusion emission in radians
+    diffusion_depth_rad: f32,
+
     pub particle_color: Vec4,
     pub particle_friction_coefficient: f32,
-    pub particle_velocity: Vec3,
+    pub particle_speed: f32,
     pub particle_size: f32,
     pub particle_mass: f32,
     pub particle_lifetime_sec: f32,
@@ -40,8 +45,11 @@ impl Emitter {
         let spawn_batches_count = (particle_lifetime_sec / spawn_delay_sec).ceil() as u32;
 
         let box_pos = Vec3::ZERO;
-        let box_dim = Vec3::new(2., 0.5, 0.5);
+        let box_dim = Vec3::new(1., 0.5, 1.);
         let box_rot = Vec3::ZERO;
+
+        let diffusion_width_rad = 15f32.to_radians();
+        let diffusion_depth_rad = 15f32.to_radians();
 
         Self {
             spawn_delay_sec: 0.5,
@@ -54,8 +62,11 @@ impl Emitter {
             box_dimensions: box_dim,
             box_rotation: box_rot,
 
+            diffusion_width_rad,
+            diffusion_depth_rad,
+
             particle_mass: 1.,
-            particle_velocity: Vec3::new(0., 15., 0.),
+            particle_speed: 15.,
             particle_lifetime_sec,
             particle_size: 0.1,
             particle_friction_coefficient: 0.95,
@@ -108,13 +119,13 @@ impl Emitter {
             self.box_rotation.x,
             self.box_rotation.y,
             self.box_rotation.z,
+            self.diffusion_width_rad,
+            self.diffusion_depth_rad,
             self.particle_color.x,
             self.particle_color.y,
             self.particle_color.z,
             self.particle_color.w,
-            self.particle_velocity.x,
-            self.particle_velocity.y,
-            self.particle_velocity.z,
+            self.particle_speed,
             self.particle_friction_coefficient,
             self.particle_size,
             self.particle_mass,
