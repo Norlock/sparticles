@@ -32,7 +32,6 @@ pub struct Camera {
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
 
-    speed: f32,
     is_forward_pressed: bool,
     is_backward_pressed: bool,
     is_left_pressed: bool,
@@ -68,7 +67,6 @@ impl Camera {
         let near = 0.1;
         let far = 100.0;
         let fov = (45.0f32).to_radians();
-        let speed = 2.0;
         let aspect = surface_config.aspect();
         let proj = Mat4::perspective_rh(fov, aspect, near, far);
 
@@ -113,7 +111,6 @@ impl Camera {
             buffer,
             bind_group_layout,
             bind_group,
-            speed,
             vertex_positions,
             proj,
             is_forward_pressed: false,
@@ -131,7 +128,9 @@ impl Camera {
 
     pub fn update(&mut self, gfx_state: &GfxState, clock: &Clock) {
         let queue = &gfx_state.queue;
-        let move_delta = self.speed * clock.delta_sec();
+        let speed = 2.0;
+
+        let move_delta = speed * clock.delta_sec();
         let rotation = move_delta / 2.0;
 
         if self.is_forward_pressed {

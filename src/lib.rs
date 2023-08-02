@@ -1,16 +1,23 @@
 use model::GfxState;
 use std::sync::Mutex;
+use traits::CreateAnimation;
 use winit::event::Event::*;
 use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoopProxy;
 use winit::window;
 use winit::window::WindowId;
 
+pub mod animations;
 pub mod debug;
 pub mod model;
 pub mod shaders;
 pub mod texture;
 pub mod traits;
+
+pub struct InitialiseApp {
+    pub show_gui: bool,
+    pub particle_animations: Vec<Box<dyn CreateAnimation>>,
+}
 
 /// A custom event type for the winit app.
 pub enum CustomEvent {
@@ -31,7 +38,7 @@ impl epi::backend::RepaintSignal for ExampleRepaintSignal {
     }
 }
 
-fn main() {
+pub fn start(init_app: InitialiseApp) {
     env_logger::init();
 
     let event_loop = winit::event_loop::EventLoopBuilder::<CustomEvent>::with_user_event().build();
@@ -44,8 +51,8 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
-    let mut gfx_state = pollster::block_on(GfxState::new(window));
-    let mut app_state = gfx_state.create_app_state();
+    let mut gfx_state = pollster::block_on(GfxState::new(window, &init_app));
+    let mut app_state = gfx_state.create_app_state(init_app);
 
     event_loop.run(move |event, _, control_flow| {
         // Pass the winit events to the platform integration.

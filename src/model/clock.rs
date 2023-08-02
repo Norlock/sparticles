@@ -5,8 +5,6 @@ pub struct Clock {
     last_update: Duration,
     current_delta: Duration,
     frame: usize,
-    pub fps_text: String,
-    pub cpu_time_text: String,
 }
 
 impl Clock {
@@ -16,8 +14,6 @@ impl Clock {
             last_update: Duration::ZERO,
             current_delta: Duration::ZERO,
             frame: 0,
-            cpu_time_text: "".to_string(),
-            fps_text: "".to_string(),
         }
     }
 
@@ -26,14 +22,6 @@ impl Clock {
         self.current_delta = now - self.last_update;
         self.last_update = now;
         self.frame += 1;
-
-        if self.frame() % 20 == 0 {
-            let cpu_time = self.delta_sec();
-
-            // TODO cpu_time fixen, begin tot einde van, update render meten
-            self.cpu_time_text = format!("\nCPU time ms: {}", cpu_time * 1000.);
-            self.fps_text = format!("\nFPS: {:.0}", 1. / self.delta_sec());
-        }
     }
 
     pub fn delta(&self) -> Duration {
@@ -62,5 +50,15 @@ impl Clock {
 
     pub fn get_alt_bindgroup_nr(&self) -> usize {
         (self.frame + 1) % 2
+    }
+
+    pub fn fps_text(&self) -> String {
+        format!("\nFPS: {:.0}", 1. / self.delta_sec())
+    }
+
+    pub fn cpu_time_text(&self) -> String {
+        // TODO fixen
+        let cpu_time = self.delta_sec();
+        format!("\nCPU time ms: {}", cpu_time * 1000.)
     }
 }

@@ -1,6 +1,6 @@
 use egui_wgpu_backend::wgpu;
 
-use crate::model::AppState;
+use crate::model::{gfx_state::GfxState, AppState, Clock, ComputeState};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -21,4 +21,18 @@ pub trait ToVecF32 {
 
 pub trait CreateAspect {
     fn aspect(&self) -> f32;
+}
+
+pub trait CreateAnimation {
+    fn create_animation(
+        self: Box<Self>,
+        gfx_state: &GfxState,
+        compute: &ComputeState,
+    ) -> Box<dyn Animation>;
+}
+
+pub trait Animation {
+    fn update(&mut self, clock: &Clock, gfx_state: &GfxState);
+
+    fn compute<'a>(&'a self, compute: &'a ComputeState, compute_pass: &mut wgpu::ComputePass<'a>);
 }

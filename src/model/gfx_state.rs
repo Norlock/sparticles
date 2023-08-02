@@ -1,5 +1,6 @@
 use std::iter;
 
+use crate::InitialiseApp;
 use crate::{traits::CreateGui, CustomEvent};
 use egui::FontDefinitions;
 use egui_wgpu_backend::{wgpu, RenderPass, ScreenDescriptor};
@@ -9,23 +10,21 @@ use winit::event::Event;
 use winit::window;
 
 use super::app_state::AppState;
+use super::gui::GuiState;
 
-/**
-GfxState is used to pass around to others modules.
-See for example camera.rs
-*/
 pub struct GfxState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface_config: wgpu::SurfaceConfiguration,
+    pub window: window::Window,
     platform: Platform,
-    window: window::Window,
     surface: wgpu::Surface,
     render_pass: RenderPass,
+    gui: GuiState,
 }
 
 impl GfxState {
-    pub async fn new<'a>(window: window::Window) -> Self {
+    pub async fn new<'a>(window: window::Window, init_app: &InitialiseApp) -> Self {
         let instance = wgpu::Instance::default();
 
         let surface = unsafe {
@@ -87,6 +86,8 @@ impl GfxState {
 
         let render_pass = RenderPass::new(&device, surface_format, 1);
 
+        let gui = GuiState::new(&init_app);
+
         // TODO use refresh_rate
         //self.window.current_monitor().unwrap().refresh_rate_millihertz();
         Self {
@@ -97,6 +98,7 @@ impl GfxState {
             surface_config,
             render_pass,
             queue,
+            gui,
         }
     }
 
@@ -148,7 +150,7 @@ impl GfxState {
         let ctx = &self.platform.context();
         let paint_jobs = ctx.tessellate(full_output.shapes);
 
-        ctx.create_gui(app_state);
+        self.gui.create_gui(app_state, ctx);
 
         let mut encoder = self
             .device

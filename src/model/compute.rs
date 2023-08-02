@@ -7,9 +7,9 @@ use egui_wgpu_backend::wgpu::{self, util::DeviceExt};
 
 pub struct ComputeState {
     pipeline: wgpu::ComputePipeline,
-    dispatch_x_count: u32,
     emitter: Emitter,
 
+    pub dispatch_x_count: u32,
     pub particle_buffers: Vec<wgpu::Buffer>,
     pub emitter_buffer: wgpu::Buffer,
     pub bind_groups: Vec<wgpu::BindGroup>,

@@ -1,4 +1,9 @@
-use crate::{texture::DiffuseTexture, traits::CustomShader};
+use crate::{
+    animations::{self, stray_animation::StrayAnimation},
+    texture::DiffuseTexture,
+    traits::{Animation, CreateAnimation, CustomShader},
+    InitialiseApp,
+};
 
 use super::{gfx_state::GfxState, Camera, Clock, ComputeState};
 use egui_wgpu_backend::wgpu;
@@ -11,6 +16,7 @@ pub struct AppState {
 
     render_pipeline: wgpu::RenderPipeline,
     compute: ComputeState,
+    animations: Vec<Box<dyn Animation>>,
 }
 
 impl AppState {
@@ -18,6 +24,10 @@ impl AppState {
         self.clock.update();
         self.camera.update(gfx_state, &self.clock);
         self.compute.update(gfx_state, &self.clock);
+
+        for anim in self.animations.iter_mut() {
+            anim.update(&self.clock, gfx_state);
+        }
     }
 
     pub fn window_resize(&mut self, gfx_state: &GfxState) {
@@ -30,6 +40,10 @@ impl AppState {
 
     pub fn compute<'a>(&'a self, compute_pass: &mut wgpu::ComputePass<'a>) {
         self.compute.compute(&self.clock, compute_pass);
+
+        for anim in self.animations.iter() {
+            anim.compute(&self.compute, compute_pass);
+        }
     }
 
     pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
@@ -39,26 +53,31 @@ impl AppState {
         render_pass.set_bind_group(0, &self.diffuse_texture.bind_group, &[]);
         render_pass.set_bind_group(1, &self.camera.bind_group, &[]);
         render_pass.set_bind_group(2, &self.compute.bind_groups[nr], &[]);
-        // TODO look at maybe multiple draws if really big ??
         render_pass.draw(0..4, 0..self.compute.particle_count() as u32);
     }
 }
 
 impl GfxState {
-    pub fn create_app_state(&self) -> AppState {
+    pub fn create_app_state(&self, init_app: InitialiseApp) -> AppState {
         let clock = Clock::new();
         let camera = Camera::new(&self);
         let diffuse_texture = self.create_diffuse_texture();
-        let compute_state = self.create_compute_state();
-        let render_pipeline =
-            self.create_render_pipeline(&diffuse_texture, &camera, &compute_state);
+        let compute = self.create_compute_state();
+        let render_pipeline = self.create_render_pipeline(&diffuse_texture, &camera, &compute);
+
+        let animations: Vec<Box<dyn Animation>> = init_app
+            .particle_animations
+            .into_iter()
+            .map(|anim| anim.create_animation(&self, &compute))
+            .collect();
 
         AppState {
             clock,
             camera,
             render_pipeline,
             diffuse_texture,
-            compute: compute_state,
+            compute,
+            animations,
         }
     }
 
