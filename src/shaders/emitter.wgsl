@@ -11,8 +11,8 @@ fn create_velocity(input_random: f32) -> vec3<f32> {
     let diff_depth = gen_dyn_range(input_random * 0.45, em.diffusion_depth, em.elapsed_sec) / 2.;
 
     return vec3<f32>(0., em.particle_speed, 0.) * 
-        yaw_matrix(em.box_yaw + diff_width + diff_depth) *
-        pitch_matrix(em.box_pitch + diff_width) *
+        yaw_matrix(em.box_yaw + diff_width) *
+        pitch_matrix(em.box_pitch) *
         roll_matrix(em.box_roll + diff_depth); 
 }
 

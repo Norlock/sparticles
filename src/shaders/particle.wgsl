@@ -73,7 +73,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let normal = vec3<f32>(x, y, sqrt(1. - x * x - y * y));
     let world_normal = vec4<f32>(normal, 0.) * camera.view;
 
-    let light_pos = vec3<f32>(-0., 0., 0.);
+    let light_pos = vec3<f32>(0., 5., 10.);
     let light_dir = normalize(light_pos - in.world_space.xyz);
     let view_dir = normalize(camera.view_pos.xyz - in.world_space.xyz);
     let half_dir = normalize(view_dir + light_dir);
