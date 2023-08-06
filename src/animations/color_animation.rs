@@ -37,20 +37,16 @@ impl CreateAnimation for ColorAnimation {
         gfx_state: &GfxState,
         compute: &ComputeState,
     ) -> Box<dyn Animation> {
-        Box::new(ColorAnimationPipeline::new(
-            *self,
-            compute,
-            &gfx_state.device,
-        ))
+        Box::new(ColorAnimationState::new(*self, compute, &gfx_state.device))
     }
 }
 
-struct ColorAnimationPipeline {
+struct ColorAnimationState {
     pipeline: wgpu::ComputePipeline,
     animation_bind_group: wgpu::BindGroup,
 }
 
-impl Animation for ColorAnimationPipeline {
+impl Animation for ColorAnimationState {
     fn update(&mut self, _clock: &Clock, _gfx_state: &GfxState) {}
 
     fn compute<'a>(
@@ -66,7 +62,7 @@ impl Animation for ColorAnimationPipeline {
     }
 }
 
-impl ColorAnimationPipeline {
+impl ColorAnimationState {
     fn new(animation: ColorAnimation, compute: &ComputeState, device: &wgpu::Device) -> Self {
         let anim_shader_str = include_str!("../shaders/color_anim.wgsl");
         let shader = device.create_shader(anim_shader_str, "Color animation");
