@@ -1,26 +1,26 @@
 use glam::{Vec3, Vec4};
 use sparticles::{
-    animations::{ColorAnimation, GravityAnimation, GravityAnimationOptions, StrayAnimation},
+    animations::{ColorUniform, GravityUniform, GravityUniformOptions, StrayUniform},
     model::{emitter::Emitter, LifeCycle},
     traits::FromRGB,
 };
 
 #[allow(dead_code, unused)]
 fn main() {
-    let stray_animation = StrayAnimation {
+    let stray_animation = StrayUniform {
         from_sec: 0.,
         until_sec: 100.,
         stray_radians: 5f32.to_radians(),
     };
 
-    let color_animation = ColorAnimation {
+    let color_animation = ColorUniform {
         from_sec: 0.,
         until_sec: 0.5,
         from_color: Vec4::from_rgb(0, 255, 0),
         to_color: Vec4::from_rgb(0, 0, 255),
     };
 
-    let gravity_animation = GravityAnimation::new(GravityAnimationOptions {
+    let gravity_animation = GravityUniform::new(GravityUniformOptions {
         life_cycle: LifeCycle {
             from_sec: 0.,
             until_sec: 6.,
@@ -36,11 +36,11 @@ fn main() {
     sparticles::start(sparticles::InitialiseApp {
         emitter: Emitter::new(),
         show_gui: true,
-        particle_animations: vec![],
-        //particle_animations: vec![
-        //Box::new(stray_animation),
-        //Box::new(color_animation),
-        //Box::new(gravity_animation),
-        //],
+        //particle_animations: vec![],
+        particle_animations: vec![
+            Box::new(stray_animation),
+            Box::new(color_animation),
+            Box::new(gravity_animation),
+        ],
     });
 }

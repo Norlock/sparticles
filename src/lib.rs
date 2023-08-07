@@ -11,6 +11,7 @@ use winit::window::WindowId;
 
 pub mod animations;
 pub mod debug;
+pub mod math;
 pub mod model;
 pub mod shaders;
 pub mod texture;
@@ -67,7 +68,8 @@ pub fn start(init_app: InitialiseApp) {
 
         match event {
             RedrawRequested(window_id) if do_exec(window_id) => {
-                app_state.update(&gfx_state);
+                app_state.update(&gfx_state, &gui_state);
+                // todo geen mut app state meegeven
                 gfx_state.render(&mut app_state, &mut gui_state);
             }
             MainEventsCleared | UserEvent(CustomEvent::RequestRedraw) => {

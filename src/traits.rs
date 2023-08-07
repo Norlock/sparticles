@@ -2,7 +2,7 @@ use std::num::NonZeroU64;
 
 use egui_wgpu_backend::wgpu;
 
-use crate::model::{gfx_state::GfxState, AppState, Clock, ComputeState};
+use crate::model::{gfx_state::GfxState, AppState, Clock, ParticleState};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -32,7 +32,7 @@ pub trait CreateAnimation {
     fn create_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        compute: &ComputeState,
+        particle: &ParticleState,
     ) -> Box<dyn Animation>;
 }
 
@@ -41,24 +41,19 @@ pub trait Animation {
 
     fn compute<'a>(
         &'a self,
+        particle: &'a ParticleState,
         clock: &Clock,
-        compute: &'a ComputeState,
         compute_pass: &mut wgpu::ComputePass<'a>,
     );
+
+    fn create_new(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation>;
 }
 
 pub trait CalculateBufferSize {
     fn cal_buffer_size(&self) -> Option<NonZeroU64>;
 }
 
-impl CalculateBufferSize for Vec<f32> {
-    fn cal_buffer_size(&self) -> Option<NonZeroU64> {
-        wgpu::BufferSize::new(self.len() as u64 * 4)
-    }
-}
-
-impl CalculateBufferSize for [f32] {
-    fn cal_buffer_size(&self) -> Option<NonZeroU64> {
-        wgpu::BufferSize::new(self.len() as u64 * 4)
-    }
+pub trait HandleAngles {
+    fn to_degrees(&self) -> Self;
+    fn to_radians(&self) -> Self;
 }

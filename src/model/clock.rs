@@ -44,10 +44,6 @@ impl Clock {
         self.frame
     }
 
-    pub fn reset_frame(&mut self) {
-        self.frame = 0;
-    }
-
     pub fn get_bindgroup_nr(&self) -> usize {
         (self.frame) % 2
     }

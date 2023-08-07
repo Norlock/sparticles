@@ -1,7 +1,7 @@
-use crate::traits::FromRGB;
+use crate::traits::{FromRGB, HandleAngles};
 use glam::{Vec3, Vec4};
 
-use super::Clock;
+use super::{gui_state, Clock, GuiState};
 
 const PARTICLE_BUFFER_SIZE: u64 = 16 * 4;
 
@@ -82,6 +82,20 @@ impl Emitter {
             iteration: 1000,
             elapsed_sec: 0.,
             delta_sec: 0.0,
+        }
+    }
+
+    pub fn handle_gui(&mut self, gui_state: &GuiState) {
+        self.box_rotation = gui_state.box_rotation_deg.to_radians();
+        self.box_dimensions = gui_state.box_dimensions;
+
+        self.diffusion_width_rad = gui_state.diff_width_deg.to_radians();
+        self.diffusion_depth_rad = gui_state.diff_depth_deg.to_radians();
+
+        if gui_state.update_spawn {
+            self.spawn_count = gui_state.spawn_count;
+            self.spawn_delay_sec = gui_state.spawn_delay_sec;
+            self.particle_lifetime_sec = gui_state.particle_lifetime_sec;
         }
     }
 

@@ -3,11 +3,11 @@ use glam::Vec3;
 use wgpu::util::DeviceExt;
 
 use crate::model::clock::Clock;
-use crate::model::{ComputeState, GfxState, LifeCycle};
+use crate::model::{GfxState, LifeCycle, ParticleState};
 use crate::traits::*;
 
-#[derive(Debug)]
-pub struct GravityAnimation {
+#[derive(Debug, Clone, Copy)]
+pub struct GravityUniform {
     gravitational_force: f32,
     dead_zone: f32,
     mass: f32,
@@ -18,7 +18,7 @@ pub struct GravityAnimation {
     current_pos: Vec3,
 }
 
-pub struct GravityAnimationOptions {
+pub struct GravityUniformOptions {
     /// In newton
     pub gravitational_force: f32,
     /// Use to exclude extreme gravitational pulls, e.g. 20.
@@ -29,8 +29,8 @@ pub struct GravityAnimationOptions {
     pub end_pos: Vec3,
 }
 
-impl GravityAnimation {
-    pub fn new(props: GravityAnimationOptions) -> Self {
+impl GravityUniform {
+    pub fn new(props: GravityUniformOptions) -> Self {
         Self {
             gravitational_force: props.gravitational_force,
             dead_zone: props.dead_zone,
@@ -66,63 +66,65 @@ impl GravityAnimation {
     }
 }
 
-impl CreateAnimation for GravityAnimation {
+impl CreateAnimation for GravityUniform {
     fn create_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        compute: &ComputeState,
+        particle: &ParticleState,
     ) -> Box<dyn Animation> {
-        Box::new(GravityAnimationState::new(
-            *self,
-            compute,
-            &gfx_state.device,
-        ))
+        Box::new(GravityAnimation::new(*self, particle, &gfx_state.device))
     }
 }
 
-pub struct GravityAnimationState {
+pub struct GravityAnimation {
     pipeline: wgpu::ComputePipeline,
-    animation: GravityAnimation,
+    uniform: GravityUniform,
     buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
 }
 
-impl Animation for GravityAnimationState {
+impl Animation for GravityAnimation {
     fn compute<'a>(
         &'a self,
+        particle: &'a ParticleState,
         clock: &Clock,
-        compute: &'a ComputeState,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        if !self.animation.should_animate {
+        if !self.uniform.should_animate {
             return;
         }
 
+        let nr = clock.get_bindgroup_nr();
+
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &compute.bind_groups[clock.get_bindgroup_nr()], &[]);
+        compute_pass.set_bind_group(0, &particle.bind_groups[nr], &[]);
         compute_pass.set_bind_group(1, &self.bind_group, &[]);
-        compute_pass.dispatch_workgroups(compute.dispatch_x_count, 1, 1);
+        compute_pass.dispatch_workgroups(particle.dispatch_x_count, 1, 1);
     }
 
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState) {
-        self.animation.update(&clock);
+        self.uniform.update(&clock);
 
-        if self.animation.should_animate {
-            let buffer_content = self.animation.create_buffer_content();
+        if self.uniform.should_animate {
+            let buffer_content = self.uniform.create_buffer_content();
 
             gfx_state
                 .queue
                 .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&buffer_content));
         }
     }
+
+    fn create_new(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation> {
+        Box::new(Self::new(self.uniform, particle, &gfx_state.device))
+    }
 }
 
-impl GravityAnimationState {
-    fn new(animation: GravityAnimation, compute: &ComputeState, device: &wgpu::Device) -> Self {
+impl GravityAnimation {
+    fn new(uniform: GravityUniform, particle: &ParticleState, device: &wgpu::Device) -> Self {
         let shader_str_raw = include_str!("../shaders/gravity_anim.wgsl");
         let shader = device.create_shader(shader_str_raw, "Gravity animation");
 
-        let buffer_content = animation.create_buffer_content();
+        let buffer_content = uniform.create_buffer_content();
 
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Gravitational buffer"),
@@ -158,7 +160,7 @@ impl GravityAnimationState {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Gravity animation layout"),
-            bind_group_layouts: &[&compute.bind_group_layout, &animation_layout],
+            bind_group_layouts: &[&particle.bind_group_layout, &animation_layout],
             push_constant_ranges: &[],
         });
 
@@ -171,7 +173,7 @@ impl GravityAnimationState {
 
         Self {
             pipeline,
-            animation,
+            uniform,
             buffer,
             bind_group,
         }

@@ -3,18 +3,19 @@ use glam::Vec4;
 use wgpu::util::DeviceExt;
 
 use crate::{
-    model::{Clock, ComputeState, GfxState},
+    model::{Clock, GfxState, ParticleState},
     traits::*,
 };
 
-pub struct ColorAnimation {
+#[derive(Clone, Copy)]
+pub struct ColorUniform {
     pub from_color: Vec4,
     pub to_color: Vec4,
     pub from_sec: f32,
     pub until_sec: f32,
 }
 
-impl ColorAnimation {
+impl ColorUniform {
     fn create_buffer_content(&self) -> [f32; 10] {
         [
             self.from_color.x,
@@ -31,43 +32,50 @@ impl ColorAnimation {
     }
 }
 
-impl CreateAnimation for ColorAnimation {
+impl CreateAnimation for ColorUniform {
     fn create_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        compute: &ComputeState,
+        particle: &ParticleState,
     ) -> Box<dyn Animation> {
-        Box::new(ColorAnimationState::new(*self, compute, &gfx_state.device))
+        Box::new(ColorAnimation::new(*self, particle, &gfx_state.device))
     }
 }
 
-struct ColorAnimationState {
+struct ColorAnimation {
     pipeline: wgpu::ComputePipeline,
     animation_bind_group: wgpu::BindGroup,
+    uniform: ColorUniform,
 }
 
-impl Animation for ColorAnimationState {
+impl Animation for ColorAnimation {
     fn update(&mut self, _clock: &Clock, _gfx_state: &GfxState) {}
 
     fn compute<'a>(
         &'a self,
+        particle: &'a ParticleState,
         clock: &Clock,
-        compute: &'a ComputeState,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
+        let nr = clock.get_bindgroup_nr();
+
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &compute.bind_groups[clock.get_bindgroup_nr()], &[]);
+        compute_pass.set_bind_group(0, &particle.bind_groups[nr], &[]);
         compute_pass.set_bind_group(1, &self.animation_bind_group, &[]);
-        compute_pass.dispatch_workgroups(compute.dispatch_x_count, 1, 1);
+        compute_pass.dispatch_workgroups(particle.dispatch_x_count, 1, 1);
+    }
+
+    fn create_new(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation> {
+        Box::new(Self::new(self.uniform, particle, &gfx_state.device))
     }
 }
 
-impl ColorAnimationState {
-    fn new(animation: ColorAnimation, compute: &ComputeState, device: &wgpu::Device) -> Self {
+impl ColorAnimation {
+    fn new(uniform: ColorUniform, particle: &ParticleState, device: &wgpu::Device) -> Self {
         let anim_shader_str = include_str!("../shaders/color_anim.wgsl");
         let shader = device.create_shader(anim_shader_str, "Color animation");
 
-        let animation_uniform = animation.create_buffer_content();
+        let animation_uniform = uniform.create_buffer_content();
 
         let animation_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Color buffer"),
@@ -103,7 +111,7 @@ impl ColorAnimationState {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Compute layout"),
-            bind_group_layouts: &[&compute.bind_group_layout, &animation_layout],
+            bind_group_layouts: &[&particle.bind_group_layout, &animation_layout],
             push_constant_ranges: &[],
         });
 
@@ -117,6 +125,7 @@ impl ColorAnimationState {
         Self {
             pipeline,
             animation_bind_group,
+            uniform,
         }
     }
 }

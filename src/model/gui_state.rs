@@ -1,26 +1,29 @@
-use super::{emitter::SpawnOptions, AppState, GfxState};
+use super::{AppState, Emitter};
+use crate::traits::HandleAngles;
 use egui::{Color32, Context, RichText, Slider, Ui};
 use glam::Vec3;
 
 pub struct GuiState {
-    show: bool,
     fps_text: String,
     cpu_time_text: String,
     elapsed_text: String,
     particle_count_text: String,
-    box_yaw_deg: f32,
-    box_pitch_deg: f32,
-    box_roll_deg: f32,
-    diff_width_deg: f32,
-    diff_depth_deg: f32,
-    spawn_count: u32,
-    spawn_delay_sec: f32,
-    particle_lifetime_sec: f32,
+    pub spawn_count: u32,
+    pub spawn_delay_sec: f32,
+    pub particle_lifetime_sec: f32,
+    pub show: bool,
+
+    pub box_rotation_deg: Vec3,
+    pub box_dimensions: Vec3,
+    pub diff_width_deg: f32,
+    pub diff_depth_deg: f32,
+    pub update_spawn: bool,
+    pub reset_camera: bool,
 }
 
 impl GuiState {
     pub fn new(show_gui: bool, app_state: &AppState) -> Self {
-        let emitter = &app_state.compute.emitter;
+        let emitter = &app_state.particle.emitter;
         let spawn_options = emitter.get_spawn_options();
 
         Self {
@@ -29,20 +32,21 @@ impl GuiState {
             fps_text: "".to_string(),
             elapsed_text: "".to_string(),
             particle_count_text: "".to_string(),
-            box_yaw_deg: emitter.box_rotation.x.to_degrees(),
-            box_pitch_deg: emitter.box_rotation.y.to_degrees(),
-            box_roll_deg: emitter.box_rotation.z.to_degrees(),
+            box_rotation_deg: emitter.box_rotation.to_degrees(),
+            box_dimensions: emitter.box_dimensions,
             diff_width_deg: emitter.diffusion_width_rad.to_degrees(),
             diff_depth_deg: emitter.diffusion_depth_rad.to_degrees(),
             spawn_count: spawn_options.spawn_count,
             spawn_delay_sec: spawn_options.spawn_delay_sec,
             particle_lifetime_sec: spawn_options.particle_lifetime_sec,
+            update_spawn: false,
+            reset_camera: false,
         }
     }
 
     fn update_labels(&mut self, app_state: &AppState) {
         let clock = &app_state.clock;
-        let compute = &app_state.compute;
+        let compute = &app_state.particle;
 
         if clock.frame() % 20 != 0 {
             return;
@@ -54,7 +58,7 @@ impl GuiState {
         self.particle_count_text = compute.particle_count_text();
     }
 
-    pub fn update(&mut self, app_state: &mut AppState, gfx_state: &GfxState, ctx: &Context) {
+    pub fn update(&mut self, app_state: &AppState, ctx: &Context) {
         if !self.show {
             return;
         }
@@ -62,22 +66,18 @@ impl GuiState {
         self.update_labels(app_state);
 
         egui::Window::new("Emitter settings").show(&ctx, |ui| {
-            let emitter = &mut app_state.compute.emitter;
-
             create_label(ui, &self.fps_text);
             create_label(ui, &self.cpu_time_text);
             create_label(ui, &self.elapsed_text);
             create_label(ui, &self.particle_count_text);
 
-            if ui.button("Reset camera").clicked() {
-                app_state.camera.reset();
-            }
+            self.reset_camera = ui.button("Reset camera").clicked();
 
             ui.add_space(5.0);
 
-            ui.add(Slider::new(&mut self.box_yaw_deg, 0.0..=360.0).text("Box yaw"));
-            ui.add(Slider::new(&mut self.box_pitch_deg, 0.0..=360.0).text("Box pitch"));
-            ui.add(Slider::new(&mut self.box_roll_deg, 0.0..=360.0).text("Box roll"));
+            ui.add(Slider::new(&mut self.box_rotation_deg.x, 0.0..=360.0).text("Box yaw"));
+            ui.add(Slider::new(&mut self.box_rotation_deg.y, 0.0..=360.0).text("Box pitch"));
+            ui.add(Slider::new(&mut self.box_rotation_deg.z, 0.0..=360.0).text("Box roll"));
             ui.add(Slider::new(&mut self.diff_width_deg, 0.0..=360.0).text("Diffusion width"));
             ui.add(Slider::new(&mut self.diff_depth_deg, 0.0..=360.0).text("Diffusion depth"));
 
@@ -85,9 +85,9 @@ impl GuiState {
             create_label(ui, "Box dimensions (w, h, d)");
 
             ui.horizontal(|ui| {
-                create_drag_value(ui, &mut emitter.box_dimensions.x);
-                create_drag_value(ui, &mut emitter.box_dimensions.y);
-                create_drag_value(ui, &mut emitter.box_dimensions.z);
+                create_drag_value(ui, &mut self.box_dimensions.x);
+                create_drag_value(ui, &mut self.box_dimensions.y);
+                create_drag_value(ui, &mut self.box_dimensions.z);
             });
 
             ui.add_space(5.0);
@@ -111,31 +111,10 @@ impl GuiState {
 
             ui.add_space(5.0);
 
-            if ui.button("Update spawn settings").clicked() {
-                app_state.new_compute_state(
-                    gfx_state,
-                    SpawnOptions {
-                        spawn_count: self.spawn_count,
-                        spawn_delay_sec: self.spawn_delay_sec,
-                        particle_lifetime_sec: self.particle_lifetime_sec,
-                    },
-                );
-            }
+            self.update_spawn = ui.button("Update spawn settings").clicked();
 
             ui.add_space(5.0);
         });
-
-        let emitter = &mut app_state.compute.emitter;
-        emitter.box_rotation = Vec3::new(
-            self.box_yaw_deg.to_radians(),
-            self.box_pitch_deg.to_radians(),
-            self.box_roll_deg.to_radians(),
-        );
-
-        emitter.diffusion_width_rad = self.diff_width_deg.to_radians();
-        emitter.diffusion_depth_rad = self.diff_depth_deg.to_radians();
-
-        return;
     }
 }
 

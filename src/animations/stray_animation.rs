@@ -1,59 +1,65 @@
 use crate::{
-    model::{Clock, ComputeState, GfxState},
+    model::{Clock, GfxState, ParticleState},
     traits::{Animation, CalculateBufferSize, CreateAnimation, CustomShader},
 };
 use egui_wgpu_backend::wgpu;
 use wgpu::util::DeviceExt;
 
-pub struct StrayAnimation {
+#[derive(Clone, Copy)]
+pub struct StrayUniform {
     pub stray_radians: f32,
     pub from_sec: f32,
     pub until_sec: f32,
 }
 
-impl StrayAnimation {
+impl StrayUniform {
     fn create_buffer_content(&self) -> [f32; 4] {
         [self.stray_radians, self.from_sec, self.until_sec, 0.]
     }
 }
 
-impl CreateAnimation for StrayAnimation {
+impl CreateAnimation for StrayUniform {
     fn create_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        compute: &ComputeState,
+        particle: &ParticleState,
     ) -> Box<dyn Animation> {
-        Box::new(StrayAnimationState::new(*self, compute, &gfx_state.device))
+        Box::new(StrayAnimation::new(*self, particle, &gfx_state.device))
     }
 }
 
-struct StrayAnimationState {
+struct StrayAnimation {
     pipeline: wgpu::ComputePipeline,
+    uniform: StrayUniform,
     bind_group: wgpu::BindGroup,
 }
 
-impl Animation for StrayAnimationState {
+impl Animation for StrayAnimation {
     fn update(&mut self, _clock: &Clock, _gfx_state: &GfxState) {}
 
     fn compute<'a>(
         &'a self,
+        particle: &'a ParticleState,
         clock: &Clock,
-        compute: &'a ComputeState,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &compute.bind_groups[clock.get_bindgroup_nr()], &[]);
+        compute_pass.set_bind_group(0, &particle.bind_groups[clock.get_bindgroup_nr()], &[]);
         compute_pass.set_bind_group(1, &self.bind_group, &[]);
-        compute_pass.dispatch_workgroups(compute.dispatch_x_count, 1, 1);
+        compute_pass.dispatch_workgroups(particle.dispatch_x_count, 1, 1);
+    }
+
+    fn create_new(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation> {
+        Box::new(Self::new(self.uniform, particle, &gfx_state.device))
     }
 }
 
-impl StrayAnimationState {
-    fn new(animation: StrayAnimation, compute: &ComputeState, device: &wgpu::Device) -> Self {
+impl StrayAnimation {
+    fn new(uniform: StrayUniform, particle: &ParticleState, device: &wgpu::Device) -> Self {
         let anim_shader_str = include_str!("../shaders/stray_anim.wgsl");
         let shader = device.create_shader(anim_shader_str, "Stray animation");
 
-        let animation_uniform = animation.create_buffer_content();
+        let animation_uniform = uniform.create_buffer_content();
 
         let animation_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Stray buffer"),
@@ -78,7 +84,7 @@ impl StrayAnimationState {
             label: None,
         });
 
-        let animation_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &animation_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -89,7 +95,7 @@ impl StrayAnimationState {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Stray layout"),
-            bind_group_layouts: &[&compute.bind_group_layout, &animation_layout],
+            bind_group_layouts: &[&particle.bind_group_layout, &animation_layout],
             push_constant_ranges: &[],
         });
 
@@ -102,7 +108,8 @@ impl StrayAnimationState {
 
         Self {
             pipeline,
-            bind_group: animation_bind_group,
+            bind_group,
+            uniform,
         }
     }
 }

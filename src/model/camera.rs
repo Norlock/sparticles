@@ -6,7 +6,7 @@ use crate::traits::{CreateAspect, ToVecF32};
 
 use super::{
     gfx_state::{self, GfxState},
-    Clock,
+    Clock, GuiState,
 };
 
 #[rustfmt::skip]
@@ -48,13 +48,6 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn reset(&mut self) {
-        self.pitch = 0.;
-        self.yaw = 0.;
-        self.position = glam::Vec3::new(0., 0., 10.);
-        self.view_dir = glam::Vec3::new(0., 0., -10.);
-    }
-
     pub fn new(gfx_state: &gfx_state::GfxState) -> Self {
         let device = &gfx_state.device;
         let surface_config = &gfx_state.surface_config;
@@ -123,6 +116,15 @@ impl Camera {
             is_rotate_up_pressed: false,
             is_down_pressed: false,
             is_rotate_down_pressed: false,
+        }
+    }
+
+    pub fn handle_gui(&mut self, gui_state: &GuiState) {
+        if gui_state.reset_camera {
+            self.pitch = 0.;
+            self.yaw = 0.;
+            self.position = glam::Vec3::new(0., 0., 10.);
+            self.view_dir = glam::Vec3::new(0., 0., -10.);
         }
     }
 
