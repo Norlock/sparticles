@@ -1,6 +1,5 @@
-use super::AppState;
-use crate::InitialiseApp;
-use egui::{Color32, Context, RichText, Ui};
+use super::{emitter::SpawnOptions, AppState, GfxState};
+use egui::{Color32, Context, RichText, Slider, Ui};
 use glam::Vec3;
 
 pub struct GuiState {
@@ -13,12 +12,15 @@ pub struct GuiState {
     box_roll: f32,
     diff_width: f32,
     diff_depth: f32,
+    spawn_options: SpawnOptions,
 }
 
 impl GuiState {
-    pub fn new(init_app: &InitialiseApp) -> Self {
+    pub fn new(show_gui: bool, app_state: &AppState) -> Self {
+        let emitter = &app_state.compute.emitter;
+
         Self {
-            show: init_app.show_gui,
+            show: show_gui,
             cpu_time_text: "".to_string(),
             fps_text: "".to_string(),
             elapsed_text: "".to_string(),
@@ -27,6 +29,7 @@ impl GuiState {
             box_roll: 0.,
             diff_width: 0.,
             diff_depth: 0.,
+            spawn_options: emitter.get_spawn_options(),
         }
     }
 
@@ -42,16 +45,16 @@ impl GuiState {
         self.elapsed_text = clock.elapsed_text();
     }
 
-    pub fn create_gui(&mut self, app_state: &mut AppState, ctx: &Context) {
+    pub fn update(&mut self, app_state: &mut AppState, gfx_state: &GfxState, ctx: &Context) {
         if !self.show {
             return;
         }
 
         self.update_labels(app_state);
 
-        let emitter = &mut app_state.compute.emitter;
+        egui::Window::new("Emitter settings").show(&ctx, |ui| {
+            let emitter = &mut app_state.compute.emitter;
 
-        egui::Window::new("Emitter settings").show(ctx, |ui| {
             create_label(ui, &self.fps_text);
             create_label(ui, &self.cpu_time_text);
             create_label(ui, &self.elapsed_text);
@@ -59,13 +62,14 @@ impl GuiState {
             if ui.button("Reset camera").clicked() {
                 app_state.camera.reset();
             }
+
             ui.add_space(5.0);
 
-            ui.add(egui::Slider::new(&mut self.box_yaw, 0.0..=360.0).text("Box yaw"));
-            ui.add(egui::Slider::new(&mut self.box_pitch, 0.0..=360.0).text("Box pitch"));
-            ui.add(egui::Slider::new(&mut self.box_roll, 0.0..=360.0).text("Box roll"));
-            ui.add(egui::Slider::new(&mut self.diff_width, 0.0..=360.0).text("Diffusion width"));
-            ui.add(egui::Slider::new(&mut self.diff_depth, 0.0..=360.0).text("Diffusion depth"));
+            ui.add(Slider::new(&mut self.box_yaw, 0.0..=360.0).text("Box yaw"));
+            ui.add(Slider::new(&mut self.box_pitch, 0.0..=360.0).text("Box pitch"));
+            ui.add(Slider::new(&mut self.box_roll, 0.0..=360.0).text("Box roll"));
+            ui.add(Slider::new(&mut self.diff_width, 0.0..=360.0).text("Diffusion width"));
+            ui.add(Slider::new(&mut self.diff_depth, 0.0..=360.0).text("Diffusion depth"));
 
             ui.add_space(5.0);
             create_label(ui, "Box dimensions (w, h, d)");
@@ -75,8 +79,34 @@ impl GuiState {
                 create_drag_value(ui, &mut emitter.box_dimensions.y);
                 create_drag_value(ui, &mut emitter.box_dimensions.z);
             });
+
+            ui.add_space(5.0);
+            create_label(ui, "Spawn settings");
+
+            let sp_opt = &mut self.spawn_options;
+
+            ui.add(
+                egui::Slider::new(&mut sp_opt.particle_lifetime_sec, 0.0..=100.0)
+                    .drag_value_speed(0.1)
+                    .step_by(0.1)
+                    .text("Particle lifetime (sec)"),
+            );
+
+            ui.add(
+                egui::Slider::new(&mut sp_opt.spawn_delay_sec, 0.0..=100.0)
+                    .drag_value_speed(0.1)
+                    .step_by(0.1)
+                    .text("Spawn delay (sec)"),
+            );
+
+            ui.add(egui::Slider::new(&mut sp_opt.spawn_count, 0..=1000).text("Spawn count"));
+
+            if ui.button("Update spawn settings").clicked() {
+                app_state.update_compute_state(gfx_state, sp_opt);
+            }
         });
 
+        let emitter = &mut app_state.compute.emitter;
         emitter.box_rotation = Vec3::new(
             self.box_yaw.to_radians(),
             self.box_pitch.to_radians(),
@@ -85,6 +115,8 @@ impl GuiState {
 
         emitter.diffusion_width_rad = self.diff_width.to_radians();
         emitter.diffusion_depth_rad = self.diff_depth.to_radians();
+
+        return;
     }
 }
 

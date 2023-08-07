@@ -1,7 +1,7 @@
 use std::iter;
 
 use crate::CustomEvent;
-use crate::InitialiseApp;
+use egui::Context;
 use egui::FontDefinitions;
 use egui_wgpu_backend::{wgpu, RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
@@ -10,7 +10,8 @@ use winit::event::Event;
 use winit::window;
 
 use super::app_state::AppState;
-use super::gui::GuiState;
+use super::gui_state;
+use super::GuiState;
 
 pub struct GfxState {
     pub device: wgpu::Device,
@@ -20,11 +21,10 @@ pub struct GfxState {
     platform: Platform,
     surface: wgpu::Surface,
     render_pass: RenderPass,
-    gui: GuiState,
 }
 
 impl GfxState {
-    pub async fn new<'a>(window: window::Window, init_app: &InitialiseApp) -> Self {
+    pub async fn new<'a>(window: window::Window) -> Self {
         let instance = wgpu::Instance::default();
 
         let surface = unsafe {
@@ -86,8 +86,6 @@ impl GfxState {
 
         let render_pass = RenderPass::new(&device, surface_format, 1);
 
-        let gui = GuiState::new(&init_app);
-
         // TODO use refresh_rate
         //self.window.current_monitor().unwrap().refresh_rate_millihertz();
         Self {
@@ -98,7 +96,6 @@ impl GfxState {
             surface_config,
             render_pass,
             queue,
-            gui,
         }
     }
 
@@ -122,7 +119,7 @@ impl GfxState {
         }
     }
 
-    pub fn render(&mut self, app_state: &mut AppState) {
+    pub fn render(&mut self, app_state: &mut AppState, gui_state: &mut GuiState) {
         // Need to update for animations
         self.platform.update_time(app_state.clock.elapsed_sec_f64());
 
@@ -137,6 +134,8 @@ impl GfxState {
             }
         };
 
+        let ctx = self.platform.context();
+
         let output_view = output_frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -147,10 +146,9 @@ impl GfxState {
         // End the UI frame. We could now handle the output and draw the UI with the backend.
         let full_output = self.platform.end_frame(Some(&self.window));
 
-        let ctx = &self.platform.context();
         let paint_jobs = ctx.tessellate(full_output.shapes);
 
-        self.gui.create_gui(app_state, ctx);
+        gui_state.update(app_state, self, &ctx);
 
         let mut encoder = self
             .device

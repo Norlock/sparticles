@@ -5,12 +5,19 @@ use super::Clock;
 
 const PARTICLE_BUFFER_SIZE: u64 = 16 * 4;
 
+pub struct SpawnOptions {
+    pub spawn_count: u32,
+    pub spawn_delay_sec: f32,
+    pub particle_lifetime_sec: f32,
+}
+
+#[derive(Clone, Copy)]
 pub struct Emitter {
     spawn_from: u32,
     spawn_until: u32,
-    pub spawn_count: u32,
-    pub spawn_delay_sec: f32,
-    pub spawn_batches_count: u32,
+    spawn_count: u32,
+    spawn_delay_sec: f32,
+    spawn_batches_count: u32,
 
     pub box_pos: Vec3,
 
@@ -102,6 +109,23 @@ impl Emitter {
 
     pub fn particle_buffer_size(&self) -> u64 {
         self.particle_count() * PARTICLE_BUFFER_SIZE
+    }
+
+    pub fn get_spawn_options(&self) -> SpawnOptions {
+        SpawnOptions {
+            spawn_count: self.spawn_count,
+            spawn_delay_sec: self.spawn_delay_sec,
+            particle_lifetime_sec: self.particle_lifetime_sec,
+        }
+    }
+
+    pub fn from_spawn_options(&mut self, options: &SpawnOptions) -> Self {
+        let mut new = self.clone();
+        new.spawn_count = options.spawn_count;
+        new.spawn_delay_sec = options.spawn_delay_sec;
+        new.particle_lifetime_sec = options.particle_lifetime_sec;
+
+        return new;
     }
 
     pub fn create_buffer_content(&self) -> Vec<f32> {

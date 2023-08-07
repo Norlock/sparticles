@@ -4,7 +4,11 @@ use crate::{
     InitialiseApp,
 };
 
-use super::{gfx_state::GfxState, Camera, Clock, ComputeState};
+use super::{
+    emitter::{Emitter, SpawnOptions},
+    gfx_state::GfxState,
+    Camera, Clock, ComputeState,
+};
 use egui_wgpu_backend::wgpu;
 use winit::event::KeyboardInput;
 
@@ -27,6 +31,11 @@ impl AppState {
         for anim in self.animations.iter_mut() {
             anim.update(&self.clock, gfx_state);
         }
+    }
+
+    pub fn update_compute_state(&mut self, gfx_state: &GfxState, options: &SpawnOptions) {
+        let emitter = self.compute.from_spawn_options(options);
+        self.compute = gfx_state.create_compute_state(emitter);
     }
 
     pub fn window_resize(&mut self, gfx_state: &GfxState) {
@@ -60,8 +69,9 @@ impl GfxState {
     pub fn create_app_state(&self, init_app: InitialiseApp) -> AppState {
         let clock = Clock::new();
         let camera = Camera::new(&self);
+        // TODO meegeven in init app
         let diffuse_texture = self.create_diffuse_texture();
-        let compute = self.create_compute_state();
+        let compute = self.create_compute_state(init_app.emitter);
         let render_pipeline = self.create_render_pipeline(&diffuse_texture, &camera, &compute);
 
         let animations: Vec<Box<dyn Animation>> = init_app

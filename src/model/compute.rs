@@ -2,7 +2,11 @@ use std::num::NonZeroU64;
 
 use crate::traits::{CalculateBufferSize, CustomShader};
 
-use super::{emitter::Emitter, gfx_state::GfxState, Clock};
+use super::{
+    emitter::{Emitter, SpawnOptions},
+    gfx_state::GfxState,
+    Clock,
+};
 use egui_wgpu_backend::wgpu::{self, util::DeviceExt};
 
 #[allow(dead_code)]
@@ -37,16 +41,19 @@ impl ComputeState {
         compute_pass.dispatch_workgroups(self.dispatch_x_count, 1, 1);
     }
 
+    pub fn from_spawn_options(&mut self, options: &SpawnOptions) -> Emitter {
+        self.emitter.from_spawn_options(options)
+    }
+
     pub fn particle_count(&self) -> u64 {
         self.emitter.particle_count()
     }
 }
 
 impl GfxState {
-    pub fn create_compute_state(&self) -> ComputeState {
+    pub fn create_compute_state(&self, emitter: Emitter) -> ComputeState {
         let device = &self.device;
 
-        let emitter = Emitter::new();
         let emitter_buf_content = emitter.create_buffer_content();
 
         let particle_buffer_size = NonZeroU64::new(emitter.particle_buffer_size());

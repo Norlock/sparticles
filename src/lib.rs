@@ -1,4 +1,6 @@
+use model::emitter::Emitter;
 use model::GfxState;
+use model::GuiState;
 use std::sync::Mutex;
 use traits::CreateAnimation;
 use winit::event::Event::*;
@@ -17,6 +19,7 @@ pub mod traits;
 pub struct InitialiseApp {
     pub show_gui: bool,
     pub particle_animations: Vec<Box<dyn CreateAnimation>>,
+    pub emitter: Emitter,
 }
 
 /// A custom event type for the winit app.
@@ -51,8 +54,11 @@ pub fn start(init_app: InitialiseApp) {
         .build(&event_loop)
         .unwrap();
 
-    let mut gfx_state = pollster::block_on(GfxState::new(window, &init_app));
+    let show_gui = init_app.show_gui;
+
+    let mut gfx_state = pollster::block_on(GfxState::new(window));
     let mut app_state = gfx_state.create_app_state(init_app);
+    let mut gui_state = GuiState::new(show_gui, &app_state);
 
     event_loop.run(move |event, _, control_flow| {
         // Pass the winit events to the platform integration.
@@ -62,7 +68,7 @@ pub fn start(init_app: InitialiseApp) {
         match event {
             RedrawRequested(window_id) if do_exec(window_id) => {
                 app_state.update(&gfx_state);
-                gfx_state.render(&mut app_state);
+                gfx_state.render(&mut app_state, &mut gui_state);
             }
             MainEventsCleared | UserEvent(CustomEvent::RequestRedraw) => {
                 gfx_state.request_redraw();

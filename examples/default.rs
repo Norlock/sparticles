@@ -1,10 +1,7 @@
 use glam::{Vec3, Vec4};
 use sparticles::{
-    animations::{
-        gravity_animation::GravityAnimationOptions, ColorAnimation, GravityAnimation,
-        StrayAnimation,
-    },
-    model::LifeCycle,
+    animations::{ColorAnimation, GravityAnimation, GravityAnimationOptions, StrayAnimation},
+    model::{emitter::Emitter, LifeCycle},
     traits::FromRGB,
 };
 
@@ -36,6 +33,7 @@ fn main() {
     });
 
     sparticles::start(sparticles::InitialiseApp {
+        emitter: Emitter::new(),
         show_gui: true,
         particle_animations: vec![
             Box::new(stray_animation),
