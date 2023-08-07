@@ -119,7 +119,7 @@ impl Emitter {
         }
     }
 
-    pub fn from_spawn_options(&mut self, options: &SpawnOptions) -> Self {
+    pub fn from_spawn_options(&self, options: SpawnOptions) -> Self {
         let mut new = self.clone();
         new.spawn_count = options.spawn_count;
         new.spawn_delay_sec = options.spawn_delay_sec;

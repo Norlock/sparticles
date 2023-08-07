@@ -1,7 +1,7 @@
 use std::iter;
 
 use crate::CustomEvent;
-use egui::Context;
+
 use egui::FontDefinitions;
 use egui_wgpu_backend::{wgpu, RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
@@ -10,7 +10,7 @@ use winit::event::Event;
 use winit::window;
 
 use super::app_state::AppState;
-use super::gui_state;
+
 use super::GuiState;
 
 pub struct GfxState {
@@ -143,12 +143,12 @@ impl GfxState {
         // Begin to draw the UI frame.
         self.platform.begin_frame();
 
+        gui_state.update(app_state, self, &ctx);
+
         // End the UI frame. We could now handle the output and draw the UI with the backend.
         let full_output = self.platform.end_frame(Some(&self.window));
 
         let paint_jobs = ctx.tessellate(full_output.shapes);
-
-        gui_state.update(app_state, self, &ctx);
 
         let mut encoder = self
             .device

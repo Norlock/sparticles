@@ -41,8 +41,13 @@ impl ComputeState {
         compute_pass.dispatch_workgroups(self.dispatch_x_count, 1, 1);
     }
 
-    pub fn from_spawn_options(&mut self, options: &SpawnOptions) -> Emitter {
-        self.emitter.from_spawn_options(options)
+    pub fn recreate_compute(&self, gfx_state: &GfxState, options: SpawnOptions) -> Self {
+        let emitter = self.emitter.from_spawn_options(options);
+        gfx_state.create_compute_state(emitter)
+    }
+
+    pub fn particle_count_text(&self) -> String {
+        format!("Particle count: {}", self.emitter.particle_count())
     }
 
     pub fn particle_count(&self) -> u64 {

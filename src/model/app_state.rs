@@ -4,11 +4,7 @@ use crate::{
     InitialiseApp,
 };
 
-use super::{
-    emitter::{Emitter, SpawnOptions},
-    gfx_state::GfxState,
-    Camera, Clock, ComputeState,
-};
+use super::{emitter::SpawnOptions, gfx_state::GfxState, Camera, Clock, ComputeState};
 use egui_wgpu_backend::wgpu;
 use winit::event::KeyboardInput;
 
@@ -33,9 +29,10 @@ impl AppState {
         }
     }
 
-    pub fn update_compute_state(&mut self, gfx_state: &GfxState, options: &SpawnOptions) {
-        let emitter = self.compute.from_spawn_options(options);
-        self.compute = gfx_state.create_compute_state(emitter);
+    pub fn new_compute_state(&mut self, gfx_state: &GfxState, options: SpawnOptions) {
+        self.compute = self.compute.recreate_compute(gfx_state, options);
+        self.render_pipeline =
+            gfx_state.create_render_pipeline(&self.diffuse_texture, &self.camera, &self.compute);
     }
 
     pub fn window_resize(&mut self, gfx_state: &GfxState) {

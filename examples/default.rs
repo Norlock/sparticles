@@ -5,6 +5,7 @@ use sparticles::{
     traits::FromRGB,
 };
 
+#[allow(dead_code, unused)]
 fn main() {
     let stray_animation = StrayAnimation {
         from_sec: 0.,
@@ -35,10 +36,11 @@ fn main() {
     sparticles::start(sparticles::InitialiseApp {
         emitter: Emitter::new(),
         show_gui: true,
-        particle_animations: vec![
-            Box::new(stray_animation),
-            Box::new(color_animation),
-            Box::new(gravity_animation),
-        ],
+        particle_animations: vec![],
+        //particle_animations: vec![
+        //Box::new(stray_animation),
+        //Box::new(color_animation),
+        //Box::new(gravity_animation),
+        //],
     });
 }
