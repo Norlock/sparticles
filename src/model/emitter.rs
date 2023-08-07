@@ -1,7 +1,7 @@
 use crate::traits::{FromRGB, HandleAngles};
 use glam::{Vec3, Vec4};
 
-use super::{gui_state, Clock, GuiState};
+use super::{Clock, GuiState};
 
 const PARTICLE_BUFFER_SIZE: u64 = 16 * 4;
 
@@ -34,7 +34,8 @@ pub struct Emitter {
     pub particle_color: Vec4,
     pub particle_friction_coefficient: f32,
     pub particle_speed: f32,
-    pub particle_size: f32,
+    pub particle_size_min: f32,
+    pub particle_size_max: f32,
     pub particle_mass: f32,
     pub particle_lifetime_sec: f32,
 
@@ -75,7 +76,8 @@ impl Emitter {
             particle_mass: 1.,
             particle_speed: 15.,
             particle_lifetime_sec,
-            particle_size: 0.1,
+            particle_size_min: 0.1,
+            particle_size_max: 0.15,
             particle_friction_coefficient: 0.95,
             particle_color: Vec4::from_rgb(0, 255, 0),
 
@@ -91,6 +93,9 @@ impl Emitter {
 
         self.diffusion_width_rad = gui_state.diff_width_deg.to_radians();
         self.diffusion_depth_rad = gui_state.diff_depth_deg.to_radians();
+
+        self.particle_size_min = gui_state.particle_size_min;
+        self.particle_size_max = gui_state.particle_size_max;
 
         if gui_state.update_spawn {
             self.spawn_count = gui_state.spawn_count;
@@ -165,7 +170,8 @@ impl Emitter {
             self.particle_color.w,
             self.particle_speed,
             self.particle_friction_coefficient,
-            self.particle_size,
+            self.particle_size_min,
+            self.particle_size_max,
             self.particle_mass,
             self.particle_lifetime_sec,
         ]

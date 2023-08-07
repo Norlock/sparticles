@@ -29,7 +29,8 @@ struct Emitter {
     particle_color_a: f32,
     particle_speed: f32,
     particle_friction_coefficient: f32,
-    particle_size: f32,
+    particle_size_min: f32,
+    particle_size_max: f32,
     particle_mass: f32,
     particle_lifetime: f32,
 };

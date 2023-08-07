@@ -1,4 +1,4 @@
-use super::{AppState, Emitter};
+use super::AppState;
 use crate::traits::HandleAngles;
 use egui::{Color32, Context, RichText, Slider, Ui};
 use glam::Vec3;
@@ -19,31 +19,12 @@ pub struct GuiState {
     pub diff_depth_deg: f32,
     pub update_spawn: bool,
     pub reset_camera: bool,
+
+    pub particle_size_min: f32,
+    pub particle_size_max: f32,
 }
 
 impl GuiState {
-    pub fn new(show_gui: bool, app_state: &AppState) -> Self {
-        let emitter = &app_state.particle.emitter;
-        let spawn_options = emitter.get_spawn_options();
-
-        Self {
-            show: show_gui,
-            cpu_time_text: "".to_string(),
-            fps_text: "".to_string(),
-            elapsed_text: "".to_string(),
-            particle_count_text: "".to_string(),
-            box_rotation_deg: emitter.box_rotation.to_degrees(),
-            box_dimensions: emitter.box_dimensions,
-            diff_width_deg: emitter.diffusion_width_rad.to_degrees(),
-            diff_depth_deg: emitter.diffusion_depth_rad.to_degrees(),
-            spawn_count: spawn_options.spawn_count,
-            spawn_delay_sec: spawn_options.spawn_delay_sec,
-            particle_lifetime_sec: spawn_options.particle_lifetime_sec,
-            update_spawn: false,
-            reset_camera: false,
-        }
-    }
-
     fn update_labels(&mut self, app_state: &AppState) {
         let clock = &app_state.clock;
         let compute = &app_state.particle;
@@ -58,13 +39,7 @@ impl GuiState {
         self.particle_count_text = compute.particle_count_text();
     }
 
-    pub fn update(&mut self, app_state: &AppState, ctx: &Context) {
-        if !self.show {
-            return;
-        }
-
-        self.update_labels(app_state);
-
+    fn create_gui(&mut self, ctx: &Context) {
         egui::Window::new("Emitter settings").show(&ctx, |ui| {
             create_label(ui, &self.fps_text);
             create_label(ui, &self.cpu_time_text);
@@ -114,7 +89,53 @@ impl GuiState {
             self.update_spawn = ui.button("Update spawn settings").clicked();
 
             ui.add_space(5.0);
+
+            create_label(ui, "Particle settings");
+
+            ui.add_space(5.0);
+
+            ui.add(
+                Slider::new(&mut self.particle_size_min, 0.0..=4.0).text("Smallest particle size"),
+            );
+            ui.add(
+                Slider::new(&mut self.particle_size_max, 0.0..=8.0).text("Largest particle size"),
+            );
         });
+    }
+
+    pub fn update(&mut self, app_state: &AppState, ctx: &Context) {
+        if !self.show {
+            return;
+        }
+
+        self.update_labels(app_state);
+        self.create_gui(ctx);
+    }
+}
+
+impl AppState {
+    pub fn create_gui_state(&self, show_gui: bool) -> GuiState {
+        let emitter = &self.particle.emitter;
+        let spawn_options = emitter.get_spawn_options();
+
+        GuiState {
+            show: show_gui,
+            cpu_time_text: "".to_string(),
+            fps_text: "".to_string(),
+            elapsed_text: "".to_string(),
+            particle_count_text: "".to_string(),
+            box_rotation_deg: emitter.box_rotation.to_degrees(),
+            box_dimensions: emitter.box_dimensions,
+            diff_width_deg: emitter.diffusion_width_rad.to_degrees(),
+            diff_depth_deg: emitter.diffusion_depth_rad.to_degrees(),
+            spawn_count: spawn_options.spawn_count,
+            spawn_delay_sec: spawn_options.spawn_delay_sec,
+            particle_lifetime_sec: spawn_options.particle_lifetime_sec,
+            particle_size_min: emitter.particle_size_min,
+            particle_size_max: emitter.particle_size_max,
+            update_spawn: false,
+            reset_camera: false,
+        }
     }
 }
 

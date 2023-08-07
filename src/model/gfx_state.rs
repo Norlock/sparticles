@@ -119,7 +119,7 @@ impl GfxState {
         }
     }
 
-    pub fn render(&mut self, app_state: &mut AppState, gui_state: &mut GuiState) {
+    pub fn render(&mut self, app_state: &AppState, gui_state: &mut GuiState) {
         // Need to update for animations
         self.platform.update_time(app_state.clock.elapsed_sec_f64());
 

@@ -262,7 +262,7 @@ impl Camera {
         self.vertex_positions
             .into_iter()
             .map(|v_pos| camera_right * v_pos[0] + camera_up * v_pos[1])
-            .map(|v3| vec![v3.x, v3.y, v3.z, 0.])
+            .map(|v3| vec![v3.x, v3.y, v3.z, 1.])
             .flatten()
             .collect::<Vec<f32>>()
     }

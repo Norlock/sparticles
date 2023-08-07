@@ -51,10 +51,13 @@ fn spawn_particle(index: u32) {
         em.particle_color_a,
     );
 
+    let size_delta = em.particle_size_max - em.particle_size_min;
+    let size_random = gen_abs_range(input_random + 100., size_delta, em.elapsed_sec);
+
     particle.position = create_particle_position(input_random);
     particle.velocity = create_velocity(input_random);
     particle.color = particle_color;
-    particle.size = em.particle_size;
+    particle.size =  em.particle_size_min + size_random;
     particle.lifetime = 0.;
     particle.mass = em.particle_mass;
 

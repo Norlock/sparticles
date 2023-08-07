@@ -6,11 +6,7 @@ use crate::{
     traits::{CalculateBufferSize, CustomShader},
 };
 
-use super::{
-    emitter::{Emitter, SpawnOptions},
-    gfx_state::GfxState,
-    Camera, Clock, GuiState,
-};
+use super::{emitter::Emitter, gfx_state::GfxState, Camera, Clock, GuiState};
 use egui_wgpu_backend::wgpu::{self, util::DeviceExt};
 
 #[allow(dead_code)]
@@ -20,7 +16,6 @@ pub struct ParticleState {
     emitter_buffer: wgpu::Buffer,
     diffuse_texture: DiffuseTexture,
     render_pipeline: wgpu::RenderPipeline,
-
     animations: Vec<Box<dyn Animation>>,
 
     pub emitter: Emitter,
@@ -123,9 +118,8 @@ impl GfxState {
                 // Particles
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE
-                        | wgpu::ShaderStages::VERTEX
-                        | wgpu::ShaderStages::FRAGMENT,
+                    visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX,
+                    //| wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
