@@ -6,13 +6,11 @@ use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::CommandEncoder;
 use egui_wgpu::Renderer;
-use egui_winit::egui;
 use egui_winit::egui::ClippedPrimitive;
 use egui_winit::egui::Context;
 use egui_winit::egui::FontData;
 use egui_winit::egui::FontDefinitions;
 use egui_winit::egui::FontFamily;
-use egui_winit::egui::Style;
 use egui_winit::winit;
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::EventResponse;
@@ -33,6 +31,7 @@ pub struct GfxState {
     renderer: Renderer,
     ctx: Context,
     screen_descriptor: ScreenDescriptor,
+    pub depth_texture: DepthTexture,
 }
 
 impl GfxState {
@@ -111,6 +110,8 @@ impl GfxState {
             pixels_per_point: window.scale_factor() as f32,
         };
 
+        let depth_texture = DepthTexture::new(&device, &surface_config);
+
         Self {
             surface,
             window,
@@ -121,6 +122,7 @@ impl GfxState {
             winit,
             ctx,
             screen_descriptor,
+            depth_texture,
         }
     }
 
@@ -141,6 +143,7 @@ impl GfxState {
             self.surface_config.width = size.width;
             self.surface_config.height = size.height;
             self.surface.configure(&self.device, &self.surface_config);
+            self.depth_texture = self.recreate_depth_texture();
 
             self.screen_descriptor = ScreenDescriptor {
                 size_in_pixels: [self.surface_config.width, self.surface_config.height],
@@ -235,7 +238,7 @@ impl GfxState {
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &app_state.depth_texture.view,
+                    view: &self.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: true,

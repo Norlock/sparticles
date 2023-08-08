@@ -55,10 +55,6 @@ pub fn start(init_app: InitialiseApp) {
             WindowEvent { event, window_id } if do_exec(window_id) => {
                 let response = gfx_state.handle_event(&event);
 
-                if response.consumed {
-                    return;
-                }
-
                 match event {
                     winit::event::WindowEvent::Resized(size) => {
                         gfx_state.window_resize(size);
@@ -72,6 +68,9 @@ pub fn start(init_app: InitialiseApp) {
                         *control_flow = ControlFlow::Exit;
                     }
                     winit::event::WindowEvent::KeyboardInput { input, .. } => {
+                        if response.consumed {
+                            return;
+                        }
                         app_state.process_events(input);
                     }
                     _ => {}

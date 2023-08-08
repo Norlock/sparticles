@@ -7,7 +7,6 @@ use egui_winit::winit::event::KeyboardInput;
 pub struct AppState {
     pub camera: Camera,
     pub clock: Clock,
-    pub depth_texture: DepthTexture,
     pub particle: ParticleState,
 }
 
@@ -31,7 +30,6 @@ impl AppState {
 
     pub fn window_resize(&mut self, gfx_state: &GfxState) {
         self.camera.window_resize(&gfx_state);
-        self.depth_texture = gfx_state.create_depth_texture();
     }
 
     pub fn process_events(&mut self, input: KeyboardInput) {
@@ -61,13 +59,10 @@ impl GfxState {
 
         particle.set_animations(animations);
 
-        let depth_texture = self.create_depth_texture();
-
         AppState {
             clock,
             camera,
             particle,
-            depth_texture,
         }
     }
 }
