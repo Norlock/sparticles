@@ -43,7 +43,17 @@ fn main() {
             lifetime_sec: 7.,
         },
         velocity: Vec3::new(-15., -15., 0.),
-        mass_per_unit: 0.1,
+        mass_per_unit: 0.08,
+    };
+
+    let force_animation_2 = ForceUniform {
+        life_cycle: LifeCycle {
+            from_sec: 5.,
+            until_sec: 9.,
+            lifetime_sec: 9.,
+        },
+        velocity: Vec3::new(15., 0., 0.),
+        mass_per_unit: 0.15,
     };
 
     sparticles::start(sparticles::InitialiseApp {
@@ -54,6 +64,7 @@ fn main() {
             Box::new(color_animation),
             Box::new(gravity_animation),
             Box::new(force_animation),
+            Box::new(force_animation_2),
         ],
     });
 }
