@@ -42,7 +42,6 @@ pub fn start(init_app: InitialiseApp) {
     let mut gui_state = app_state.create_gui_state(show_gui);
 
     event_loop.run(move |event, _, control_flow| {
-        // Pass the winit events to the platform integration.
         let do_exec = |window_id: WindowId| window_id == gfx_state.window_id();
 
         match event {

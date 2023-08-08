@@ -5,8 +5,11 @@ use crate::texture::DepthTexture;
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu;
 use egui_wgpu::Renderer;
+use egui_winit::egui;
 use egui_winit::egui::Context;
+use egui_winit::egui::FontData;
 use egui_winit::egui::FontDefinitions;
+use egui_winit::egui::FontFamily;
 use egui_winit::egui::Style;
 use egui_winit::winit;
 use egui_winit::winit::event::WindowEvent;
@@ -85,8 +88,20 @@ impl GfxState {
         let winit = egui_winit::State::new(&window);
         let renderer = Renderer::new(&device, surface_format, Some(DepthTexture::DEPTH_FORMAT), 1);
         let ctx = Context::default();
-        ctx.set_fonts(FontDefinitions::default());
-        ctx.set_style(Style::default());
+
+        let mut fonts = FontDefinitions::default();
+
+        fonts.font_data.insert(
+            "FiraMono-Medium".to_owned(),
+            FontData::from_static(include_bytes!("../assets/fonts/FiraMono-Medium.ttf")),
+        );
+
+        fonts.families.insert(
+            FontFamily::Proportional,
+            vec!["FiraMono-Medium".to_string()],
+        );
+
+        ctx.set_fonts(fonts);
 
         Self {
             surface,
@@ -159,6 +174,11 @@ impl GfxState {
             pixels_per_point: self.window.scale_factor() as f32,
         };
 
+        for (tex_id, img_delta) in full_output.textures_delta.set {
+            self.renderer
+                .update_texture(&self.device, &self.queue, tex_id, &img_delta);
+        }
+
         self.renderer.update_buffers(
             &self.device,
             &self.queue,
@@ -167,18 +187,9 @@ impl GfxState {
             &screen_descriptor,
         );
 
-        for (tex_id, img_delta) in full_output.textures_delta.set {
-            self.renderer
-                .update_texture(&self.device, &self.queue, tex_id, &img_delta);
-        }
-
-        for tex_id in full_output.textures_delta.free {
-            self.renderer.free_texture(&tex_id);
-        }
-
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("transform pipeline"),
+                label: Some("Compute pipeline"),
             });
 
             app_state.compute(&mut compute_pass);
@@ -216,11 +227,16 @@ impl GfxState {
                 .render(&mut render_pass, &paint_jobs, &screen_descriptor);
         }
 
+        //result.push(encoder.finish());
         // Submit the commands.
         self.queue.submit(iter::once(encoder.finish()));
 
         // Redraw egui
         output_frame.present();
+
+        for tex_id in full_output.textures_delta.free {
+            self.renderer.free_texture(&tex_id);
+        }
     }
 }
 
