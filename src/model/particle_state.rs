@@ -84,7 +84,7 @@ impl ParticleState {
         let animations: Vec<Box<dyn Animation>> = self
             .animations
             .iter()
-            .map(|a| a.create_new(gfx_state, &particle))
+            .map(|a| a.recreate(gfx_state, &particle))
             .collect();
 
         particle.set_animations(animations);
@@ -196,8 +196,7 @@ impl GfxState {
         let workgroup_size = 128f64;
         let dispatch_x_count = (particle_count / workgroup_size).ceil() as u32;
 
-        let shader_str = include_str!("../shaders/emitter.wgsl");
-        let shader = device.create_shader(shader_str, "Emitter compute");
+        let shader = device.create_shader("emitter.wgsl", "Emitter compute");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Compute layout"),
@@ -238,8 +237,7 @@ impl GfxState {
         let device = &self.device;
         let surface_config = &self.surface_config;
 
-        let shader_str = include_str!("../shaders/particle.wgsl");
-        let shader = device.create_shader(shader_str, "Particle render");
+        let shader = device.create_shader("particle.wgsl", "Particle render");
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

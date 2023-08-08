@@ -36,7 +36,8 @@ pub struct Emitter {
     pub particle_speed: f32,
     pub particle_size_min: f32,
     pub particle_size_max: f32,
-    pub particle_mass: f32,
+    /// Mass per size 1
+    pub particle_material_mass: f32,
     pub particle_lifetime_sec: f32,
 
     elapsed_sec: f32,
@@ -54,7 +55,7 @@ impl Emitter {
 
         let box_pos = Vec3::ZERO;
         let box_dimensions = Vec3::new(1., 0.5, 1.);
-        let box_rotation = Vec3::ZERO;
+        let box_rotation = Vec3::new(45f32.to_radians(), 0., 0.);
 
         let diffusion_width_rad = 15f32.to_radians();
         let diffusion_depth_rad = 15f32.to_radians();
@@ -73,7 +74,7 @@ impl Emitter {
             diffusion_width_rad,
             diffusion_depth_rad,
 
-            particle_mass: 1.,
+            particle_material_mass: 5.,
             particle_speed: 15.,
             particle_lifetime_sec,
             particle_size_min: 0.1,
@@ -96,6 +97,8 @@ impl Emitter {
 
         self.particle_size_min = gui_state.particle_size_min;
         self.particle_size_max = gui_state.particle_size_max;
+
+        self.particle_speed = gui_state.particle_speed;
 
         if gui_state.update_spawn {
             self.spawn_count = gui_state.spawn_count;
@@ -172,7 +175,7 @@ impl Emitter {
             self.particle_friction_coefficient,
             self.particle_size_min,
             self.particle_size_max,
-            self.particle_mass,
+            self.particle_material_mass,
             self.particle_lifetime_sec,
         ]
     }

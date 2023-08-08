@@ -4,6 +4,7 @@ use super::Clock;
 pub struct LifeCycle {
     pub from_sec: f32,
     pub until_sec: f32,
+    /// Time until the animmation repeats
     pub lifetime_sec: f32,
 }
 

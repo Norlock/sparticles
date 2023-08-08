@@ -114,15 +114,14 @@ impl Animation for GravityAnimation {
         }
     }
 
-    fn create_new(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation> {
+    fn recreate(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation> {
         Box::new(Self::new(self.uniform, particle, &gfx_state.device))
     }
 }
 
 impl GravityAnimation {
     fn new(uniform: GravityUniform, particle: &ParticleState, device: &wgpu::Device) -> Self {
-        let shader_str_raw = include_str!("../shaders/gravity_anim.wgsl");
-        let shader = device.create_shader(shader_str_raw, "Gravity animation");
+        let shader = device.create_shader("gravity_anim.wgsl", "Gravity animation");
 
         let buffer_content = uniform.create_buffer_content();
 

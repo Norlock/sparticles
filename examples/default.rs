@@ -1,6 +1,9 @@
 use glam::{Vec3, Vec4};
 use sparticles::{
-    animations::{ColorUniform, GravityUniform, GravityUniformOptions, StrayUniform},
+    animations::{
+        force_animation::{self, ForceUniform},
+        ColorUniform, GravityUniform, GravityUniformOptions, StrayUniform,
+    },
     model::{emitter::Emitter, LifeCycle},
     traits::FromRGB,
 };
@@ -33,14 +36,24 @@ fn main() {
         end_pos: Vec3::new(25., 8., 0.),
     });
 
+    let force_animation = ForceUniform {
+        life_cycle: LifeCycle {
+            from_sec: 0.,
+            until_sec: 5.,
+            lifetime_sec: 7.,
+        },
+        velocity: Vec3::new(-15., -15., 0.),
+        mass_per_unit: 0.1,
+    };
+
     sparticles::start(sparticles::InitialiseApp {
         emitter: Emitter::new(),
         show_gui: true,
-        //particle_animations: vec![],
         particle_animations: vec![
             Box::new(stray_animation),
             Box::new(color_animation),
             Box::new(gravity_animation),
+            Box::new(force_animation),
         ],
     });
 }

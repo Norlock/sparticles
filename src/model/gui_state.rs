@@ -23,6 +23,7 @@ pub struct GuiState {
 
     pub particle_size_min: f32,
     pub particle_size_max: f32,
+    pub particle_speed: f32,
 }
 
 impl GuiState {
@@ -67,6 +68,8 @@ impl GuiState {
             });
 
             ui.add_space(5.0);
+            ui.add(Slider::new(&mut self.particle_speed, 0.0..=50.0).text("Particle emit speed"));
+            ui.add_space(5.0);
             create_label(ui, "Spawn settings");
 
             ui.add(
@@ -96,10 +99,11 @@ impl GuiState {
             ui.add_space(5.0);
 
             ui.add(
-                Slider::new(&mut self.particle_size_min, 0.0..=4.0).text("Smallest particle size"),
+                Slider::new(&mut self.particle_size_min, 0.0..=2.0).text("Smallest particle size"),
             );
             ui.add(
-                Slider::new(&mut self.particle_size_max, 0.0..=8.0).text("Largest particle size"),
+                Slider::new(&mut self.particle_size_max, self.particle_size_min..=4.0)
+                    .text("Largest particle size"),
             );
         });
     }
@@ -132,6 +136,7 @@ impl AppState {
             particle_lifetime_sec: spawn_options.particle_lifetime_sec,
             particle_size_min: emitter.particle_size_min,
             particle_size_max: emitter.particle_size_max,
+            particle_speed: emitter.particle_speed,
             update_spawn: false,
             reset_camera: false,
         }

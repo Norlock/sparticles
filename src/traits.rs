@@ -46,7 +46,7 @@ pub trait Animation {
         compute_pass: &mut wgpu::ComputePass<'a>,
     );
 
-    fn create_new(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation>;
+    fn recreate(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation>;
 }
 
 pub trait CalculateBufferSize {

@@ -25,13 +25,13 @@ pub struct GfxState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface_config: wgpu::SurfaceConfiguration,
-    pub window: window::Window,
+    window: window::Window,
     winit: egui_winit::State,
     surface: wgpu::Surface,
     renderer: Renderer,
     ctx: Context,
     screen_descriptor: ScreenDescriptor,
-    pub depth_texture: DepthTexture,
+    depth_texture: DepthTexture,
 }
 
 impl GfxState {
@@ -228,12 +228,7 @@ impl GfxState {
                     view: &output_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.1,
-                            b: 0.1,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                         store: true,
                     },
                 })],
