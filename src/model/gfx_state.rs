@@ -4,8 +4,10 @@ use crate::texture::DepthTexture;
 
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu;
+use egui_wgpu::wgpu::CommandEncoder;
 use egui_wgpu::Renderer;
 use egui_winit::egui;
+use egui_winit::egui::ClippedPrimitive;
 use egui_winit::egui::Context;
 use egui_winit::egui::FontData;
 use egui_winit::egui::FontDefinitions;
@@ -30,6 +32,7 @@ pub struct GfxState {
     surface: wgpu::Surface,
     renderer: Renderer,
     ctx: Context,
+    screen_descriptor: ScreenDescriptor,
 }
 
 impl GfxState {
@@ -92,7 +95,7 @@ impl GfxState {
         let mut fonts = FontDefinitions::default();
 
         fonts.font_data.insert(
-            "FiraMono-Medium".to_owned(),
+            "FiraMono-Medium".to_string(),
             FontData::from_static(include_bytes!("../assets/fonts/FiraMono-Medium.ttf")),
         );
 
@@ -103,6 +106,11 @@ impl GfxState {
 
         ctx.set_fonts(fonts);
 
+        let screen_descriptor = ScreenDescriptor {
+            size_in_pixels: [surface_config.width, surface_config.height],
+            pixels_per_point: window.scale_factor() as f32,
+        };
+
         Self {
             surface,
             window,
@@ -112,6 +120,7 @@ impl GfxState {
             queue,
             winit,
             ctx,
+            screen_descriptor,
         }
     }
 
@@ -132,7 +141,49 @@ impl GfxState {
             self.surface_config.width = size.width;
             self.surface_config.height = size.height;
             self.surface.configure(&self.device, &self.surface_config);
+
+            self.screen_descriptor = ScreenDescriptor {
+                size_in_pixels: [self.surface_config.width, self.surface_config.height],
+                pixels_per_point: self.window.scale_factor() as f32,
+            };
         }
+    }
+
+    fn draw_gui(
+        &mut self,
+        gui_state: &mut GuiState,
+        app_state: &AppState,
+        encoder: &mut CommandEncoder,
+    ) -> Vec<ClippedPrimitive> {
+        let input = self.winit.take_egui_input(&self.window);
+
+        let full_output = self.ctx.run(input, |ui| {
+            gui_state.update(app_state, ui);
+        });
+
+        let clipped_primitives = self.ctx.tessellate(full_output.shapes);
+
+        self.winit
+            .handle_platform_output(&self.window, &self.ctx, full_output.platform_output);
+
+        for (tex_id, img_delta) in full_output.textures_delta.set {
+            self.renderer
+                .update_texture(&self.device, &self.queue, tex_id, &img_delta);
+        }
+
+        for tex_id in full_output.textures_delta.free {
+            self.renderer.free_texture(&tex_id);
+        }
+
+        self.renderer.update_buffers(
+            &self.device,
+            &self.queue,
+            encoder,
+            &clipped_primitives,
+            &self.screen_descriptor,
+        );
+
+        return clipped_primitives;
     }
 
     pub fn render(&mut self, app_state: &AppState, gui_state: &mut GuiState) {
@@ -157,35 +208,7 @@ impl GfxState {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let input = self.winit.take_egui_input(&self.window);
-
-        let full_output = self.ctx.run(input, |ui| {
-            gui_state.update(app_state, ui);
-        });
-
-        let paint_jobs = self.ctx.tessellate(full_output.shapes);
-
-        self.winit
-            .handle_platform_output(&self.window, &self.ctx, full_output.platform_output);
-
-        // Upload all resources for the GPU.
-        let screen_descriptor = ScreenDescriptor {
-            size_in_pixels: [self.surface_config.width, self.surface_config.height],
-            pixels_per_point: self.window.scale_factor() as f32,
-        };
-
-        for (tex_id, img_delta) in full_output.textures_delta.set {
-            self.renderer
-                .update_texture(&self.device, &self.queue, tex_id, &img_delta);
-        }
-
-        self.renderer.update_buffers(
-            &self.device,
-            &self.queue,
-            &mut encoder,
-            &paint_jobs,
-            &screen_descriptor,
-        );
+        let clipped_primitives = self.draw_gui(gui_state, app_state, &mut encoder);
 
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -223,24 +246,17 @@ impl GfxState {
 
             app_state.render(&mut render_pass);
 
-            self.renderer
-                .render(&mut render_pass, &paint_jobs, &screen_descriptor);
+            self.renderer.render(
+                &mut render_pass,
+                &clipped_primitives,
+                &self.screen_descriptor,
+            );
         }
 
-        //result.push(encoder.finish());
         // Submit the commands.
         self.queue.submit(iter::once(encoder.finish()));
 
         // Redraw egui
         output_frame.present();
-
-        for tex_id in full_output.textures_delta.free {
-            self.renderer.free_texture(&tex_id);
-        }
     }
-}
-
-pub trait StateInitializer {
-    //fn create_emitter(&self) -> Emitter;
-    fn show_ui(&self) -> bool;
 }
