@@ -1,9 +1,12 @@
 use std::iter;
 
+use crate::texture::DepthTexture;
 use crate::CustomEvent;
 
 use egui::FontDefinitions;
-use egui_wgpu_backend::{wgpu, RenderPass, ScreenDescriptor};
+use egui_wgpu::renderer::ScreenDescriptor;
+use egui_wgpu::wgpu;
+use egui_wgpu::Renderer;
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use winit::dpi::PhysicalSize;
 use winit::event::Event;
@@ -20,7 +23,7 @@ pub struct GfxState {
     pub window: window::Window,
     platform: Platform,
     surface: wgpu::Surface,
-    render_pass: RenderPass,
+    renderer: Renderer,
 }
 
 impl GfxState {
@@ -84,17 +87,15 @@ impl GfxState {
             style: Default::default(),
         });
 
-        let render_pass = RenderPass::new(&device, surface_format, 1);
+        let renderer = Renderer::new(&device, surface_format, Some(DepthTexture::DEPTH_FORMAT), 1);
 
-        // TODO use refresh_rate
-        //self.window.current_monitor().unwrap().refresh_rate_millihertz();
         Self {
             platform,
             surface,
             window,
             device,
             surface_config,
-            render_pass,
+            renderer,
             queue,
         }
     }
@@ -134,11 +135,17 @@ impl GfxState {
             }
         };
 
-        let ctx = self.platform.context();
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("encoder"),
+            });
 
         let output_view = output_frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+
+        let ctx = self.platform.context();
 
         // Begin to draw the UI frame.
         self.platform.begin_frame();
@@ -150,11 +157,24 @@ impl GfxState {
 
         let paint_jobs = ctx.tessellate(full_output.shapes);
 
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("encoder"),
-            });
+        // Upload all resources for the GPU.
+        let screen_descriptor = ScreenDescriptor {
+            size_in_pixels: [self.surface_config.width, self.surface_config.height],
+            pixels_per_point: self.window.scale_factor() as f32,
+        };
+
+        for (tex_id, img_delta) in full_output.textures_delta.set {
+            self.renderer
+                .update_texture(&self.device, &self.queue, tex_id, &img_delta);
+        }
+
+        self.renderer.update_buffers(
+            &self.device,
+            &self.queue,
+            &mut encoder,
+            &paint_jobs,
+            &screen_descriptor,
+        );
 
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -163,22 +183,6 @@ impl GfxState {
 
             app_state.compute(&mut compute_pass);
         }
-
-        // Upload all resources for the GPU.
-        let screen_descriptor = ScreenDescriptor {
-            physical_width: self.surface_config.width,
-            physical_height: self.surface_config.height,
-            scale_factor: self.window.scale_factor() as f32,
-        };
-
-        let tex_delta: egui::TexturesDelta = full_output.textures_delta;
-
-        self.render_pass
-            .add_textures(&self.device, &self.queue, &tex_delta)
-            .expect("add texture ok");
-
-        self.render_pass
-            .update_buffers(&self.device, &self.queue, &paint_jobs, &screen_descriptor);
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -208,18 +212,8 @@ impl GfxState {
 
             app_state.render(&mut render_pass);
 
-            let result = self.render_pass.execute_with_renderpass(
-                &mut render_pass,
-                &paint_jobs,
-                &screen_descriptor,
-            );
-
-            match result {
-                Ok(..) => {}
-                Err(err) => {
-                    println!("{}", err);
-                }
-            }
+            self.renderer
+                .render(&mut render_pass, &paint_jobs, &screen_descriptor);
         }
 
         // Submit the commands.
@@ -228,9 +222,9 @@ impl GfxState {
         // Redraw egui
         output_frame.present();
 
-        self.render_pass
-            .remove_textures(tex_delta)
-            .expect("remove texture ok");
+        for tex_id in full_output.textures_delta.free {
+            self.renderer.free_texture(&tex_id);
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 use std::num::NonZeroU64;
 
-use egui_wgpu_backend::wgpu;
+use egui_wgpu::wgpu;
 
 use crate::model::{gfx_state::GfxState, AppState, Clock, ParticleState};
 

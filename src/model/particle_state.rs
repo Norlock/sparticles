@@ -1,4 +1,4 @@
-use crate::{texture, traits::Animation};
+use crate::{texture::DepthTexture, traits::Animation};
 use std::num::NonZeroU64;
 
 use crate::{
@@ -7,7 +7,8 @@ use crate::{
 };
 
 use super::{emitter::Emitter, gfx_state::GfxState, Camera, Clock, GuiState};
-use egui_wgpu_backend::wgpu::{self, util::DeviceExt};
+use egui_wgpu::wgpu;
+use egui_wgpu::wgpu::util::DeviceExt;
 
 #[allow(dead_code)]
 pub struct ParticleState {
@@ -278,7 +279,7 @@ impl GfxState {
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: GfxState::DEPTH_FORMAT,
+                format: DepthTexture::DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),

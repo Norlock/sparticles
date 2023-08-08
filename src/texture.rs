@@ -1,5 +1,5 @@
 use crate::model::gfx_state::GfxState;
-use egui_wgpu_backend::wgpu;
+use egui_wgpu::wgpu;
 use image::GenericImageView;
 
 pub struct DiffuseTexture {
@@ -13,9 +13,11 @@ pub struct DepthTexture {
     pub sampler: wgpu::Sampler,
 }
 
-impl GfxState {
-    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float; // 1.
+impl DepthTexture {
+    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+}
 
+impl GfxState {
     pub fn create_diffuse_texture(&self) -> DiffuseTexture {
         let diffuse_bytes = include_bytes!("assets/particle-diffuse.jpg");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
@@ -26,7 +28,7 @@ impl GfxState {
         let texture_size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
-            depth_or_array_layers: 1, // by setting depth to 1.
+            depth_or_array_layers: 1,
         };
 
         let diffuse_texture = self.device.create_texture(&wgpu::TextureDescriptor {
@@ -129,7 +131,7 @@ impl GfxState {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: Self::DEPTH_FORMAT,
+            format: DepthTexture::DEPTH_FORMAT,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         };

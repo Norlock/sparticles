@@ -2,7 +2,7 @@ use crate::{
     model::{Clock, GfxState, ParticleState},
     traits::{Animation, CalculateBufferSize, CreateAnimation, CustomShader},
 };
-use egui_wgpu_backend::wgpu;
+use egui_wgpu::wgpu;
 use wgpu::util::DeviceExt;
 
 #[derive(Clone, Copy)]

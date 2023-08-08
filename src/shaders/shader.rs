@@ -1,5 +1,6 @@
-use egui_wgpu_backend::wgpu;
 use std::borrow::Cow;
+
+use egui_wgpu::wgpu;
 
 use crate::traits::CustomShader;
 

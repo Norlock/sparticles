@@ -1,4 +1,4 @@
-use egui_wgpu_backend::wgpu;
+use egui_wgpu::wgpu;
 use glam::Vec3;
 use wgpu::util::DeviceExt;
 

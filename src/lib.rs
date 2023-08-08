@@ -1,6 +1,5 @@
 use model::emitter::Emitter;
 use model::GfxState;
-use model::GuiState;
 use std::sync::Mutex;
 use traits::CreateAnimation;
 use winit::event::Event::*;

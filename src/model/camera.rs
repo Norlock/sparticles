@@ -1,4 +1,4 @@
-use egui_wgpu_backend::wgpu::{self};
+use egui_wgpu::wgpu;
 use glam::*;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 
