@@ -2,7 +2,7 @@ use crate::{texture::DepthTexture, traits::Animation, InitialiseApp};
 
 use super::{Camera, Clock, GfxState, GuiState, ParticleState};
 use egui_wgpu::wgpu;
-use winit::event::KeyboardInput;
+use egui_winit::winit::event::KeyboardInput;
 
 pub struct AppState {
     pub camera: Camera,

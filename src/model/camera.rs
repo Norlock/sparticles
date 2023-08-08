@@ -1,6 +1,6 @@
 use egui_wgpu::wgpu;
+use egui_winit::winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use glam::*;
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 
 use crate::traits::{CreateAspect, ToVecF32};
 

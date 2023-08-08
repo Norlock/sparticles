@@ -1,6 +1,7 @@
 use super::AppState;
 use crate::traits::HandleAngles;
-use egui::{Color32, Context, RichText, Slider, Ui};
+use egui::{Color32, Context, RichText, Slider, Ui, Window};
+use egui_winit::egui;
 use glam::Vec3;
 
 pub struct GuiState {
@@ -40,7 +41,7 @@ impl GuiState {
     }
 
     fn create_gui(&mut self, ctx: &Context) {
-        egui::Window::new("Emitter settings").show(&ctx, |ui| {
+        Window::new("Emitter settings").show(&ctx, |ui| {
             create_label(ui, &self.fps_text);
             create_label(ui, &self.cpu_time_text);
             create_label(ui, &self.elapsed_text);
@@ -104,12 +105,10 @@ impl GuiState {
     }
 
     pub fn update(&mut self, app_state: &AppState, ctx: &Context) {
-        if !self.show {
-            return;
+        if self.show {
+            self.update_labels(app_state);
+            self.create_gui(ctx);
         }
-
-        self.update_labels(app_state);
-        self.create_gui(ctx);
     }
 }
 
