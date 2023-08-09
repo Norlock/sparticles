@@ -68,94 +68,20 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    // e.g particle vel = 10, 0, 0, mass = 1
-    // force vel = -5, 0, 0, mass = 1
-    // delta vel = -15, 0, 0
-    // applied force = -15, 0, 0
-    // particle force = 10, 0, 0
-    // delta_force = -5, 0, 0
-    // todo even goede documentatie
-
     var particle_vel = particle.velocity;
 
     let force_vel = vec3<f32>(force.vel_x, force.vel_y, force.vel_z);
-    let force_mass = force.mass * particle.size;
+    let surface_particle = pi() * pow(particle.size, 2.0);
+    let surface_sample = pi();
+    let surface_scale = surface_particle / surface_sample;
+
+    let applied_mass = force.mass * surface_scale;
     
-    particle_vel.x = get_velocity(particle_vel.x, particle.mass, force.vel_x, force_mass);
-    particle_vel.y = get_velocity(particle_vel.y, particle.mass, force.vel_y, force_mass);
-    particle_vel.z = get_velocity(particle_vel.z, particle.mass, force.vel_z, force_mass);
+    particle_vel.x = get_velocity(particle_vel.x, particle.mass, force.vel_x, applied_mass);
+    particle_vel.y = get_velocity(particle_vel.y, particle.mass, force.vel_y, applied_mass);
+    particle_vel.z = get_velocity(particle_vel.z, particle.mass, force.vel_z, applied_mass);
 
     particle.velocity = particle_vel;
 
     particles[index] = particle;
 }
-
-//    if 0. <= force_vel.x {
-//        let delta_vel_x = max(force_vel.x - particle_vel.x, 0.);
-//
-//        if 0. < delta_vel_x {
-//            let delta_x_force = delta_vel_x * applied_mass * em.delta_sec;
-//            let possible_x_force = particle_force.x + delta_x_force;
-//            let possible_x_speed = possible_x_force / particle.mass;
-//
-//            particle_vel.x = min(possible_x_speed, force_vel.x);
-//        }
-//    } else {
-//        if sign(particle_vel.x) == sign(force_vel.x) {
-//
-//        }
-//        let delta_vel_x = min(force_vel.x - particle_vel.x, 0.);
-//
-//        if delta_vel_x < 0. {
-//            let delta_x_force = delta_vel_x * applied_mass * em.delta_sec;
-//            let possible_x_force = particle_force.x + delta_x_force;
-//            let possible_x_speed = possible_x_force / particle.mass;
-//
-//            particle_vel.x = max(possible_x_speed, force_vel.x);
-//        }
-//    }
-//
-//    if 0. <= force_vel.y {
-//        let delta_vel_y = max(force_vel.y - particle_vel.y, 0.);
-//
-//        if 0. < delta_vel_y {
-//            let delta_y_force = delta_vel_y * applied_mass * em.delta_sec;
-//            let possible_y_force = particle_force.y + delta_y_force;
-//            let possible_y_speed = possible_y_force / particle.mass;
-//
-//            particle_vel.y = min(possible_y_speed, force_vel.y);
-//        }
-//    } else {
-//        let delta_vel_y = min(force_vel.y - particle_vel.y, 0.);
-//
-//        if delta_vel_y < 0. {
-//            let delta_y_force = delta_vel_y * applied_mass * em.delta_sec;
-//            let possible_y_force = particle_force.y + delta_y_force;
-//            let possible_y_speed = possible_y_force / particle.mass;
-//
-//            particle_vel.y = max(possible_y_speed, force_vel.y);
-//        }
-//    }
-//
-//    if 0. <= force_vel.z {
-//        let delta_vel_z = max(force_vel.z - particle_vel.z, 0.);
-//
-//        if 0. < delta_vel_z {
-//            let delta_z_force = delta_vel_z * applied_mass * em.delta_sec;
-//            let possible_z_force = particle_force.z + delta_z_force;
-//            let possible_z_speed = possible_z_force / particle.mass;
-//
-//            particle_vel.z = min(possible_z_speed, force_vel.z);
-//        }
-//    } else {
-//        let delta_vel_z = min(force_vel.z - particle_vel.z, 0.);
-//
-//        if delta_vel_z < 0. {
-//            let delta_z_force = delta_vel_z * applied_mass * em.delta_sec;
-//            let possible_z_force = particle_force.z + delta_z_force;
-//            let possible_z_speed = possible_z_force / particle.mass;
-//
-//            particle_vel.z = max(possible_z_speed, force_vel.z);
-//        }
-//    }
-//

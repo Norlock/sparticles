@@ -43,7 +43,7 @@ fn main() {
             lifetime_sec: 7.,
         },
         velocity: Vec3::new(-15., -15., 0.),
-        mass_per_unit: 0.08,
+        mass_per_unit: 0.20,
     };
 
     let force_animation_2 = ForceUniform {
@@ -53,7 +53,7 @@ fn main() {
             lifetime_sec: 9.,
         },
         velocity: Vec3::new(15., 0., 0.),
-        mass_per_unit: 0.15,
+        mass_per_unit: 0.30,
     };
 
     sparticles::start(sparticles::InitialiseApp {

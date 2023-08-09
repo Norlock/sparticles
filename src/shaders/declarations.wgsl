@@ -35,6 +35,10 @@ struct Emitter {
     particle_lifetime: f32,
 };
 
+fn pi() -> f32 {
+    return 3.14159;
+}
+
 fn random(input: f32, elapsed_sec: f32) -> f32 {
     let value = vec2<f32>(input, elapsed_sec);
     return fract(sin(dot(value, vec2<f32>(12.9898,78.233))) * 43758.5453);
