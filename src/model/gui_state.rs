@@ -29,7 +29,7 @@ pub struct GuiState {
 impl GuiState {
     fn update_labels(&mut self, app_state: &AppState) {
         let clock = &app_state.clock;
-        let compute = &app_state.particle;
+        let spawners = &app_state.spawners;
 
         if clock.frame() % 20 != 0 {
             return;
@@ -38,7 +38,10 @@ impl GuiState {
         self.cpu_time_text = clock.cpu_time_text();
         self.fps_text = clock.fps_text();
         self.elapsed_text = clock.elapsed_text();
-        self.particle_count_text = compute.particle_count_text();
+
+        //for spawner in spawners.iter() {
+        //self.particle_count_text = spawner.particle_count_text();
+        //}
     }
 
     fn create_gui(&mut self, ctx: &Context) {
@@ -118,7 +121,9 @@ impl GuiState {
 
 impl AppState {
     pub fn create_gui_state(&self, show_gui: bool) -> GuiState {
-        let emitter = &self.particle.emitter;
+        // TODO fixen
+        let emitter = &self.spawners.get(0).unwrap().emitter;
+
         let spawn_options = emitter.get_spawn_options();
 
         GuiState {

@@ -1,5 +1,8 @@
 use crate::{texture::DepthTexture, traits::Animation};
-use std::num::NonZeroU64;
+use std::{
+    fmt::{Debug, Formatter},
+    num::NonZeroU64,
+};
 
 use crate::{
     texture::DiffuseTexture,
@@ -11,7 +14,7 @@ use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::util::DeviceExt;
 
 #[allow(dead_code)]
-pub struct ParticleState {
+pub struct SpawnState {
     pipeline: wgpu::ComputePipeline,
     particle_buffers: Vec<wgpu::Buffer>,
     emitter_buffer: wgpu::Buffer,
@@ -25,7 +28,20 @@ pub struct ParticleState {
     pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
-impl ParticleState {
+impl Debug for SpawnState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SpawnState")
+            .field("emitter", &self.emitter)
+            .finish()
+
+        //f.write_str(format!(
+        //"emitter: {}\n dispatch_x_count: {}",
+        //self.emitter, self.dispatch_x_count
+        //)).
+    }
+}
+
+impl SpawnState {
     pub fn update(&mut self, gfx_state: &GfxState, clock: &Clock) {
         self.emitter.update(clock);
 
@@ -45,7 +61,7 @@ impl ParticleState {
         self.emitter.handle_gui(gui_state);
 
         if gui_state.update_spawn {
-            *self = self.recreate_particle_state(&gfx_state, &camera);
+            *self = self.recreate_spawner(&gfx_state, &camera);
         }
     }
 
@@ -76,20 +92,20 @@ impl ParticleState {
         render_pass.draw(0..4, 0..self.particle_count() as u32);
     }
 
-    pub fn recreate_particle_state(&self, gfx_state: &GfxState, camera: &Camera) -> ParticleState {
+    pub fn recreate_spawner(&mut self, gfx_state: &GfxState, camera: &Camera) -> SpawnState {
         let emitter = self.emitter.clone();
 
-        let mut particle = gfx_state.create_particle_state(emitter, camera);
+        let mut spawner = gfx_state.create_spawner(emitter, camera);
 
-        let animations: Vec<Box<dyn Animation>> = self
+        let animations = self
             .animations
             .iter()
-            .map(|a| a.recreate(gfx_state, &particle))
+            .map(|a| a.recreate(gfx_state, &spawner))
             .collect();
 
-        particle.set_animations(animations);
+        spawner.set_animations(animations);
 
-        return particle;
+        return spawner;
     }
 
     pub fn set_animations(&mut self, animations: Vec<Box<dyn Animation>>) {
@@ -106,7 +122,7 @@ impl ParticleState {
 }
 
 impl GfxState {
-    pub fn create_particle_state(&self, emitter: Emitter, camera: &Camera) -> ParticleState {
+    pub fn create_spawner(&self, emitter: Emitter, camera: &Camera) -> SpawnState {
         let device = &self.device;
         let emitter_buf_content = emitter.create_buffer_content();
         let diffuse_texture = self.create_diffuse_texture();
@@ -214,7 +230,7 @@ impl GfxState {
         let render_pipeline =
             self.create_render_pipeline(&diffuse_texture, &camera, &bind_group_layout);
 
-        ParticleState {
+        SpawnState {
             emitter,
             pipeline,
             render_pipeline,

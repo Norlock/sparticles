@@ -2,7 +2,7 @@ use std::num::NonZeroU64;
 
 use egui_wgpu::wgpu;
 
-use crate::model::{gfx_state::GfxState, AppState, Clock, ParticleState};
+use crate::model::{gfx_state::GfxState, AppState, Clock, Emitter, SpawnState};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -29,10 +29,10 @@ pub trait CreateAspect {
 }
 
 pub trait CreateAnimation {
-    fn create_animation(
+    fn into_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        particle: &ParticleState,
+        spawner: &SpawnState,
     ) -> Box<dyn Animation>;
 }
 
@@ -41,12 +41,16 @@ pub trait Animation {
 
     fn compute<'a>(
         &'a self,
-        particle: &'a ParticleState,
+        spawner: &'a SpawnState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     );
 
-    fn recreate(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation>;
+    fn recreate(&self, gfx_state: &GfxState, spawner: &SpawnState) -> Box<dyn Animation>;
+}
+
+pub trait EmitterAnimation {
+    fn animate(&mut self, emitter: &mut Emitter, clock: &Clock);
 }
 
 pub trait CalculateBufferSize {

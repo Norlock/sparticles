@@ -1,15 +1,25 @@
 use glam::{Vec3, Vec4};
 use sparticles::{
     animations::{
-        force_animation::{self, ForceUniform},
-        ColorUniform, GravityUniform, GravityUniformOptions, StrayUniform,
+        sway_animation::SwayAnimation, ColorUniform, ForceUniform, GravityUniform,
+        GravityUniformOptions, StrayUniform,
     },
     model::{emitter::Emitter, LifeCycle},
     traits::FromRGB,
+    SpawnerInit,
 };
 
 #[allow(dead_code, unused)]
 fn main() {
+    let spawner = get_spawner();
+
+    sparticles::start(sparticles::InitialiseApp {
+        show_gui: true,
+        spawners: vec![spawner],
+    });
+}
+
+fn get_spawner() -> SpawnerInit {
     let stray_animation = StrayUniform {
         from_sec: 0.,
         until_sec: 100.,
@@ -56,9 +66,19 @@ fn main() {
         mass_per_unit: 0.30,
     };
 
-    sparticles::start(sparticles::InitialiseApp {
+    let emitter_sway_animation = SwayAnimation {
+        life_cycle: LifeCycle {
+            from_sec: 0.,
+            until_sec: 2.,
+            lifetime_sec: 4.,
+        },
+        yaw: -45f32.to_radians(),
+        pitch: -130f32.to_radians(),
+        roll: 0f32.to_radians(),
+    };
+
+    return SpawnerInit {
         emitter: Emitter::new(),
-        show_gui: true,
         particle_animations: vec![
             Box::new(stray_animation),
             Box::new(color_animation),
@@ -66,5 +86,7 @@ fn main() {
             Box::new(force_animation),
             Box::new(force_animation_2),
         ],
-    });
+        emitter_animations: vec![Box::new(emitter_sway_animation)],
+        //emitter_animations: vec![],
+    };
 }

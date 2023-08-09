@@ -1,8 +1,8 @@
-use egui_wgpu::wgpu::{self, util::DeviceExt};
+use egui_wgpu::wgpu::{self, util::DeviceExt, Device};
 use glam::Vec3;
 
 use crate::{
-    model::{Clock, GfxState, LifeCycle, ParticleState},
+    model::{Clock, GfxState, LifeCycle, SpawnState},
     traits::{Animation, CreateAnimation, CustomShader},
 };
 
@@ -26,12 +26,12 @@ impl ForceUniform {
 }
 
 impl CreateAnimation for ForceUniform {
-    fn create_animation(
+    fn into_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        particle: &ParticleState,
+        spawner: &SpawnState,
     ) -> Box<dyn Animation> {
-        Box::new(ForceAnimation::new(*self, gfx_state, particle))
+        Box::new(ForceAnimation::new(*self, spawner, &gfx_state.device))
     }
 }
 
@@ -51,7 +51,7 @@ impl Animation for ForceAnimation {
 
     fn compute<'a>(
         &'a self,
-        particle: &'a ParticleState,
+        particle: &'a SpawnState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
@@ -67,19 +67,13 @@ impl Animation for ForceAnimation {
         compute_pass.dispatch_workgroups(particle.dispatch_x_count, 1, 1);
     }
 
-    fn recreate(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation> {
-        Box::new(ForceAnimation::new(
-            self.uniform.clone(),
-            gfx_state,
-            particle,
-        ))
+    fn recreate(&self, gfx_state: &GfxState, spawner: &SpawnState) -> Box<dyn Animation> {
+        Box::new(Self::new(self.uniform, spawner, &gfx_state.device))
     }
 }
 
 impl ForceAnimation {
-    fn new(uniform: ForceUniform, gfx_state: &GfxState, particle: &ParticleState) -> Self {
-        let device = &gfx_state.device;
-
+    fn new(uniform: ForceUniform, spawner: &SpawnState, device: &Device) -> Self {
         let shader = device.create_shader("force_anim.wgsl", "Force animation");
 
         let buffer_content = uniform.create_buffer_content();
@@ -118,7 +112,7 @@ impl ForceAnimation {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Force animation layout"),
-            bind_group_layouts: &[&particle.bind_group_layout, &animation_layout],
+            bind_group_layouts: &[&spawner.bind_group_layout, &animation_layout],
             push_constant_ranges: &[],
         });
 

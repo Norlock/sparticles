@@ -1,7 +1,5 @@
-use std::fs;
-
 use crate::{
-    model::{Clock, GfxState, ParticleState},
+    model::{Clock, GfxState, SpawnState},
     traits::{Animation, CalculateBufferSize, CreateAnimation, CustomShader},
 };
 use egui_wgpu::wgpu;
@@ -21,10 +19,10 @@ impl StrayUniform {
 }
 
 impl CreateAnimation for StrayUniform {
-    fn create_animation(
+    fn into_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        particle: &ParticleState,
+        particle: &SpawnState,
     ) -> Box<dyn Animation> {
         Box::new(StrayAnimation::new(*self, particle, &gfx_state.device))
     }
@@ -41,23 +39,23 @@ impl Animation for StrayAnimation {
 
     fn compute<'a>(
         &'a self,
-        particle: &'a ParticleState,
+        spawner: &'a SpawnState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &particle.bind_groups[clock.get_bindgroup_nr()], &[]);
+        compute_pass.set_bind_group(0, &spawner.bind_groups[clock.get_bindgroup_nr()], &[]);
         compute_pass.set_bind_group(1, &self.bind_group, &[]);
-        compute_pass.dispatch_workgroups(particle.dispatch_x_count, 1, 1);
+        compute_pass.dispatch_workgroups(spawner.dispatch_x_count, 1, 1);
     }
 
-    fn recreate(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation> {
-        Box::new(Self::new(self.uniform, particle, &gfx_state.device))
+    fn recreate(&self, gfx_state: &GfxState, spawner: &SpawnState) -> Box<dyn Animation> {
+        Box::new(Self::new(self.uniform, spawner, &gfx_state.device))
     }
 }
 
 impl StrayAnimation {
-    fn new(uniform: StrayUniform, particle: &ParticleState, device: &wgpu::Device) -> Self {
+    fn new(uniform: StrayUniform, spawner: &SpawnState, device: &wgpu::Device) -> Self {
         let shader = device.create_shader("stray_anim.wgsl", "Stray animation");
 
         let animation_uniform = uniform.create_buffer_content();
@@ -96,7 +94,7 @@ impl StrayAnimation {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Stray layout"),
-            bind_group_layouts: &[&particle.bind_group_layout, &animation_layout],
+            bind_group_layouts: &[&spawner.bind_group_layout, &animation_layout],
             push_constant_ranges: &[],
         });
 

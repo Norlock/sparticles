@@ -2,6 +2,7 @@ use egui_winit::winit;
 use model::emitter::Emitter;
 use model::GfxState;
 use traits::CreateAnimation;
+use traits::EmitterAnimation;
 use winit::event::Event::*;
 use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoop;
@@ -18,8 +19,13 @@ pub mod traits;
 
 pub struct InitialiseApp {
     pub show_gui: bool,
-    pub particle_animations: Vec<Box<dyn CreateAnimation>>,
+    pub spawners: Vec<SpawnerInit>,
+}
+
+pub struct SpawnerInit {
     pub emitter: Emitter,
+    pub particle_animations: Vec<Box<dyn CreateAnimation>>,
+    pub emitter_animations: Vec<Box<dyn EmitterAnimation>>,
 }
 
 pub fn start(init_app: InitialiseApp) {

@@ -11,7 +11,7 @@ pub struct SpawnOptions {
     pub particle_lifetime_sec: f32,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Emitter {
     spawn_from: u32,
     spawn_until: u32,

@@ -3,7 +3,7 @@ use glam::Vec4;
 use wgpu::util::DeviceExt;
 
 use crate::{
-    model::{Clock, GfxState, ParticleState},
+    model::{Clock, GfxState, SpawnState},
     traits::*,
 };
 
@@ -33,12 +33,12 @@ impl ColorUniform {
 }
 
 impl CreateAnimation for ColorUniform {
-    fn create_animation(
+    fn into_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        particle: &ParticleState,
+        spawner: &SpawnState,
     ) -> Box<dyn Animation> {
-        Box::new(ColorAnimation::new(*self, particle, &gfx_state.device))
+        Box::new(ColorAnimation::new(*self, spawner, &gfx_state.device))
     }
 }
 
@@ -53,25 +53,25 @@ impl Animation for ColorAnimation {
 
     fn compute<'a>(
         &'a self,
-        particle: &'a ParticleState,
+        spawner: &'a SpawnState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
         let nr = clock.get_bindgroup_nr();
 
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &particle.bind_groups[nr], &[]);
+        compute_pass.set_bind_group(0, &spawner.bind_groups[nr], &[]);
         compute_pass.set_bind_group(1, &self.animation_bind_group, &[]);
-        compute_pass.dispatch_workgroups(particle.dispatch_x_count, 1, 1);
+        compute_pass.dispatch_workgroups(spawner.dispatch_x_count, 1, 1);
     }
 
-    fn recreate(&self, gfx_state: &GfxState, particle: &ParticleState) -> Box<dyn Animation> {
-        Box::new(Self::new(self.uniform, particle, &gfx_state.device))
+    fn recreate(&self, gfx_state: &GfxState, spawner: &SpawnState) -> Box<dyn Animation> {
+        Box::new(Self::new(self.uniform, spawner, &gfx_state.device))
     }
 }
 
 impl ColorAnimation {
-    fn new(uniform: ColorUniform, particle: &ParticleState, device: &wgpu::Device) -> Self {
+    fn new(uniform: ColorUniform, spawner: &SpawnState, device: &wgpu::Device) -> Self {
         let shader = device.create_shader("color_anim.wgsl", "Color animation");
 
         let animation_uniform = uniform.create_buffer_content();
@@ -110,7 +110,7 @@ impl ColorAnimation {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Compute layout"),
-            bind_group_layouts: &[&particle.bind_group_layout, &animation_layout],
+            bind_group_layouts: &[&spawner.bind_group_layout, &animation_layout],
             push_constant_ranges: &[],
         });
 

@@ -64,7 +64,7 @@ impl Camera {
         let proj = Mat4::perspective_rh(fov, aspect, near, far);
 
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            size: buffer_size(), // F32 fields * 4
+            size: buffer_size(),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             label: Some("Camera buffer"),
             mapped_at_creation: false,
