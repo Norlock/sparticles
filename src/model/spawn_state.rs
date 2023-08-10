@@ -70,7 +70,6 @@ impl SpawnState {
 
         if self.gui.recreate {
             *self = self.recreate_spawner(&gfx_state, &camera);
-            // TODO init gui state
         }
     }
 
@@ -236,6 +235,8 @@ impl GfxState {
             self.create_render_pipeline(&diffuse_texture, &camera, &bind_group_layout);
 
         let gui = emitter.create_gui();
+
+        //println!("Emitter: {}\n{:?}", id, emitter);
 
         SpawnState {
             emitter,

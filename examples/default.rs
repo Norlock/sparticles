@@ -26,14 +26,26 @@ fn get_simple_spawner() -> SpawnerInit {
     emitter.box_dimensions.x = -5.;
     emitter.box_dimensions.y = 5.;
     emitter.particle_color = Vec4::from_rgb(255, 0, 0);
-    emitter.particle_size_min = 0.01;
-    emitter.particle_size_min = 0.03;
-    //emitter
+    emitter.particle_size_min = 0.05;
+    emitter.particle_size_max = 0.09;
+
+    let gravity_animation = GravityUniform::new(GravityUniformOptions {
+        life_cycle: LifeCycle {
+            from_sec: 0.,
+            until_sec: 6.,
+            lifetime_sec: 6.,
+        },
+        gravitational_force: 0.001,
+        dead_zone: 0.3,
+        mass: 100_000.,
+        start_pos: Vec3::new(0., 8., 0.),
+        end_pos: Vec3::new(-3., -5., 2.),
+    });
 
     return SpawnerInit {
         id: "other".to_string(),
         emitter,
-        particle_animations: vec![],
+        particle_animations: vec![Box::new(gravity_animation)],
         emitter_animations: vec![],
     };
 }
@@ -72,7 +84,7 @@ fn get_spawner() -> SpawnerInit {
             lifetime_sec: 7.,
         },
         velocity: Vec3::new(-15., -15., 0.),
-        mass_per_unit: 0.20,
+        mass_per_unit: 0.50,
     };
 
     let force_animation_2 = ForceUniform {
@@ -82,7 +94,7 @@ fn get_spawner() -> SpawnerInit {
             lifetime_sec: 9.,
         },
         velocity: Vec3::new(15., 0., 0.),
-        mass_per_unit: 0.30,
+        mass_per_unit: 0.80,
     };
 
     let emitter_sway_animation = SwayAnimation {
