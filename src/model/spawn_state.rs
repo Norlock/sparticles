@@ -133,18 +133,16 @@ impl SpawnState {
     }
 
     pub fn recreate_spawner(&mut self, gfx_state: &GfxState, camera: &Camera) {
-        let new = gfx_state.create_spawner(SpawnOptions {
+        *self = gfx_state.create_spawner(SpawnOptions {
             id: self.id.clone(),
             emitter: self.emitter.clone(),
             is_light: self.is_light,
             camera,
         });
 
-        for animation in self.animations.iter_mut() {
-            *animation = animation.recreate(gfx_state, &new);
+        while let Some(animation) = self.animations.pop() {
+            self.push_animation(animation.recreate(gfx_state, &self));
         }
-
-        *self = new;
     }
 
     pub fn push_animation(&mut self, animation: Box<dyn Animation>) {
