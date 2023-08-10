@@ -15,7 +15,7 @@ fn get_velocity(particle_vel: f32, particle_mass: f32, force_vel: f32, force_mas
     let same_dir = sign(particle_vel) == sign(force_vel);
 
     if same_dir {
-        if 0. <= force_vel {
+        if 0. < force_vel {
             let delta_vel = max(force_vel - particle_vel, 0.);
 
             if 0. < delta_vel {
@@ -25,8 +25,7 @@ fn get_velocity(particle_vel: f32, particle_mass: f32, force_vel: f32, force_mas
 
                 return min(possible_speed, force_vel);
             }
-            return particle_vel;
-        } else {
+        } else if force_vel < 0. {
             let delta_vel = min(force_vel - particle_vel, 0.);
 
             if delta_vel < 0. {
@@ -36,8 +35,7 @@ fn get_velocity(particle_vel: f32, particle_mass: f32, force_vel: f32, force_mas
 
                 return max(possible_speed, force_vel);
             }
-            return particle_vel;
-        }
+        } 
     } else {
         let delta_force = force_vel * force_mass * em.delta_sec;
         let possible_force = particle_force + delta_force;
@@ -45,10 +43,11 @@ fn get_velocity(particle_vel: f32, particle_mass: f32, force_vel: f32, force_mas
 
         if 0. < force_vel {
             return min(possible_speed, force_vel);
-        } else {
+        } else if force_vel < 0. {
             return max(possible_speed, force_vel);
         }
     }
+    return particle_vel;
 }
 
 @compute

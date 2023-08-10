@@ -29,14 +29,10 @@ impl AppState {
 
         self.camera.handle_gui(gui_state);
 
-        let spawner = self
-            .spawners
+        self.spawners
             .iter_mut()
-            .find(|s| s.id == gui_state.selected_spawner_id);
-
-        if let Some(spawner) = spawner {
-            spawner.handle_gui(gfx_state, &self.camera);
-        }
+            .find(|s| s.id == gui_state.selected_id)
+            .map(|s| s.handle_gui(gfx_state, &self.camera));
     }
 
     pub fn particle_count_text(&self) -> String {

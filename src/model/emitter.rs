@@ -79,7 +79,7 @@ impl Emitter {
             particle_lifetime_sec,
             particle_size_min: 0.1,
             particle_size_max: 0.15,
-            particle_friction_coefficient: 0.95,
+            particle_friction_coefficient: 0.99,
             particle_color: Vec4::from_rgb(0, 255, 0),
 
             iteration: 1000,

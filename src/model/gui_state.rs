@@ -11,7 +11,7 @@ pub struct GuiState {
     elapsed_text: String,
     particle_count_text: String,
 
-    pub selected_spawner_id: String,
+    pub selected_id: String,
 }
 
 impl GuiState {
@@ -28,7 +28,10 @@ impl GuiState {
         self.particle_count_text = app_state.particle_count_text();
     }
 
-    fn create_spawner_menu(&mut self, ui: &mut Ui, emitter: &mut SpawnGuiState) {
+    fn create_spawner_menu(&mut self, ui: &mut Ui, emitter: &mut SpawnGuiState, id: &str) {
+        ui.add_space(5.0);
+        create_label(ui, id);
+
         create_deg_slider(ui, &mut emitter.box_rotation_deg.x, "Box yaw");
         create_deg_slider(ui, &mut emitter.box_rotation_deg.y, "Box pitch");
         create_deg_slider(ui, &mut emitter.box_rotation_deg.z, "Box roll");
@@ -53,6 +56,7 @@ impl GuiState {
         ui.add(
             egui::Slider::new(&mut emitter.particle_lifetime_sec, 1.0..=40.0)
                 .drag_value_speed(0.)
+                .max_decimals(1)
                 .step_by(0.1)
                 .text("Particle lifetime (sec)"),
         );
@@ -60,6 +64,7 @@ impl GuiState {
         ui.add(
             egui::Slider::new(&mut emitter.spawn_delay_sec, 0.1..=20.0)
                 .drag_value_speed(0.)
+                .max_decimals(1)
                 .step_by(0.1)
                 .text("Spawn delay (sec)"),
         );
@@ -98,9 +103,19 @@ impl GuiState {
             self.reset_camera = ui.button("Reset camera").clicked();
             ui.add_space(5.0);
 
+            let ids: Vec<&str> = spawners.iter().map(|s| s.id.as_str()).collect();
+
+            egui::ComboBox::from_label("Select one!")
+                .selected_text(&self.selected_id)
+                .show_ui(ui, |ui| {
+                    for id in ids.into_iter() {
+                        ui.selectable_value(&mut self.selected_id, id.to_owned(), id.to_owned());
+                    }
+                });
+
             for spawner in spawners {
-                if spawner.id == self.selected_spawner_id {
-                    self.create_spawner_menu(ui, &mut spawner.gui);
+                if spawner.id == self.selected_id {
+                    self.create_spawner_menu(ui, &mut spawner.gui, &spawner.id);
                 }
             }
         });
@@ -116,10 +131,10 @@ impl GuiState {
 
 impl AppState {
     pub fn create_gui_state(&self, show_gui: bool) -> GuiState {
-        let mut selected_spawner_id = "".to_string();
-        let mut spawn_delay_sec = 0.;
-        let mut spawn_count = 0;
-        let mut particle_lifetime_sec = 0.;
+        let selected_spawner_id = self
+            .spawners
+            .first()
+            .map_or("".to_owned(), |s| s.id.to_owned());
 
         GuiState {
             show: show_gui,
@@ -128,7 +143,7 @@ impl AppState {
             fps_text: "".to_string(),
             elapsed_text: "".to_string(),
             particle_count_text: "".to_string(),
-            selected_spawner_id,
+            selected_id: selected_spawner_id,
         }
     }
 }

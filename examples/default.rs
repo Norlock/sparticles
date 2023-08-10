@@ -16,7 +16,8 @@ fn main() {
 
     sparticles::start(sparticles::InitialiseApp {
         show_gui: true,
-        spawners: vec![spawner, spawner_2],
+        //spawners: vec![spawner, spawner_2],
+        spawners: vec![spawner],
     });
 }
 
@@ -81,20 +82,20 @@ fn get_spawner() -> SpawnerInit {
         life_cycle: LifeCycle {
             from_sec: 0.,
             until_sec: 5.,
-            lifetime_sec: 7.,
+            lifetime_sec: 10.,
         },
         velocity: Vec3::new(-15., -15., 0.),
-        mass_per_unit: 0.50,
+        mass_per_unit: 0.5,
     };
 
     let force_animation_2 = ForceUniform {
         life_cycle: LifeCycle {
             from_sec: 5.,
-            until_sec: 9.,
-            lifetime_sec: 9.,
+            until_sec: 10.,
+            lifetime_sec: 10.,
         },
         velocity: Vec3::new(15., 0., 0.),
-        mass_per_unit: 0.80,
+        mass_per_unit: 0.1,
     };
 
     let emitter_sway_animation = SwayAnimation {
@@ -114,7 +115,7 @@ fn get_spawner() -> SpawnerInit {
         particle_animations: vec![
             Box::new(stray_animation),
             Box::new(color_animation),
-            Box::new(gravity_animation),
+            //Box::new(gravity_animation),
             Box::new(force_animation),
             Box::new(force_animation_2),
         ],
