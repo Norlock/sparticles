@@ -1,7 +1,7 @@
 use crate::traits::{FromRGB, HandleAngles};
 use glam::{Vec3, Vec4};
 
-use super::{Clock, GuiState};
+use super::{Clock, SpawnGuiState};
 
 const PARTICLE_BUFFER_SIZE: u64 = 16 * 4;
 
@@ -27,9 +27,9 @@ pub struct Emitter {
     pub box_rotation: Vec3,
 
     /// Diffusion emission in radians
-    pub diffusion_width_rad: f32,
+    pub diff_width: f32,
     /// Diffusion emission in radians
-    pub diffusion_depth_rad: f32,
+    pub diff_depth: f32,
 
     pub particle_color: Vec4,
     pub particle_friction_coefficient: f32,
@@ -71,8 +71,8 @@ impl Emitter {
             box_dimensions,
             box_rotation,
 
-            diffusion_width_rad,
-            diffusion_depth_rad,
+            diff_width: diffusion_width_rad,
+            diff_depth: diffusion_depth_rad,
 
             particle_material_mass: 5.,
             particle_speed: 15.,
@@ -88,22 +88,39 @@ impl Emitter {
         }
     }
 
-    pub fn handle_gui(&mut self, gui_state: &GuiState) {
-        self.box_rotation = gui_state.box_rotation_deg.to_radians();
-        self.box_dimensions = gui_state.box_dimensions;
+    pub fn handle_gui(&mut self, gui: &SpawnGuiState) {
+        self.box_rotation = gui.box_rotation_deg.to_radians();
+        self.box_dimensions = gui.box_dimensions;
 
-        self.diffusion_width_rad = gui_state.diff_width_deg.to_radians();
-        self.diffusion_depth_rad = gui_state.diff_depth_deg.to_radians();
+        self.diff_width = gui.diff_width_deg.to_radians();
+        self.diff_depth = gui.diff_depth_deg.to_radians();
 
-        self.particle_size_min = gui_state.particle_size_min;
-        self.particle_size_max = gui_state.particle_size_max;
+        self.particle_size_min = gui.particle_size_min;
+        self.particle_size_max = gui.particle_size_max;
 
-        self.particle_speed = gui_state.particle_speed;
+        self.particle_speed = gui.particle_speed;
 
-        if gui_state.update_spawn {
-            self.spawn_count = gui_state.spawn_count;
-            self.spawn_delay_sec = gui_state.spawn_delay_sec;
-            self.particle_lifetime_sec = gui_state.particle_lifetime_sec;
+        if gui.recreate {
+            self.spawn_count = gui.spawn_count;
+            self.spawn_delay_sec = gui.spawn_delay_sec;
+            self.particle_lifetime_sec = gui.particle_lifetime_sec;
+        }
+    }
+
+    pub fn create_gui(&self) -> SpawnGuiState {
+        SpawnGuiState {
+            spawn_count: self.spawn_count,
+            spawn_delay_sec: self.spawn_delay_sec,
+            particle_lifetime_sec: self.particle_lifetime_sec,
+            recreate: false,
+            box_position: self.box_rotation,
+            box_dimensions: self.box_dimensions,
+            box_rotation_deg: self.box_rotation.to_degrees(),
+            diff_width_deg: self.diff_width.to_degrees(),
+            diff_depth_deg: self.diff_depth.to_degrees(),
+            particle_speed: self.particle_speed,
+            particle_size_min: self.particle_size_min,
+            particle_size_max: self.particle_size_max,
         }
     }
 
@@ -165,8 +182,8 @@ impl Emitter {
             self.box_rotation.x,
             self.box_rotation.y,
             self.box_rotation.z,
-            self.diffusion_width_rad,
-            self.diffusion_depth_rad,
+            self.diff_width,
+            self.diff_depth,
             self.particle_color.x,
             self.particle_color.y,
             self.particle_color.z,

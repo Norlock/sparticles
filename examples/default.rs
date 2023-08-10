@@ -12,11 +12,30 @@ use sparticles::{
 #[allow(dead_code, unused)]
 fn main() {
     let spawner = get_spawner();
+    let spawner_2 = get_simple_spawner();
 
     sparticles::start(sparticles::InitialiseApp {
         show_gui: true,
-        spawners: vec![spawner],
+        spawners: vec![spawner, spawner_2],
     });
+}
+
+fn get_simple_spawner() -> SpawnerInit {
+    let mut emitter = Emitter::new();
+
+    emitter.box_dimensions.x = -5.;
+    emitter.box_dimensions.y = 5.;
+    emitter.particle_color = Vec4::from_rgb(255, 0, 0);
+    emitter.particle_size_min = 0.01;
+    emitter.particle_size_min = 0.03;
+    //emitter
+
+    return SpawnerInit {
+        id: "other".to_string(),
+        emitter,
+        particle_animations: vec![],
+        emitter_animations: vec![],
+    };
 }
 
 fn get_spawner() -> SpawnerInit {
@@ -78,6 +97,7 @@ fn get_spawner() -> SpawnerInit {
     };
 
     return SpawnerInit {
+        id: "Simple".to_string(),
         emitter: Emitter::new(),
         particle_animations: vec![
             Box::new(stray_animation),
@@ -87,6 +107,5 @@ fn get_spawner() -> SpawnerInit {
             Box::new(force_animation_2),
         ],
         emitter_animations: vec![Box::new(emitter_sway_animation)],
-        //emitter_animations: vec![],
     };
 }

@@ -57,12 +57,11 @@ fn spawn_particle(index: u32) {
     particle.position = create_particle_position(input_random);
     particle.velocity = create_velocity(input_random);
     particle.color = particle_color;
-    particle.size =  em.particle_size_min + size_random;
+    particle.size =  em.particle_size_max;
     particle.lifetime = 0.;
 
-    let pi = 3.14;
-    let volume_sample = 4. / 3. * pi * pow(0.5, 3.0);
-    let volume_particle = 4. / 3. * pi * pow(particle.size / 2., 3.);
+    let volume_sample = 4. / 3. * pi() * pow(0.5, 3.0);
+    let volume_particle = 4. / 3. * pi() * pow(particle.size / 2., 3.);
     let mass_scale = volume_particle / volume_sample;
 
     particle.mass = em.particle_mass * mass_scale;

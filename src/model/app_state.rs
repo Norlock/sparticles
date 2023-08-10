@@ -29,10 +29,20 @@ impl AppState {
 
         self.camera.handle_gui(gui_state);
 
-        // TODO gui seperate logic for each spawner
-        for spawner in self.spawners.iter_mut() {
-            spawner.handle_gui(gui_state, gfx_state, &self.camera);
+        let spawner = self
+            .spawners
+            .iter_mut()
+            .find(|s| s.id == gui_state.selected_spawner_id);
+
+        if let Some(spawner) = spawner {
+            spawner.handle_gui(gfx_state, &self.camera);
         }
+    }
+
+    pub fn particle_count_text(&self) -> String {
+        let particle_count: u64 = self.spawners.iter().map(|s| s.particle_count()).sum();
+
+        format!("Particle count: {}", particle_count)
     }
 
     pub fn window_resize(&mut self, gfx_state: &GfxState) {
@@ -61,18 +71,22 @@ impl GfxState {
         let clock = Clock::new();
         let camera = Camera::new(&self);
 
-        let mut spawners = Vec::new();
+        let mut spawners: Vec<SpawnState> = Vec::new();
 
-        for spawner_init in init_app.spawners {
-            let mut spawner = self.create_spawner(spawner_init.emitter, &camera);
+        for item in init_app.spawners {
+            let mut spawner = self.create_spawner(item.emitter, &camera, item.id);
+            assert!(!spawner.id.is_empty(), "Id can not be empty");
 
-            let animations: Vec<Box<dyn Animation>> = spawner_init
+            let animations: Vec<Box<dyn Animation>> = item
                 .particle_animations
                 .into_iter()
                 .map(|anim| anim.into_animation(&self, &spawner))
                 .collect();
 
             spawner.set_animations(animations);
+
+            let is_unique = spawners.iter().find(|s| spawner.id == s.id).is_none();
+            assert!(is_unique, "Spawners require an unique ID");
 
             spawners.push(spawner);
         }

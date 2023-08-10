@@ -15,4 +15,4 @@ pub use emitter::Emitter;
 pub use gfx_state::GfxState;
 pub use gui_state::GuiState;
 pub use life_cycle::LifeCycle;
-pub use spawn_state::SpawnState;
+pub use spawn_state::{SpawnGuiState, SpawnState};

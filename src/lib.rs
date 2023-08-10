@@ -23,6 +23,7 @@ pub struct InitialiseApp {
 }
 
 pub struct SpawnerInit {
+    pub id: String,
     pub emitter: Emitter,
     pub particle_animations: Vec<Box<dyn CreateAnimation>>,
     pub emitter_animations: Vec<Box<dyn EmitterAnimation>>,
@@ -53,7 +54,7 @@ pub fn start(init_app: InitialiseApp) {
         match event {
             RedrawRequested(window_id) if do_exec(window_id) => {
                 app_state.update(&gfx_state, &gui_state);
-                gfx_state.render(&app_state, &mut gui_state);
+                gfx_state.render(&mut app_state, &mut gui_state);
             }
             MainEventsCleared => {
                 gfx_state.request_redraw();
@@ -74,10 +75,9 @@ pub fn start(init_app: InitialiseApp) {
                         *control_flow = ControlFlow::Exit;
                     }
                     winit::event::WindowEvent::KeyboardInput { input, .. } => {
-                        if response.consumed {
-                            return;
+                        if !response.consumed {
+                            app_state.process_events(input);
                         }
-                        app_state.process_events(input);
                     }
                     _ => {}
                 }

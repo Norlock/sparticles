@@ -155,7 +155,7 @@ impl GfxState {
     fn draw_gui(
         &mut self,
         gui_state: &mut GuiState,
-        app_state: &AppState,
+        app_state: &mut AppState,
         encoder: &mut CommandEncoder,
     ) -> Vec<ClippedPrimitive> {
         let input = self.winit.take_egui_input(&self.window);
@@ -189,7 +189,7 @@ impl GfxState {
         return clipped_primitives;
     }
 
-    pub fn render(&mut self, app_state: &AppState, gui_state: &mut GuiState) {
+    pub fn render(&mut self, app_state: &mut AppState, gui_state: &mut GuiState) {
         let output_frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Outdated) => {

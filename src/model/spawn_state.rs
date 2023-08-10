@@ -12,6 +12,7 @@ use crate::{
 use super::{emitter::Emitter, gfx_state::GfxState, Camera, Clock, GuiState};
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::util::DeviceExt;
+use glam::Vec3;
 
 #[allow(dead_code)]
 pub struct SpawnState {
@@ -21,24 +22,31 @@ pub struct SpawnState {
     diffuse_texture: DiffuseTexture,
     render_pipeline: wgpu::RenderPipeline,
     animations: Vec<Box<dyn Animation>>,
+    emitter: Emitter,
 
-    pub emitter: Emitter,
+    pub id: String,
     pub dispatch_x_count: u32,
     pub bind_groups: Vec<wgpu::BindGroup>,
     pub bind_group_layout: wgpu::BindGroupLayout,
+    pub gui: SpawnGuiState,
 }
 
-impl Debug for SpawnState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SpawnState")
-            .field("emitter", &self.emitter)
-            .finish()
+pub struct SpawnGuiState {
+    pub spawn_count: u32,
+    pub spawn_delay_sec: f32,
+    pub particle_lifetime_sec: f32,
+    pub recreate: bool,
 
-        //f.write_str(format!(
-        //"emitter: {}\n dispatch_x_count: {}",
-        //self.emitter, self.dispatch_x_count
-        //)).
-    }
+    pub box_position: Vec3,
+    pub box_dimensions: Vec3,
+    pub box_rotation_deg: Vec3,
+
+    pub diff_width_deg: f32,
+    pub diff_depth_deg: f32,
+
+    pub particle_speed: f32,
+    pub particle_size_min: f32,
+    pub particle_size_max: f32,
 }
 
 impl SpawnState {
@@ -57,11 +65,12 @@ impl SpawnState {
         }
     }
 
-    pub fn handle_gui(&mut self, gui_state: &GuiState, gfx_state: &GfxState, camera: &Camera) {
-        self.emitter.handle_gui(gui_state);
+    pub fn handle_gui(&mut self, gfx_state: &GfxState, camera: &Camera) {
+        self.emitter.handle_gui(&mut self.gui);
 
-        if gui_state.update_spawn {
+        if self.gui.recreate {
             *self = self.recreate_spawner(&gfx_state, &camera);
+            // TODO init gui state
         }
     }
 
@@ -95,7 +104,7 @@ impl SpawnState {
     pub fn recreate_spawner(&mut self, gfx_state: &GfxState, camera: &Camera) -> SpawnState {
         let emitter = self.emitter.clone();
 
-        let mut spawner = gfx_state.create_spawner(emitter, camera);
+        let mut spawner = gfx_state.create_spawner(emitter, camera, self.id.clone());
 
         let animations = self
             .animations
@@ -112,17 +121,13 @@ impl SpawnState {
         self.animations = animations;
     }
 
-    pub fn particle_count_text(&self) -> String {
-        format!("Particle count: {}", self.emitter.particle_count())
-    }
-
     pub fn particle_count(&self) -> u64 {
         self.emitter.particle_count()
     }
 }
 
 impl GfxState {
-    pub fn create_spawner(&self, emitter: Emitter, camera: &Camera) -> SpawnState {
+    pub fn create_spawner(&self, emitter: Emitter, camera: &Camera, id: String) -> SpawnState {
         let device = &self.device;
         let emitter_buf_content = emitter.create_buffer_content();
         let diffuse_texture = self.create_diffuse_texture();
@@ -230,6 +235,8 @@ impl GfxState {
         let render_pipeline =
             self.create_render_pipeline(&diffuse_texture, &camera, &bind_group_layout);
 
+        let gui = emitter.create_gui();
+
         SpawnState {
             emitter,
             pipeline,
@@ -241,6 +248,8 @@ impl GfxState {
             dispatch_x_count,
             diffuse_texture,
             animations: vec![],
+            id,
+            gui,
         }
     }
 
@@ -306,5 +315,13 @@ impl GfxState {
             },
             multiview: None,
         })
+    }
+}
+
+impl Debug for SpawnState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SpawnState")
+            .field("emitter", &self.emitter)
+            .finish()
     }
 }
