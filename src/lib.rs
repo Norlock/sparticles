@@ -1,8 +1,6 @@
 use egui_winit::winit;
-use model::emitter::Emitter;
+use init::InitApp;
 use model::GfxState;
-use traits::CreateAnimation;
-use traits::EmitterAnimation;
 use winit::event::Event::*;
 use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoop;
@@ -11,25 +9,14 @@ use winit::window::WindowId;
 
 pub mod animations;
 pub mod debug;
+pub mod init;
 pub mod math;
 pub mod model;
 pub mod shaders;
 pub mod texture;
 pub mod traits;
 
-pub struct InitialiseApp {
-    pub show_gui: bool,
-    pub spawners: Vec<SpawnerInit>,
-}
-
-pub struct SpawnerInit {
-    pub id: String,
-    pub emitter: Emitter,
-    pub particle_animations: Vec<Box<dyn CreateAnimation>>,
-    pub emitter_animations: Vec<Box<dyn EmitterAnimation>>,
-}
-
-pub fn start(init_app: InitialiseApp) {
+pub fn start(init_app: InitApp) {
     env_logger::init();
 
     let event_loop = EventLoop::new();

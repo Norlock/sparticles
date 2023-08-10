@@ -4,24 +4,24 @@ use sparticles::{
         sway_animation::SwayAnimation, ColorUniform, ForceUniform, GravityUniform,
         GravityUniformOptions, StrayUniform,
     },
+    init::{InitApp, SpawnInit},
     model::{emitter::Emitter, LifeCycle},
     traits::FromRGB,
-    SpawnerInit,
 };
 
 #[allow(dead_code, unused)]
 fn main() {
     let spawner = get_spawner();
-    let spawner_2 = get_simple_spawner();
+    let light = get_light_spawner();
 
-    sparticles::start(sparticles::InitialiseApp {
+    sparticles::start(InitApp {
         show_gui: true,
-        //spawners: vec![spawner, spawner_2],
+        light,
         spawners: vec![spawner],
     });
 }
 
-fn get_simple_spawner() -> SpawnerInit {
+fn get_light_spawner() -> SpawnInit {
     let mut emitter = Emitter::new();
 
     emitter.box_dimensions.x = -5.;
@@ -43,7 +43,7 @@ fn get_simple_spawner() -> SpawnerInit {
         end_pos: Vec3::new(-3., -5., 2.),
     });
 
-    return SpawnerInit {
+    return SpawnInit {
         id: "other".to_string(),
         emitter,
         particle_animations: vec![Box::new(gravity_animation)],
@@ -51,7 +51,7 @@ fn get_simple_spawner() -> SpawnerInit {
     };
 }
 
-fn get_spawner() -> SpawnerInit {
+fn get_spawner() -> SpawnInit {
     let stray_animation = StrayUniform {
         from_sec: 0.,
         until_sec: 100.,
@@ -109,7 +109,7 @@ fn get_spawner() -> SpawnerInit {
         roll: 0f32.to_radians(),
     };
 
-    return SpawnerInit {
+    return SpawnInit {
         id: "Simple".to_string(),
         emitter: Emitter::new(),
         particle_animations: vec![

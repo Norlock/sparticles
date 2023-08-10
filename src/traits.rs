@@ -61,3 +61,9 @@ pub trait HandleAngles {
     fn to_degrees(&self) -> Self;
     fn to_radians(&self) -> Self;
 }
+
+pub trait CreateSpawner {
+    fn create_emitter(&self) -> Emitter;
+
+    fn create_id(&self) -> String;
+}

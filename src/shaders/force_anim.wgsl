@@ -47,6 +47,7 @@ fn get_velocity(particle_vel: f32, particle_mass: f32, force_vel: f32, force_mas
             return max(possible_speed, force_vel);
         }
     }
+
     return particle_vel;
 }
 

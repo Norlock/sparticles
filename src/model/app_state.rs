@@ -1,4 +1,4 @@
-use crate::{traits::Animation, InitialiseApp};
+use crate::InitApp;
 
 use super::{Camera, Clock, GfxState, GuiState, SpawnState};
 use egui_wgpu::wgpu;
@@ -7,6 +7,7 @@ use egui_winit::winit::event::KeyboardInput;
 pub struct AppState {
     pub camera: Camera,
     pub clock: Clock,
+    pub light_spawner: SpawnState,
     pub spawners: Vec<SpawnState>,
 }
 
@@ -50,47 +51,35 @@ impl AppState {
     }
 
     pub fn compute<'a>(&'a self, compute_pass: &mut wgpu::ComputePass<'a>) {
+        self.light_spawner.compute(&self.clock, compute_pass);
+
         for spawner in self.spawners.iter() {
             spawner.compute(&self.clock, compute_pass);
         }
     }
 
     pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+        self.light_spawner
+            .render_light(&self.clock, &self.camera, render_pass);
+
         for spawner in self.spawners.iter() {
-            spawner.render(&self.clock, &self.camera, render_pass);
+            spawner.render(&self.clock, &self.camera, &self.light_spawner, render_pass);
         }
     }
 }
 
 impl GfxState {
-    pub fn create_app_state(&self, init_app: InitialiseApp) -> AppState {
+    pub fn create_app_state(&self, mut init_app: InitApp) -> AppState {
         let clock = Clock::new();
         let camera = Camera::new(&self);
-
-        let mut spawners: Vec<SpawnState> = Vec::new();
-
-        for item in init_app.spawners {
-            let mut spawner = self.create_spawner(item.emitter, &camera, item.id);
-            assert!(!spawner.id.is_empty(), "Id can not be empty");
-
-            let animations: Vec<Box<dyn Animation>> = item
-                .particle_animations
-                .into_iter()
-                .map(|anim| anim.into_animation(&self, &spawner))
-                .collect();
-
-            spawner.set_animations(animations);
-
-            let is_unique = spawners.iter().find(|s| spawner.id == s.id).is_none();
-            assert!(is_unique, "Spawners require an unique ID");
-
-            spawners.push(spawner);
-        }
+        let light_spawner = init_app.create_light_spawner(&self, &camera);
+        let spawners = init_app.create_spawners(&self, &camera);
 
         AppState {
             clock,
             camera,
             spawners,
+            light_spawner,
         }
     }
 }

@@ -5,7 +5,7 @@ use super::{Clock, SpawnGuiState};
 
 const PARTICLE_BUFFER_SIZE: u64 = 16 * 4;
 
-pub struct SpawnOptions {
+pub struct EmitSpawnOptions {
     pub spawn_count: u32,
     pub spawn_delay_sec: f32,
     pub particle_lifetime_sec: f32,
@@ -150,15 +150,15 @@ impl Emitter {
         self.particle_count() * PARTICLE_BUFFER_SIZE
     }
 
-    pub fn get_spawn_options(&self) -> SpawnOptions {
-        SpawnOptions {
+    pub fn get_spawn_options(&self) -> EmitSpawnOptions {
+        EmitSpawnOptions {
             spawn_count: self.spawn_count,
             spawn_delay_sec: self.spawn_delay_sec,
             particle_lifetime_sec: self.particle_lifetime_sec,
         }
     }
 
-    pub fn from_spawn_options(&self, options: SpawnOptions) -> Self {
+    pub fn from_spawn_options(&self, options: EmitSpawnOptions) -> Self {
         let mut new = self.clone();
         new.spawn_count = options.spawn_count;
         new.spawn_delay_sec = options.spawn_delay_sec;

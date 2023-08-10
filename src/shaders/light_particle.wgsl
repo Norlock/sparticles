@@ -12,9 +12,6 @@ var<uniform> camera: CameraUniform;
 @group(2) @binding(0) 
 var<storage, read> particles: array<Particle>;
 
-@group(3) @binding(0) 
-var<storage, read> light_particles: array<Particle>;
-
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) pos_uv: vec4<f32>,
@@ -63,8 +60,6 @@ var base_sampler: sampler;
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let len = length(in.pos_uv.xy);
 
-    let texture_color = textureSample(base_texture, base_sampler, in.pos_uv.zw);
-
     if (1.0 < len) {
         discard;
     }
@@ -72,25 +67,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let x = in.pos_uv.x;
     let y = in.pos_uv.y;
 
-    let light_color = vec4<f32>(0.5);
     let normal = vec3<f32>(x, y, sqrt(1. - x * x - y * y));
-    let world_normal = vec4<f32>(normal, 0.) * camera.view;
 
-    let light_pos = vec3<f32>(0., 5., 10.);
-    let light_dir = normalize(light_pos - in.world_space.xyz);
-    let view_dir = normalize(camera.view_pos.xyz - in.world_space.xyz);
-    let half_dir = normalize(view_dir + light_dir);
-
-    let distance = length(light_pos - in.world_space.xyz);
-    let strength = 1.0 - distance * 0.03;
-
-    let ambient_color = light_color * strength;
-
-    let diffuse_strength = max(dot(world_normal.xyz, light_dir), 0.0);
-    let diffuse_color = diffuse_strength * ambient_color;
-
-    let specular_strength = pow(max(dot(world_normal.xyz, half_dir), 0.0), 32.0);
-    let specular_color = specular_strength * ambient_color;
-
-    return (diffuse_color + specular_color) * in.color * texture_color;
+    return in.color * normal;
 }

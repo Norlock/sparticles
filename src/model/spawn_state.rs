@@ -9,7 +9,11 @@ use crate::{
     traits::{CalculateBufferSize, CustomShader},
 };
 
-use super::{emitter::Emitter, gfx_state::GfxState, Camera, Clock, GuiState};
+use super::{
+    emitter::Emitter,
+    gfx_state::{self, GfxState},
+    Camera, Clock,
+};
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::util::DeviceExt;
 use glam::Vec3;
@@ -29,6 +33,8 @@ pub struct SpawnState {
     pub bind_groups: Vec<wgpu::BindGroup>,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub gui: SpawnGuiState,
+
+    is_light: bool,
 }
 
 pub struct SpawnGuiState {
@@ -47,6 +53,13 @@ pub struct SpawnGuiState {
     pub particle_speed: f32,
     pub particle_size_min: f32,
     pub particle_size_max: f32,
+}
+
+pub struct SpawnOptions<'a> {
+    pub id: String,
+    pub emitter: Emitter,
+    pub is_light: bool,
+    pub camera: &'a Camera,
 }
 
 impl SpawnState {
@@ -69,7 +82,7 @@ impl SpawnState {
         self.emitter.handle_gui(&mut self.gui);
 
         if self.gui.recreate {
-            *self = self.recreate_spawner(&gfx_state, &camera);
+            self.recreate_spawner(&gfx_state, &camera);
         }
     }
 
@@ -85,7 +98,7 @@ impl SpawnState {
         }
     }
 
-    pub fn render<'a>(
+    pub fn render_light<'a>(
         &'a self,
         clock: &Clock,
         camera: &'a Camera,
@@ -97,27 +110,45 @@ impl SpawnState {
         render_pass.set_bind_group(0, &self.diffuse_texture.bind_group, &[]);
         render_pass.set_bind_group(1, &camera.bind_group, &[]);
         render_pass.set_bind_group(2, &self.bind_groups[nr], &[]);
+
         render_pass.draw(0..4, 0..self.particle_count() as u32);
     }
 
-    pub fn recreate_spawner(&mut self, gfx_state: &GfxState, camera: &Camera) -> SpawnState {
-        let emitter = self.emitter.clone();
+    pub fn render<'a>(
+        &'a self,
+        clock: &Clock,
+        camera: &'a Camera,
+        light_spawner: &'a SpawnState,
+        render_pass: &mut wgpu::RenderPass<'a>,
+    ) {
+        let nr = clock.get_alt_bindgroup_nr();
 
-        let mut spawner = gfx_state.create_spawner(emitter, camera, self.id.clone());
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &self.diffuse_texture.bind_group, &[]);
+        render_pass.set_bind_group(1, &camera.bind_group, &[]);
+        render_pass.set_bind_group(2, &self.bind_groups[nr], &[]);
+        render_pass.set_bind_group(3, &light_spawner.bind_groups[nr], &[]);
 
-        let animations = self
-            .animations
-            .iter()
-            .map(|a| a.recreate(gfx_state, &spawner))
-            .collect();
-
-        spawner.set_animations(animations);
-
-        return spawner;
+        render_pass.draw(0..4, 0..self.particle_count() as u32);
     }
 
-    pub fn set_animations(&mut self, animations: Vec<Box<dyn Animation>>) {
-        self.animations = animations;
+    pub fn recreate_spawner(&mut self, gfx_state: &GfxState, camera: &Camera) {
+        let new = gfx_state.create_spawner(SpawnOptions {
+            id: self.id.clone(),
+            emitter: self.emitter.clone(),
+            is_light: self.is_light,
+            camera,
+        });
+
+        for animation in self.animations.iter_mut() {
+            *animation = animation.recreate(gfx_state, &new);
+        }
+
+        *self = new;
+    }
+
+    pub fn push_animation(&mut self, animation: Box<dyn Animation>) {
+        self.animations.push(animation);
     }
 
     pub fn particle_count(&self) -> u64 {
@@ -126,8 +157,17 @@ impl SpawnState {
 }
 
 impl GfxState {
-    pub fn create_spawner(&self, emitter: Emitter, camera: &Camera, id: String) -> SpawnState {
+    pub fn create_spawner<'a>(&self, options: SpawnOptions<'a>) -> SpawnState {
+        let SpawnOptions {
+            id,
+            emitter,
+            is_light,
+            camera,
+        } = options;
+
         let device = &self.device;
+        let surface_config = &self.surface_config;
+
         let emitter_buf_content = emitter.create_buffer_content();
         let diffuse_texture = self.create_diffuse_texture();
 
@@ -225,60 +265,42 @@ impl GfxState {
         });
 
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Transform pipeline"),
+            label: Some("Compute pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader,
             entry_point: "main",
         });
 
-        let render_pipeline =
-            self.create_render_pipeline(&diffuse_texture, &camera, &bind_group_layout);
-
-        let gui = emitter.create_gui();
-
-        //println!("Emitter: {}\n{:?}", id, emitter);
-
-        SpawnState {
-            emitter,
-            pipeline,
-            render_pipeline,
-            bind_group_layout,
-            bind_groups,
-            particle_buffers,
-            emitter_buffer,
-            dispatch_x_count,
-            diffuse_texture,
-            animations: vec![],
-            id,
-            gui,
-        }
-    }
-
-    fn create_render_pipeline(
-        &self,
-        diffuse_texture: &DiffuseTexture,
-        camera: &Camera,
-        layout: &wgpu::BindGroupLayout,
-    ) -> wgpu::RenderPipeline {
-        let device = &self.device;
-        let surface_config = &self.surface_config;
-
+        // Render ---------
         let shader = device.create_shader("particle.wgsl", "Particle render");
+        let pipeline_layout;
 
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Empty Render Pipeline Layout"),
+        if is_light {
+            pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Particle render Pipeline Layout"),
                 bind_group_layouts: &[
                     &diffuse_texture.bind_group_layout,
                     &camera.bind_group_layout,
-                    &layout,
+                    &bind_group_layout,
                 ],
                 push_constant_ranges: &[],
             });
+        } else {
+            pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Particle render Pipeline Layout"),
+                bind_group_layouts: &[
+                    &diffuse_texture.bind_group_layout,
+                    &camera.bind_group_layout,
+                    &bind_group_layout,
+                    &bind_group_layout,
+                ],
+                push_constant_ranges: &[],
+            });
+        }
 
-        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
+            layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
@@ -315,7 +337,25 @@ impl GfxState {
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
-        })
+        });
+
+        let gui = emitter.create_gui();
+
+        SpawnState {
+            emitter,
+            pipeline,
+            render_pipeline,
+            bind_group_layout,
+            bind_groups,
+            particle_buffers,
+            emitter_buffer,
+            dispatch_x_count,
+            diffuse_texture,
+            animations: vec![],
+            id,
+            gui,
+            is_light,
+        }
     }
 }
 
