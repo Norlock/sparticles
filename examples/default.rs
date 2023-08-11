@@ -29,7 +29,8 @@ fn get_light_spawner() -> SpawnInit {
     emitter.particle_color = Vec4::from_rgb(255, 0, 0);
     emitter.particle_size_min = 0.25;
     emitter.particle_size_max = 0.50;
-    emitter.spawn_count = 6;
+    emitter.spawn_count = 1;
+    emitter.particle_speed = 5.;
 
     let gravity_animation = GravityUniform::new(GravityUniformOptions {
         life_cycle: LifeCycle {

@@ -21,13 +21,15 @@ type Mat4x2 = [[f32; 2]; 4];
 
 #[allow(dead_code)]
 pub struct Camera {
-    position: glam::Vec3, // Camera position
-    view_dir: glam::Vec3, // Camera aimed at
-    fov: f32,             // Field of view (frustum vertical degrees)
-    near: f32,            // What is too close to show
-    far: f32,             // What is too far to show
+    position: Vec3, // Camera position
+    view_dir: Vec3, // Camera aimed at
+    look_at: Vec3,
+    fov: f32,  // Field of view (frustum vertical degrees)
+    near: f32, // What is too close to show
+    far: f32,  // What is too far to show
     pitch: f32,
     yaw: f32,
+    roll: f32,
     buffer: wgpu::Buffer,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
@@ -52,11 +54,13 @@ impl Camera {
         let device = &gfx_state.device;
         let surface_config = &gfx_state.surface_config;
 
-        let position = glam::Vec3::new(0., 0., 10.);
-        let view_dir = glam::Vec3::new(0., 0., -10.);
+        let position = Vec3::new(0., 0., 10.);
+        let view_dir = Vec3::new(0., 0., -10.);
+        let look_at = position + view_dir;
         let vertex_positions = vertex_positions();
         let pitch = 0.;
         let yaw = 0.;
+        let roll = 0.;
         let near = 0.1;
         let far = 100.0;
         let fov = (45.0f32).to_radians();
@@ -99,8 +103,10 @@ impl Camera {
             near,
             pitch,
             yaw,
+            roll,
             position,
             view_dir,
+            look_at,
             buffer,
             bind_group_layout,
             bind_group,
@@ -164,19 +170,19 @@ impl Camera {
         }
 
         if self.is_rotate_up_pressed {
-            self.yaw += rotation;
-        }
-
-        if self.is_rotate_down_pressed {
-            self.yaw -= rotation;
-        }
-
-        if self.is_rotate_left_pressed {
             self.pitch += rotation;
         }
 
-        if self.is_rotate_right_pressed {
+        if self.is_rotate_down_pressed {
             self.pitch -= rotation;
+        }
+
+        if self.is_rotate_left_pressed {
+            self.yaw += rotation;
+        }
+
+        if self.is_rotate_right_pressed {
+            self.yaw -= rotation;
         }
 
         let buf_content_raw = self.create_buffer_content();
@@ -202,41 +208,49 @@ impl Camera {
             VirtualKeyCode::A => {
                 self.is_left_pressed = is_pressed;
             }
-            VirtualKeyCode::Left => {
-                self.is_rotate_left_pressed = is_pressed;
-            }
             VirtualKeyCode::S => {
                 self.is_backward_pressed = is_pressed;
             }
             VirtualKeyCode::D => {
                 self.is_right_pressed = is_pressed;
             }
+            VirtualKeyCode::Up => {
+                self.is_rotate_up_pressed = is_pressed;
+            }
+            VirtualKeyCode::Left => {
+                self.is_rotate_left_pressed = is_pressed;
+            }
             VirtualKeyCode::Right => {
                 self.is_rotate_right_pressed = is_pressed;
-            }
-            VirtualKeyCode::LControl => {
-                self.is_down_pressed = is_pressed;
             }
             VirtualKeyCode::Down => {
                 self.is_rotate_down_pressed = is_pressed;
             }
+            VirtualKeyCode::LControl => {
+                self.is_down_pressed = is_pressed;
+            }
             VirtualKeyCode::Space => {
                 self.is_up_pressed = is_pressed;
-            }
-            VirtualKeyCode::Up => {
-                self.is_rotate_up_pressed = is_pressed;
             }
             _ => (),
         }
     }
 
-    fn create_buffer_content(&self) -> Vec<f32> {
-        let yaw_mat = Mat3::from_rotation_x(self.yaw);
-        let pitch_mat = Mat3::from_rotation_y(self.pitch);
+    fn create_buffer_content(&mut self) -> Vec<f32> {
+        let yaw_mat = Mat3::from_rotation_y(self.yaw);
+        let pitch_mat = Mat3::from_rotation_x(self.pitch);
 
         let rotated_view_dir = yaw_mat * pitch_mat * self.view_dir;
+        // Test A
+        //self.look_at = self.position + self.look_at + rotated_view_dir;
+        //println!("look {:?}", self.look_at);
+        //let view_mat = Mat4::look_at_rh(self.position, self.look_at, Vec3::Y);
+        //self.pitch = 0.;
+        //self.yaw = 0.;
 
+        // Test B
         let view_mat = Mat4::look_at_rh(self.position, self.position + rotated_view_dir, Vec3::Y);
+
         let view_proj = OPENGL_TO_WGPU_MATRIX * self.proj * view_mat;
 
         let view_proj_arr = view_proj.to_cols_array().to_vec();

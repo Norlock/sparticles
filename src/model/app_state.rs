@@ -36,6 +36,7 @@ impl AppState {
             self.light_spawner.handle_gui(gfx_state, None, &self.camera);
         } else {
             let light_layout = &self.light_spawner.bind_group_layout;
+
             for spawner in self.spawners.iter_mut() {
                 spawner.handle_gui(gfx_state, Some(light_layout), &self.camera);
             }
