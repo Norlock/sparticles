@@ -1,3 +1,5 @@
+use egui_wgpu::wgpu;
+
 use crate::model::spawn_state::SpawnOptions;
 use crate::model::{Camera, Emitter, GfxState, SpawnState};
 use crate::traits::*;
@@ -23,7 +25,7 @@ impl InitApp {
             camera,
             id: light.id.to_string(),
             emitter: light.emitter,
-            is_light: true,
+            light_layout: None,
         });
 
         while let Some(anim) = light.particle_animations.pop() {
@@ -33,7 +35,12 @@ impl InitApp {
         return light_spawner;
     }
 
-    pub fn create_spawners(self, gfx_state: &GfxState, camera: &Camera) -> Vec<SpawnState> {
+    pub fn create_spawners(
+        self,
+        gfx_state: &GfxState,
+        light_layout: &wgpu::BindGroupLayout,
+        camera: &Camera,
+    ) -> Vec<SpawnState> {
         let mut spawners: Vec<SpawnState> = Vec::new();
 
         for item in self.spawners {
@@ -41,7 +48,7 @@ impl InitApp {
                 camera: &camera,
                 id: item.id,
                 emitter: item.emitter,
-                is_light: false,
+                light_layout: Some(light_layout),
             });
 
             for anim in item.particle_animations {

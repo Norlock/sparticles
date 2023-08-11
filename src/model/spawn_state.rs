@@ -9,11 +9,7 @@ use crate::{
     traits::{CalculateBufferSize, CustomShader},
 };
 
-use super::{
-    emitter::Emitter,
-    gfx_state::{self, GfxState},
-    Camera, Clock,
-};
+use super::{emitter::Emitter, gfx_state::GfxState, Camera, Clock};
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::util::DeviceExt;
 use glam::Vec3;
@@ -34,7 +30,7 @@ pub struct SpawnState {
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub gui: SpawnGuiState,
 
-    is_light: bool,
+    pub is_light: bool,
 }
 
 pub struct SpawnGuiState {
@@ -58,11 +54,11 @@ pub struct SpawnGuiState {
 pub struct SpawnOptions<'a> {
     pub id: String,
     pub emitter: Emitter,
-    pub is_light: bool,
+    pub light_layout: Option<&'a wgpu::BindGroupLayout>,
     pub camera: &'a Camera,
 }
 
-impl SpawnState {
+impl<'a> SpawnState {
     pub fn update(&mut self, gfx_state: &GfxState, clock: &Clock) {
         self.emitter.update(clock);
 
@@ -78,15 +74,20 @@ impl SpawnState {
         }
     }
 
-    pub fn handle_gui(&mut self, gfx_state: &GfxState, camera: &Camera) {
+    pub fn handle_gui(
+        &mut self,
+        gfx_state: &GfxState,
+        light_layout: Option<&'a wgpu::BindGroupLayout>,
+        camera: &Camera,
+    ) {
         self.emitter.handle_gui(&mut self.gui);
 
         if self.gui.recreate {
-            self.recreate_spawner(&gfx_state, &camera);
+            self.recreate_spawner(gfx_state, light_layout, camera);
         }
     }
 
-    pub fn compute<'a>(&'a self, clock: &Clock, compute_pass: &mut wgpu::ComputePass<'a>) {
+    pub fn compute(&'a self, clock: &Clock, compute_pass: &mut wgpu::ComputePass<'a>) {
         let bind_group_nr = clock.get_bindgroup_nr();
 
         compute_pass.set_pipeline(&self.pipeline);
@@ -98,7 +99,7 @@ impl SpawnState {
         }
     }
 
-    pub fn render_light<'a>(
+    pub fn render_light(
         &'a self,
         clock: &Clock,
         camera: &'a Camera,
@@ -114,7 +115,7 @@ impl SpawnState {
         render_pass.draw(0..4, 0..self.particle_count() as u32);
     }
 
-    pub fn render<'a>(
+    pub fn render(
         &'a self,
         clock: &Clock,
         camera: &'a Camera,
@@ -132,11 +133,16 @@ impl SpawnState {
         render_pass.draw(0..4, 0..self.particle_count() as u32);
     }
 
-    pub fn recreate_spawner(&mut self, gfx_state: &GfxState, camera: &Camera) {
+    pub fn recreate_spawner(
+        &mut self,
+        gfx_state: &GfxState,
+        light_layout: Option<&'a wgpu::BindGroupLayout>,
+        camera: &Camera,
+    ) {
         *self = gfx_state.create_spawner(SpawnOptions {
             id: self.id.clone(),
             emitter: self.emitter.clone(),
-            is_light: self.is_light,
+            light_layout,
             camera,
         });
 
@@ -159,7 +165,7 @@ impl GfxState {
         let SpawnOptions {
             id,
             emitter,
-            is_light,
+            light_layout,
             camera,
         } = options;
 
@@ -270,26 +276,28 @@ impl GfxState {
         });
 
         // Render ---------
-        let shader = device.create_shader("particle.wgsl", "Particle render");
+        let shader;
         let pipeline_layout;
 
-        if is_light {
+        if let Some(light_layout) = &light_layout {
+            shader = device.create_shader("particle.wgsl", "Particle render");
             pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Particle render Pipeline Layout"),
                 bind_group_layouts: &[
                     &diffuse_texture.bind_group_layout,
                     &camera.bind_group_layout,
                     &bind_group_layout,
+                    &light_layout,
                 ],
                 push_constant_ranges: &[],
             });
         } else {
+            shader = device.create_shader("light_particle.wgsl", "Particle render");
             pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Particle render Pipeline Layout"),
                 bind_group_layouts: &[
                     &diffuse_texture.bind_group_layout,
                     &camera.bind_group_layout,
-                    &bind_group_layout,
                     &bind_group_layout,
                 ],
                 push_constant_ranges: &[],
@@ -352,7 +360,7 @@ impl GfxState {
             animations: vec![],
             id,
             gui,
-            is_light,
+            is_light: light_layout.is_none(), // Light layout incl. when not light
         }
     }
 }

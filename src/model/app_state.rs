@@ -16,6 +16,8 @@ impl AppState {
         self.clock.update();
         self.camera.update(gfx_state, &self.clock);
 
+        self.light_spawner.update(gfx_state, &self.clock);
+
         for spawner in self.spawners.iter_mut() {
             spawner.update(gfx_state, &self.clock);
         }
@@ -30,10 +32,14 @@ impl AppState {
 
         self.camera.handle_gui(gui_state);
 
-        self.spawners
-            .iter_mut()
-            .find(|s| s.id == gui_state.selected_id)
-            .map(|s| s.handle_gui(gfx_state, &self.camera));
+        if self.light_spawner.id == gui_state.selected_id {
+            self.light_spawner.handle_gui(gfx_state, None, &self.camera);
+        } else {
+            let light_layout = &self.light_spawner.bind_group_layout;
+            for spawner in self.spawners.iter_mut() {
+                spawner.handle_gui(gfx_state, Some(light_layout), &self.camera);
+            }
+        }
     }
 
     pub fn particle_count_text(&self) -> String {
@@ -73,7 +79,7 @@ impl GfxState {
         let clock = Clock::new();
         let camera = Camera::new(&self);
         let light_spawner = init_app.create_light_spawner(&self, &camera);
-        let spawners = init_app.create_spawners(&self, &camera);
+        let spawners = init_app.create_spawners(&self, &light_spawner.bind_group_layout, &camera);
 
         AppState {
             clock,

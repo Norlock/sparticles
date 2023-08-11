@@ -67,7 +67,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let x = in.pos_uv.x;
     let y = in.pos_uv.y;
 
-    let normal = vec3<f32>(x, y, sqrt(1. - x * x - y * y));
+    let normal = vec4<f32>(x, y, sqrt(1. - x * x - y * y), 1.0);
 
-    return in.color * normal;
+    return normal * in.color;
+    //return vec4<f32>(normal.xyz * in.color.xyz, 1.0);
 }

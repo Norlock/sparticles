@@ -51,7 +51,7 @@ impl Animation for ForceAnimation {
 
     fn compute<'a>(
         &'a self,
-        particle: &'a SpawnState,
+        spawner: &'a SpawnState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
@@ -62,9 +62,9 @@ impl Animation for ForceAnimation {
         let nr = clock.get_bindgroup_nr();
 
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &particle.bind_groups[nr], &[]);
+        compute_pass.set_bind_group(0, &spawner.bind_groups[nr], &[]);
         compute_pass.set_bind_group(1, &self.bind_group, &[]);
-        compute_pass.dispatch_workgroups(particle.dispatch_x_count, 1, 1);
+        compute_pass.dispatch_workgroups(spawner.dispatch_x_count, 1, 1);
     }
 
     fn recreate(&self, gfx_state: &GfxState, spawner: &SpawnState) -> Box<dyn Animation> {

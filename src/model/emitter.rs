@@ -15,12 +15,15 @@ pub struct EmitSpawnOptions {
 pub struct Emitter {
     spawn_from: u32,
     spawn_until: u32,
-    spawn_count: u32,
-    spawn_delay_sec: f32,
     spawn_batches_count: u32,
+    elapsed_sec: f32,
+    delta_sec: f32,
+    iteration: u32,
+
+    pub spawn_count: u32,
+    pub spawn_delay_sec: f32,
 
     pub box_pos: Vec3,
-
     /// width, height, depth
     pub box_dimensions: Vec3,
     /// yaw, pitch, roll
@@ -39,10 +42,6 @@ pub struct Emitter {
     /// Mass per size 1
     pub particle_material_mass: f32,
     pub particle_lifetime_sec: f32,
-
-    elapsed_sec: f32,
-    delta_sec: f32,
-    iteration: u32,
 }
 
 impl Emitter {

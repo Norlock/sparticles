@@ -1,3 +1,4 @@
+#![allow(dead_code, unused)]
 use glam::{Vec3, Vec4};
 use sparticles::{
     animations::{
@@ -9,15 +10,14 @@ use sparticles::{
     traits::FromRGB,
 };
 
-#[allow(dead_code, unused)]
 fn main() {
-    let spawner = get_spawner();
+    let spawner_1 = get_spawner("Jep".to_owned());
     let light = get_light_spawner();
 
     sparticles::start(InitApp {
         show_gui: true,
         light,
-        spawners: vec![spawner],
+        spawners: vec![spawner_1],
     });
 }
 
@@ -27,8 +27,9 @@ fn get_light_spawner() -> SpawnInit {
     emitter.box_dimensions.x = -5.;
     emitter.box_dimensions.y = 5.;
     emitter.particle_color = Vec4::from_rgb(255, 0, 0);
-    emitter.particle_size_min = 0.05;
-    emitter.particle_size_max = 0.09;
+    emitter.particle_size_min = 0.25;
+    emitter.particle_size_max = 0.50;
+    emitter.spawn_count = 6;
 
     let gravity_animation = GravityUniform::new(GravityUniformOptions {
         life_cycle: LifeCycle {
@@ -36,7 +37,7 @@ fn get_light_spawner() -> SpawnInit {
             until_sec: 6.,
             lifetime_sec: 6.,
         },
-        gravitational_force: 0.001,
+        gravitational_force: 0.002,
         dead_zone: 0.3,
         mass: 100_000.,
         start_pos: Vec3::new(0., 8., 0.),
@@ -46,12 +47,13 @@ fn get_light_spawner() -> SpawnInit {
     return SpawnInit {
         id: "other".to_string(),
         emitter,
-        particle_animations: vec![Box::new(gravity_animation)],
+        //particle_animations: vec![Box::new(gravity_animation)],
+        particle_animations: vec![],
         emitter_animations: vec![],
     };
 }
 
-fn get_spawner() -> SpawnInit {
+fn get_spawner(id: String) -> SpawnInit {
     let stray_animation = StrayUniform {
         from_sec: 0.,
         until_sec: 100.,
@@ -109,9 +111,12 @@ fn get_spawner() -> SpawnInit {
         roll: 0f32.to_radians(),
     };
 
+    let mut emitter = Emitter::new();
+    emitter.spawn_count = 7;
+
     return SpawnInit {
-        id: "Simple".to_string(),
-        emitter: Emitter::new(),
+        id,
+        emitter,
         particle_animations: vec![
             Box::new(stray_animation),
             Box::new(color_animation),
