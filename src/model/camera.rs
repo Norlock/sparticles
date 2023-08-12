@@ -241,14 +241,6 @@ impl Camera {
         let pitch_mat = Mat3::from_rotation_x(self.pitch);
 
         let rotated_view_dir = yaw_mat * pitch_mat * self.view_dir;
-        // Test A
-        //self.look_at = self.position + self.look_at + rotated_view_dir;
-        //println!("look {:?}", self.look_at);
-        //let view_mat = Mat4::look_at_rh(self.position, self.look_at, Vec3::Y);
-        //self.pitch = 0.;
-        //self.yaw = 0.;
-
-        // Test B
         let view_mat = Mat4::look_at_rh(self.position, self.position + rotated_view_dir, Vec3::Y);
 
         let view_proj = OPENGL_TO_WGPU_MATRIX * self.proj * view_mat;

@@ -26,7 +26,7 @@ fn get_light_spawner() -> SpawnInit {
 
     emitter.box_dimensions.x = -5.;
     emitter.box_dimensions.y = 5.;
-    emitter.particle_color = Vec4::from_rgb(255, 0, 0);
+    emitter.particle_color = Vec4::from_rgb(255, 255, 255);
     emitter.particle_size_min = 0.15;
     emitter.particle_size_max = 0.15;
     emitter.spawn_count = 1;
