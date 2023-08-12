@@ -14,9 +14,9 @@ var<storage, read> particles: array<Particle>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) pos_uv: vec4<f32>,
+    @location(0) color: vec4<f32>,
     @location(1) world_space: vec4<f32>,
-    @location(2) color: vec4<f32>,
+    @location(2) v_pos: vec2<f32>,
 };
 
 @vertex
@@ -42,11 +42,13 @@ fn vs_main(
     let world_space: vec4<f32> = 
         vec4<f32>(p.position + camera.rotated_vertices[vert_idx].xyz * p.size, 1.0);
 
+    let v_pos = camera.vertex_positions[vert_idx];
+
     var out: VertexOutput;
-    out.pos_uv = vec4<f32>(camera.vertex_positions[vert_idx], uvs[vert_idx]);
-    out.world_space = world_space;
+    out.v_pos = v_pos;
     out.color = p.color;
     out.clip_position = camera.view_proj * world_space;
+    out.world_space = world_space;
 
     return out;
 }
@@ -58,17 +60,19 @@ var base_sampler: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let len = length(in.pos_uv.xy);
+    let len = length(in.v_pos);
 
     if (1.0 < len) {
         discard;
     }
 
-    let x = in.pos_uv.x;
-    let y = in.pos_uv.y;
+    let x = in.v_pos.x;
+    let y = in.v_pos.y;
+    let normal = vec4<f32>(x, y, sqrt(1. - x * x - y * y), 0.);
+    let world_normal = normal * camera.view;
 
-    let normal = vec4<f32>(x, y, sqrt(1. - x * x - y * y), 1.0);
+    let light_dir = normalize(camera.view_pos.xyz - in.world_space.xyz);
+    let diffuse_strength = max(dot(world_normal.xyz, light_dir), 0.0);
 
-    return normal * in.color;
-    //return vec4<f32>(normal.xyz * in.color.xyz, 1.0);
+    return diffuse_strength * in.color;
 }

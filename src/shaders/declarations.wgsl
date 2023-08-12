@@ -52,7 +52,7 @@ fn gen_dyn_range(unique: f32, value: f32, elapsed_sec: f32) -> f32 {
     return sin(random(unique, elapsed_sec) * 60.) * value;
 }
 
-fn yaw_matrix(pitch: f32) -> mat3x3<f32> {
+fn roll_matrix(pitch: f32) -> mat3x3<f32> {
     let s = sin(pitch);
     let c = cos(pitch);
 
@@ -63,7 +63,7 @@ fn yaw_matrix(pitch: f32) -> mat3x3<f32> {
     );
 }
 
-fn roll_matrix(roll: f32) -> mat3x3<f32> {
+fn pitch_matrix(roll: f32) -> mat3x3<f32> {
     let s = sin(roll);
     let c = cos(roll);
 
@@ -74,7 +74,7 @@ fn roll_matrix(roll: f32) -> mat3x3<f32> {
     );
 }
 
-fn pitch_matrix(yaw: f32) -> mat3x3<f32> {
+fn yaw_matrix(yaw: f32) -> mat3x3<f32> {
     let s = sin(yaw);
     let c = cos(yaw);
 

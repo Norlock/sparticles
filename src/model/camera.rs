@@ -140,8 +140,8 @@ impl Camera {
 
         let move_delta = speed * clock.delta_sec();
         let rotation = move_delta / 3.0;
-        let yaw_mat = Mat3::from_rotation_x(self.yaw);
-        let pitch_mat = Mat3::from_rotation_y(self.pitch);
+        let yaw_mat = Mat3::from_rotation_y(self.yaw);
+        let pitch_mat = Mat3::from_rotation_x(self.pitch);
 
         let rotate_vec = |unrotated_vec: Vec3| yaw_mat * pitch_mat * unrotated_vec;
 

@@ -178,12 +178,20 @@ impl GfxState {
         let particle_buffer_size = NonZeroU64::new(emitter.particle_buffer_size());
         let emitter_buffer_size = emitter_buf_content.cal_buffer_size();
 
+        let visibility;
+
+        if light_layout.is_none() {
+            visibility = wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX_FRAGMENT;
+        } else {
+            visibility = wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX;
+        }
+
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 // Particles
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX,
+                    visibility,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
