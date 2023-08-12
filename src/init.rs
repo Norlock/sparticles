@@ -32,6 +32,10 @@ impl InitApp {
             light_spawner.push_animation(anim.into_animation(&gfx_state, &light_spawner));
         }
 
+        while let Some(anim) = light.emitter_animations.pop() {
+            light_spawner.push_emitter_animation(anim);
+        }
+
         return light_spawner;
     }
 

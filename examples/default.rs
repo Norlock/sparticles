@@ -24,33 +24,31 @@ fn main() {
 fn get_light_spawner() -> SpawnInit {
     let mut emitter = Emitter::new();
 
-    emitter.box_dimensions.x = -5.;
-    emitter.box_dimensions.y = 5.;
+    emitter.box_pos.x = -3.;
+    emitter.box_pos.y = -3.;
     emitter.particle_color = Vec4::from_rgb(255, 255, 255);
     emitter.particle_size_min = 0.15;
     emitter.particle_size_max = 0.15;
     emitter.spawn_count = 1;
     emitter.particle_speed = 5.;
 
-    let gravity_animation = GravityUniform::new(GravityUniformOptions {
+    let emitter_sway_animation = SwayAnimation {
         life_cycle: LifeCycle {
             from_sec: 0.,
-            until_sec: 6.,
-            lifetime_sec: 6.,
+            until_sec: 4.,
+            lifetime_sec: 4.,
         },
-        gravitational_force: 0.002,
-        dead_zone: 0.3,
-        mass: 100_000.,
-        start_pos: Vec3::new(0., 8., 0.),
-        end_pos: Vec3::new(-3., -5., 2.),
-    });
+        yaw: 0f32.to_radians(),
+        pitch: 90f32.to_radians(),
+        roll: 0f32.to_radians(),
+    };
 
     return SpawnInit {
         id: "other".to_string(),
         emitter,
-        //particle_animations: vec![Box::new(gravity_animation)],
         particle_animations: vec![],
-        emitter_animations: vec![],
+        emitter_animations: vec![Box::new(emitter_sway_animation)],
+        //emitter_animations: vec![],
     };
 }
 
@@ -101,17 +99,6 @@ fn get_spawner(id: String) -> SpawnInit {
         mass_per_unit: 0.1,
     };
 
-    let emitter_sway_animation = SwayAnimation {
-        life_cycle: LifeCycle {
-            from_sec: 0.,
-            until_sec: 2.,
-            lifetime_sec: 4.,
-        },
-        yaw: -45f32.to_radians(),
-        pitch: -130f32.to_radians(),
-        roll: 0f32.to_radians(),
-    };
-
     let mut emitter = Emitter::new();
     emitter.spawn_count = 7;
 
@@ -125,6 +112,6 @@ fn get_spawner(id: String) -> SpawnInit {
             Box::new(force_animation),
             Box::new(force_animation_2),
         ],
-        emitter_animations: vec![Box::new(emitter_sway_animation)],
+        emitter_animations: vec![],
     };
 }

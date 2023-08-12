@@ -1,4 +1,7 @@
-use crate::{texture::DepthTexture, traits::Animation};
+use crate::{
+    texture::DepthTexture,
+    traits::{Animation, EmitterAnimation},
+};
 use std::{
     fmt::{Debug, Formatter},
     num::NonZeroU64,
@@ -22,6 +25,7 @@ pub struct SpawnState {
     diffuse_texture: DiffuseTexture,
     render_pipeline: wgpu::RenderPipeline,
     animations: Vec<Box<dyn Animation>>,
+    emitter_animations: Vec<Box<dyn EmitterAnimation>>,
     emitter: Emitter,
 
     pub id: String,
@@ -61,6 +65,10 @@ pub struct SpawnOptions<'a> {
 impl<'a> SpawnState {
     pub fn update(&mut self, gfx_state: &GfxState, clock: &Clock) {
         self.emitter.update(clock);
+
+        for anim in self.emitter_animations.iter_mut() {
+            anim.animate(&mut self.emitter, &clock);
+        }
 
         let buffer_content_raw = self.emitter.create_buffer_content();
         let buffer_content = bytemuck::cast_slice(&buffer_content_raw);
@@ -139,7 +147,7 @@ impl<'a> SpawnState {
         light_layout: Option<&'a wgpu::BindGroupLayout>,
         camera: &Camera,
     ) {
-        *self = gfx_state.create_spawner(SpawnOptions {
+        let mut new_self = gfx_state.create_spawner(SpawnOptions {
             id: self.id.clone(),
             emitter: self.emitter.clone(),
             light_layout,
@@ -147,12 +155,22 @@ impl<'a> SpawnState {
         });
 
         while let Some(animation) = self.animations.pop() {
-            self.push_animation(animation.recreate(gfx_state, &self));
+            new_self.push_animation(animation.recreate(gfx_state, &self));
         }
+
+        while let Some(animation) = self.emitter_animations.pop() {
+            new_self.push_emitter_animation(animation);
+        }
+
+        *self = new_self;
     }
 
     pub fn push_animation(&mut self, animation: Box<dyn Animation>) {
         self.animations.push(animation);
+    }
+
+    pub fn push_emitter_animation(&mut self, animation: Box<dyn EmitterAnimation>) {
+        self.emitter_animations.push(animation);
     }
 
     pub fn particle_count(&self) -> u64 {
@@ -366,6 +384,7 @@ impl GfxState {
             dispatch_x_count,
             diffuse_texture,
             animations: vec![],
+            emitter_animations: vec![],
             id,
             gui,
             is_light: light_layout.is_none(), // Light layout incl. when not light

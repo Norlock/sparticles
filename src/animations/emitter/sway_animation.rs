@@ -20,9 +20,9 @@ impl EmitterAnimation for SwayAnimation {
 
         let fraction = self.life_cycle.get_fraction(current_sec);
 
-        emitter.box_rotation.x += fraction * self.pitch * clock.delta_sec();
-        emitter.box_rotation.y += fraction * self.roll * clock.delta_sec();
-        emitter.box_rotation.z += fraction * self.yaw * clock.delta_sec();
+        emitter.box_rotation.x = fraction * self.yaw;
+        emitter.box_rotation.y = fraction * self.pitch;
+        emitter.box_rotation.z = fraction * self.roll;
     }
 }
 
