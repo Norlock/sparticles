@@ -6,11 +6,11 @@ fn is_decayed(par: Particle) -> bool {
     return em.particle_lifetime < par.lifetime;
 }
 
-fn create_velocity(input_random: f32) -> vec3<f32> {
+fn create_velocity(input_random: f32, speed_random: f32) -> vec3<f32> {
     let diff_width = gen_dyn_range(input_random * 0.12, em.diffusion_width, em.elapsed_sec) / 2.; 
     let diff_depth = gen_dyn_range(input_random * 0.45, em.diffusion_depth, em.elapsed_sec) / 2.;
 
-    return vec3<f32>(0., em.particle_speed, 0.) * 
+    return vec3<f32>(0., speed_random, 0.) * 
         yaw_matrix(em.box_yaw + diff_width) *
         pitch_matrix(em.box_pitch) *
         roll_matrix(em.box_roll + diff_depth); 
@@ -53,11 +53,16 @@ fn spawn_particle(index: u32) {
 
     let size_delta = em.particle_size_max - em.particle_size_min;
     let size_random = gen_abs_range(input_random + 100., size_delta, em.elapsed_sec);
+    let size = em.particle_size_min + size_random;
+
+    let speed_delta = em.particle_speed_max - em.particle_speed_min;
+    let speed_random = gen_abs_range(input_random + 40., speed_delta, em.elapsed_sec);
+    let particle_speed = em.particle_speed_min + speed_random;
 
     particle.position = create_particle_position(input_random);
-    particle.velocity = create_velocity(input_random);
+    particle.velocity = create_velocity(input_random, particle_speed);
     particle.color = particle_color;
-    particle.size =  em.particle_size_max;
+    particle.size = size;
     particle.lifetime = 0.;
 
     let volume_sample = 4. / 3. * pi() * pow(0.5, 3.0);

@@ -12,6 +12,16 @@ pub struct EmitSpawnOptions {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub struct Range(f32, f32);
+
+impl Range {
+    pub fn new(min: f32, max: f32) -> Self {
+        assert!(min <= max, "Min must be smaller than max");
+        return Range(min, max);
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Emitter {
     spawn_from: u32,
     spawn_until: u32,
@@ -36,9 +46,8 @@ pub struct Emitter {
 
     pub particle_color: Vec4,
     pub particle_friction_coefficient: f32,
-    pub particle_speed: f32,
-    pub particle_size_min: f32,
-    pub particle_size_max: f32,
+    pub particle_speed: Range,
+    pub particle_size: Range,
     /// Mass per size 1
     pub particle_material_mass: f32,
     pub particle_lifetime_sec: f32,
@@ -74,10 +83,9 @@ impl Emitter {
             diff_depth: diffusion_depth_rad,
 
             particle_material_mass: 5.,
-            particle_speed: 15.,
             particle_lifetime_sec,
-            particle_size_min: 0.1,
-            particle_size_max: 0.15,
+            particle_speed: Range(10., 15.),
+            particle_size: Range(0.1, 0.15),
             particle_friction_coefficient: 0.99,
             particle_color: Vec4::from_rgb(0, 255, 0),
 
@@ -94,10 +102,11 @@ impl Emitter {
         self.diff_width = gui.diff_width_deg.to_radians();
         self.diff_depth = gui.diff_depth_deg.to_radians();
 
-        self.particle_size_min = gui.particle_size_min;
-        self.particle_size_max = gui.particle_size_max;
+        self.particle_speed.0 = gui.particle_speed_min;
+        self.particle_speed.1 = gui.particle_speed_max;
 
-        self.particle_speed = gui.particle_speed;
+        self.particle_size.0 = gui.particle_size_min;
+        self.particle_size.1 = gui.particle_size_max;
 
         if gui.recreate {
             self.spawn_count = gui.spawn_count;
@@ -117,9 +126,10 @@ impl Emitter {
             box_rotation_deg: self.box_rotation.to_degrees(),
             diff_width_deg: self.diff_width.to_degrees(),
             diff_depth_deg: self.diff_depth.to_degrees(),
-            particle_speed: self.particle_speed,
-            particle_size_min: self.particle_size_min,
-            particle_size_max: self.particle_size_max,
+            particle_speed_min: self.particle_speed.0,
+            particle_speed_max: self.particle_speed.1,
+            particle_size_min: self.particle_size.0,
+            particle_size_max: self.particle_size.1,
         }
     }
 
@@ -187,10 +197,11 @@ impl Emitter {
             self.particle_color.y,
             self.particle_color.z,
             self.particle_color.w,
-            self.particle_speed,
+            self.particle_speed.0,
+            self.particle_speed.1,
+            self.particle_size.0,
+            self.particle_size.1,
             self.particle_friction_coefficient,
-            self.particle_size_min,
-            self.particle_size_max,
             self.particle_material_mass,
             self.particle_lifetime_sec,
         ]

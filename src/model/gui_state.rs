@@ -49,7 +49,17 @@ impl GuiState {
         });
 
         ui.add_space(5.0);
-        ui.add(Slider::new(&mut spawn_gui.particle_speed, 0.0..=50.0).text("Particle emit speed"));
+        ui.add(
+            Slider::new(&mut spawn_gui.particle_speed_min, 0.0..=50.0)
+                .text("Particle emit speed min"),
+        );
+        ui.add(
+            Slider::new(
+                &mut spawn_gui.particle_speed_max,
+                spawn_gui.particle_speed_min..=50.0,
+            )
+            .text("Particle emit speed max"),
+        );
         ui.add_space(5.0);
         create_label(ui, "Spawn itemings");
 
@@ -81,15 +91,13 @@ impl GuiState {
 
         ui.add_space(5.0);
 
-        ui.add(
-            Slider::new(&mut spawn_gui.particle_size_min, 0.1..=1.0).text("Smallest particle size"),
-        );
+        ui.add(Slider::new(&mut spawn_gui.particle_size_min, 0.1..=2.0).text("Particle size min"));
         ui.add(
             Slider::new(
                 &mut spawn_gui.particle_size_max,
                 spawn_gui.particle_size_min..=2.0,
             )
-            .text("Largest particle size"),
+            .text("Particle size max"),
         );
     }
 

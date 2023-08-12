@@ -6,7 +6,10 @@ use sparticles::{
         GravityUniformOptions, StrayUniform,
     },
     init::{InitApp, SpawnInit},
-    model::{emitter::Emitter, LifeCycle},
+    model::{
+        emitter::{Emitter, Range},
+        LifeCycle,
+    },
     traits::FromRGB,
 };
 
@@ -27,10 +30,9 @@ fn get_light_spawner() -> SpawnInit {
     emitter.box_pos.x = -3.;
     emitter.box_pos.y = -3.;
     emitter.particle_color = Vec4::from_rgb(255, 255, 255);
-    emitter.particle_size_min = 0.15;
-    emitter.particle_size_max = 0.15;
+    emitter.particle_size = Range::new(0.15, 0.15);
+    emitter.particle_speed = Range::new(5., 7.);
     emitter.spawn_count = 1;
-    emitter.particle_speed = 5.;
 
     let emitter_sway_animation = SwayAnimation {
         life_cycle: LifeCycle {

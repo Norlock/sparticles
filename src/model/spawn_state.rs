@@ -50,7 +50,8 @@ pub struct SpawnGuiState {
     pub diff_width_deg: f32,
     pub diff_depth_deg: f32,
 
-    pub particle_speed: f32,
+    pub particle_speed_min: f32,
+    pub particle_speed_max: f32,
     pub particle_size_min: f32,
     pub particle_size_max: f32,
 }
