@@ -15,14 +15,12 @@ impl AppState {
     pub fn update(&mut self, gfx_state: &GfxState, gui_state: &GuiState) {
         self.clock.update();
         self.camera.update(gfx_state, &self.clock);
-
+        self.handle_gui(gfx_state, gui_state);
         self.light_spawner.update(gfx_state, &self.clock);
 
         for spawner in self.spawners.iter_mut() {
             spawner.update(gfx_state, &self.clock);
         }
-
-        self.handle_gui(gfx_state, gui_state);
     }
 
     pub fn handle_gui(&mut self, gfx_state: &GfxState, gui_state: &GuiState) {

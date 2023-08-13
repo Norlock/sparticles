@@ -2,8 +2,8 @@
 use glam::{Vec3, Vec4};
 use sparticles::{
     animations::{
-        sway_animation::SwayAnimation, ColorUniform, ForceUniform, GravityUniform,
-        GravityUniformOptions, StrayUniform,
+        sway_animation::SwayAnimation, ColorUniform, DiffusionAnimation, ForceUniform,
+        GravityUniform, GravityUniformOptions, StrayUniform,
     },
     init::{InitApp, SpawnInit},
     model::{
@@ -102,7 +102,19 @@ fn get_spawner(id: String) -> SpawnInit {
     };
 
     let mut emitter = Emitter::new();
-    emitter.spawn_count = 7;
+    emitter.spawn_count = 8;
+
+    let diff_anim = DiffusionAnimation {
+        life_cycle: LifeCycle {
+            from_sec: 0.,
+            until_sec: 5.,
+            lifetime_sec: 5.,
+        },
+        start_diff_width: 0.,
+        start_diff_depth: 0.,
+        end_diff_width: 180f32.to_radians(),
+        end_diff_depth: 45f32.to_radians(),
+    };
 
     return SpawnInit {
         id,
@@ -114,6 +126,6 @@ fn get_spawner(id: String) -> SpawnInit {
             Box::new(force_animation),
             Box::new(force_animation_2),
         ],
-        emitter_animations: vec![],
+        emitter_animations: vec![Box::new(diff_anim)],
     };
 }

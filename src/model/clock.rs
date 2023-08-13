@@ -1,10 +1,25 @@
-use std::time::{Duration, Instant};
+use std::{
+    any::Any,
+    time::{Duration, Instant},
+};
+
+use super::event::Component;
 
 pub struct Clock {
     instant: Instant,
     last_update: Duration,
     current_delta: Duration,
     frame: usize,
+}
+
+impl Component for Clock {
+    fn get(&self) -> &dyn Any {
+        self
+    }
+
+    fn get_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 impl Clock {
@@ -15,6 +30,13 @@ impl Clock {
             current_delta: Duration::ZERO,
             frame: 0,
         }
+    }
+
+    pub fn cast(component: &Box<dyn Component>) -> &Self {
+        component
+            .get()
+            .downcast_ref::<Clock>()
+            .expect("not a clock type")
     }
 
     pub fn update(&mut self) {

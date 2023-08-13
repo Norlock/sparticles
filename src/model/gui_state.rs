@@ -129,10 +129,11 @@ impl GuiState {
 
             if light_spawner.id == self.selected_id {
                 self.create_spawner_menu(ui, &mut light_spawner.gui, &light_spawner.id)
-            }
-            for spawner in spawners {
-                if spawner.id == self.selected_id {
-                    self.create_spawner_menu(ui, &mut spawner.gui, &spawner.id);
+            } else {
+                for spawner in spawners {
+                    if spawner.id == self.selected_id {
+                        self.create_spawner_menu(ui, &mut spawner.gui, &spawner.id);
+                    }
                 }
             }
         });
@@ -151,7 +152,7 @@ impl AppState {
         let selected_spawner_id = self
             .spawners
             .first()
-            .map_or("".to_owned(), |s| s.id.to_owned());
+            .map_or(self.light_spawner.id.to_owned(), |s| s.id.to_owned());
 
         GuiState {
             show: show_gui,

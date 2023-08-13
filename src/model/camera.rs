@@ -5,6 +5,7 @@ use glam::*;
 use crate::traits::{CreateAspect, ToVecF32};
 
 use super::{
+    event::Component,
     gfx_state::{self, GfxState},
     Clock, GuiState,
 };
@@ -18,6 +19,16 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4 {
 };
 
 type Mat4x2 = [[f32; 2]; 4];
+
+impl Component for Camera {
+    fn get_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn get(&self) -> &dyn std::any::Any {
+        self
+    }
+}
 
 #[allow(dead_code)]
 pub struct Camera {
