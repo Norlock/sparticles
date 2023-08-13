@@ -12,7 +12,7 @@ use crate::{
     traits::{CalculateBufferSize, CustomShader},
 };
 
-use super::{emitter::Emitter, gfx_state::GfxState, Camera, Clock};
+use super::{emitter::Emitter, gfx_state::GfxState, Camera, Clock, GuiState};
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::util::DeviceExt;
 use glam::Vec3;
@@ -32,9 +32,9 @@ pub struct SpawnState {
     pub dispatch_x_count: u32,
     pub bind_groups: Vec<wgpu::BindGroup>,
     pub bind_group_layout: wgpu::BindGroupLayout,
-    pub gui: SpawnGuiState,
 
     pub is_light: bool,
+    pub gui: SpawnGuiState,
 }
 
 pub struct SpawnGuiState {
@@ -89,7 +89,7 @@ impl<'a> SpawnState {
         light_layout: Option<&'a wgpu::BindGroupLayout>,
         camera: &Camera,
     ) {
-        self.emitter.handle_gui(&mut self.gui);
+        self.emitter.handle_gui(&self.gui);
 
         if self.gui.recreate {
             self.recreate_spawner(gfx_state, light_layout, camera);
@@ -176,6 +176,10 @@ impl<'a> SpawnState {
 
     pub fn particle_count(&self) -> u64 {
         self.emitter.particle_count()
+    }
+
+    pub fn create_gui(&self) -> SpawnGuiState {
+        self.emitter.create_gui()
     }
 }
 
@@ -305,8 +309,10 @@ impl GfxState {
         // Render ---------
         let shader;
         let pipeline_layout;
+        let is_light;
 
         if let Some(light_layout) = &light_layout {
+            is_light = false;
             shader = device.create_shader("particle.wgsl", "Particle render");
             pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Particle render Pipeline Layout"),
@@ -319,6 +325,7 @@ impl GfxState {
                 push_constant_ranges: &[],
             });
         } else {
+            is_light = true;
             shader = device.create_shader("light_particle.wgsl", "Particle render");
             pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Particle render Pipeline Layout"),
@@ -387,8 +394,8 @@ impl GfxState {
             animations: vec![],
             emitter_animations: vec![],
             id,
+            is_light,
             gui,
-            is_light: light_layout.is_none(), // Light layout incl. when not light
         }
     }
 }

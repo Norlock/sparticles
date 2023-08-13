@@ -3,7 +3,6 @@ pub mod camera;
 pub mod clock;
 pub mod color;
 pub mod emitter;
-pub mod event;
 pub mod gfx_state;
 pub mod gui_state;
 pub mod life_cycle;

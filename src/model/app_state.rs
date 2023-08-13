@@ -9,13 +9,15 @@ pub struct AppState {
     pub clock: Clock,
     pub light_spawner: SpawnState,
     pub spawners: Vec<SpawnState>,
+    pub gui: GuiState,
 }
 
 impl AppState {
-    pub fn update(&mut self, gfx_state: &GfxState, gui_state: &GuiState) {
+    pub fn update(&mut self, gfx_state: &GfxState) {
         self.clock.update();
         self.camera.update(gfx_state, &self.clock);
-        self.handle_gui(gfx_state, gui_state);
+        self.handle_gui(gfx_state);
+
         self.light_spawner.update(gfx_state, &self.clock);
 
         for spawner in self.spawners.iter_mut() {
@@ -23,19 +25,24 @@ impl AppState {
         }
     }
 
-    pub fn handle_gui(&mut self, gfx_state: &GfxState, gui_state: &GuiState) {
-        if !gui_state.show {
+    pub fn handle_gui(&mut self, gfx_state: &GfxState) {
+        if !self.gui.show {
             return;
         }
 
-        self.camera.handle_gui(gui_state);
+        self.camera.handle_gui(&self.gui);
 
-        if self.light_spawner.id == gui_state.selected_id {
+        if self.light_spawner.id == self.gui.selected_id {
             self.light_spawner.handle_gui(gfx_state, None, &self.camera);
         } else {
             let light_layout = &self.light_spawner.bind_group_layout;
 
-            for spawner in self.spawners.iter_mut() {
+            let selected = self
+                .spawners
+                .iter_mut()
+                .find(|s| s.id == self.gui.selected_id);
+
+            if let Some(spawner) = selected {
                 spawner.handle_gui(gfx_state, Some(light_layout), &self.camera);
             }
         }
@@ -75,16 +82,20 @@ impl AppState {
 
 impl GfxState {
     pub fn create_app_state(&self, mut init_app: InitApp) -> AppState {
+        let show_gui = init_app.show_gui;
         let clock = Clock::new();
         let camera = Camera::new(&self);
         let light_spawner = init_app.create_light_spawner(&self, &camera);
         let spawners = init_app.create_spawners(&self, &light_spawner.bind_group_layout, &camera);
+
+        let gui = GuiState::new(&spawners, show_gui);
 
         AppState {
             clock,
             camera,
             spawners,
             light_spawner,
+            gui,
         }
     }
 }

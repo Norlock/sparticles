@@ -112,8 +112,8 @@ fn get_spawner(id: String) -> SpawnInit {
         },
         start_diff_width: 0.,
         start_diff_depth: 0.,
-        end_diff_width: 180f32.to_radians(),
-        end_diff_depth: 45f32.to_radians(),
+        end_diff_width: 45f32.to_radians(),
+        end_diff_depth: 15f32.to_radians(),
     };
 
     return SpawnInit {

@@ -29,19 +29,16 @@ pub fn start(init_app: InitApp) {
         .build(&event_loop)
         .unwrap();
 
-    let show_gui = init_app.show_gui;
-
     let mut gfx_state = pollster::block_on(GfxState::new(window));
     let mut app_state = gfx_state.create_app_state(init_app);
-    let mut gui_state = app_state.create_gui_state(show_gui);
 
     event_loop.run(move |event, _, control_flow| {
         let do_exec = |window_id: WindowId| window_id == gfx_state.window_id();
 
         match event {
             RedrawRequested(window_id) if do_exec(window_id) => {
-                app_state.update(&gfx_state, &gui_state);
-                gfx_state.render(&mut app_state, &mut gui_state);
+                app_state.update(&gfx_state);
+                gfx_state.render(&mut app_state);
             }
             MainEventsCleared => {
                 gfx_state.request_redraw();

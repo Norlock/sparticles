@@ -59,6 +59,10 @@ impl InitApp {
                 spawner.push_animation(anim.into_animation(gfx_state, &spawner));
             }
 
+            for anim in item.emitter_animations {
+                spawner.push_emitter_animation(anim);
+            }
+
             let is_unique = spawners.iter().find(|s| spawner.id == s.id).is_none();
 
             assert!(!spawner.id.is_empty(), "Id can not be empty");

@@ -19,8 +19,6 @@ use winit::window;
 
 use super::app_state::AppState;
 
-use super::GuiState;
-
 pub struct GfxState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -154,14 +152,13 @@ impl GfxState {
 
     fn draw_gui(
         &mut self,
-        gui_state: &mut GuiState,
         app_state: &mut AppState,
         encoder: &mut CommandEncoder,
     ) -> Vec<ClippedPrimitive> {
         let input = self.winit.take_egui_input(&self.window);
 
         let full_output = self.ctx.run(input, |ui| {
-            gui_state.update(app_state, ui);
+            app_state.update_gui(ui);
         });
 
         let clipped_primitives = self.ctx.tessellate(full_output.shapes);
@@ -189,7 +186,7 @@ impl GfxState {
         return clipped_primitives;
     }
 
-    pub fn render(&mut self, app_state: &mut AppState, gui_state: &mut GuiState) {
+    pub fn render(&mut self, app_state: &mut AppState) {
         let output_frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Outdated) => {
@@ -211,7 +208,7 @@ impl GfxState {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let clipped_primitives = self.draw_gui(gui_state, app_state, &mut encoder);
+        let clipped_primitives = self.draw_gui(app_state, &mut encoder);
 
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {

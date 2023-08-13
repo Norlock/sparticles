@@ -4,11 +4,7 @@ use glam::*;
 
 use crate::traits::{CreateAspect, ToVecF32};
 
-use super::{
-    event::Component,
-    gfx_state::{self, GfxState},
-    Clock, GuiState,
-};
+use super::{gfx_state::GfxState, Clock, GuiState};
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4 {
@@ -20,17 +16,8 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4 {
 
 type Mat4x2 = [[f32; 2]; 4];
 
-impl Component for Camera {
-    fn get_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-
-    fn get(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct Camera {
     position: Vec3, // Camera position
     view_dir: Vec3, // Camera aimed at
@@ -61,7 +48,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(gfx_state: &gfx_state::GfxState) -> Self {
+    pub fn new(gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
         let surface_config = &gfx_state.surface_config;
 

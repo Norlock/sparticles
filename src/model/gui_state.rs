@@ -15,17 +15,21 @@ pub struct GuiState {
 }
 
 impl GuiState {
-    fn update_labels(&mut self, app_state: &AppState) {
-        let clock = &app_state.clock;
+    pub fn new(spawners: &Vec<SpawnState>, show_gui: bool) -> Self {
+        let spawner = spawners.first();
 
-        if clock.frame() % 20 != 0 {
-            return;
+        let spawn_gui = spawner.map_or(None, |s| Some(s.create_gui()));
+        let selected_id = spawner.map_or("".to_owned(), |s| s.id.to_owned());
+
+        Self {
+            show: show_gui,
+            reset_camera: false,
+            cpu_time_text: "".to_string(),
+            fps_text: "".to_string(),
+            elapsed_text: "".to_string(),
+            particle_count_text: "".to_string(),
+            selected_id,
         }
-
-        self.cpu_time_text = clock.cpu_time_text();
-        self.fps_text = clock.fps_text();
-        self.elapsed_text = clock.elapsed_text();
-        self.particle_count_text = app_state.particle_count_text();
     }
 
     fn create_spawner_menu(&mut self, ui: &mut Ui, spawn_gui: &mut SpawnGuiState, id: &str) {
@@ -127,42 +131,48 @@ impl GuiState {
                     }
                 });
 
-            if light_spawner.id == self.selected_id {
-                self.create_spawner_menu(ui, &mut light_spawner.gui, &light_spawner.id)
-            } else {
-                for spawner in spawners {
-                    if spawner.id == self.selected_id {
-                        self.create_spawner_menu(ui, &mut spawner.gui, &spawner.id);
-                    }
+            let maybe_light_spawner = || {
+                if light_spawner.id == self.selected_id {
+                    Some(light_spawner)
+                } else {
+                    None
                 }
+            };
+
+            let spawner = spawners
+                .iter_mut()
+                .find(|s| s.id == self.selected_id)
+                .or_else(maybe_light_spawner);
+
+            if let Some(spawner) = spawner {
+                self.create_spawner_menu(ui, &mut spawner.gui, &spawner.id);
             }
         });
-    }
-
-    pub fn update(&mut self, app_state: &mut AppState, ctx: &Context) {
-        if self.show {
-            self.update_labels(app_state);
-            self.create_gui(&mut app_state.spawners, &mut app_state.light_spawner, ctx);
-        }
     }
 }
 
 impl AppState {
-    pub fn create_gui_state(&self, show_gui: bool) -> GuiState {
-        let selected_spawner_id = self
-            .spawners
-            .first()
-            .map_or(self.light_spawner.id.to_owned(), |s| s.id.to_owned());
-
-        GuiState {
-            show: show_gui,
-            reset_camera: false,
-            cpu_time_text: "".to_string(),
-            fps_text: "".to_string(),
-            elapsed_text: "".to_string(),
-            particle_count_text: "".to_string(),
-            selected_id: selected_spawner_id,
+    pub fn update_gui(&mut self, ctx: &Context) {
+        if self.gui.show {
+            self.update_labels();
+            let gui = &mut self.gui;
+            gui.create_gui(&mut self.spawners, &mut self.light_spawner, ctx);
         }
+    }
+
+    fn update_labels(&mut self) {
+        let clock = &self.clock;
+
+        if clock.frame() % 20 != 0 {
+            return;
+        }
+
+        let particle_count_text = self.particle_count_text();
+        let gui = &mut self.gui;
+        gui.cpu_time_text = clock.cpu_time_text();
+        gui.fps_text = clock.fps_text();
+        gui.elapsed_text = clock.elapsed_text();
+        gui.particle_count_text = particle_count_text;
     }
 }
 
