@@ -20,7 +20,8 @@ fn main() {
     sparticles::start(InitApp {
         show_gui: true,
         light,
-        spawners: vec![spawner_1],
+        //spawners: vec![spawner_1],
+        spawners: vec![],
     });
 }
 
@@ -30,7 +31,7 @@ fn get_light_spawner() -> SpawnInit {
     emitter.box_pos.x = -3.;
     emitter.box_pos.y = -3.;
     emitter.particle_color = Vec4::from_rgb(255, 255, 255);
-    emitter.particle_size = Range::new(0.15, 0.15);
+    emitter.particle_size = Range::new(0.35, 0.35);
     emitter.particle_speed = Range::new(5., 7.);
     emitter.spawn_count = 1;
 

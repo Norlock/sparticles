@@ -37,7 +37,7 @@ struct Emitter {
 };
 
 fn pi() -> f32 {
-    return 3.14159;
+    return 3.141592653589;
 }
 
 fn random(input: f32, elapsed_sec: f32) -> f32 {

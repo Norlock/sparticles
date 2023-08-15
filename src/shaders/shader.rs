@@ -7,9 +7,10 @@ use crate::traits::CustomShader;
 impl CustomShader for wgpu::Device {
     fn create_shader(&self, filename: &str, label: &str) -> wgpu::ShaderModule {
         let declarations = include_str!("declarations.wgsl");
+        let noise = include_str!("noise.wgsl");
         let file = get_file(filename);
 
-        let shader_str = format!("{}{}", declarations, file);
+        let shader_str = format!("{}{}{}", declarations, noise, file);
 
         self.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(label),

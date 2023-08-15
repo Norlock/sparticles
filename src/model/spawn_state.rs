@@ -236,7 +236,7 @@ impl GfxState {
                 // Emitter
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
+                    visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX_FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -310,6 +310,7 @@ impl GfxState {
         let shader;
         let pipeline_layout;
         let is_light;
+        let blend_state;
 
         if let Some(light_layout) = &light_layout {
             is_light = false;
@@ -324,6 +325,7 @@ impl GfxState {
                 ],
                 push_constant_ranges: &[],
             });
+            blend_state = wgpu::BlendState::REPLACE;
         } else {
             is_light = true;
             shader = device.create_shader("light_particle.wgsl", "Particle render");
@@ -336,6 +338,7 @@ impl GfxState {
                 ],
                 push_constant_ranges: &[],
             });
+            blend_state = wgpu::BlendState::ALPHA_BLENDING;
         }
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -351,7 +354,7 @@ impl GfxState {
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: surface_config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(blend_state),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
@@ -374,7 +377,8 @@ impl GfxState {
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
-                alpha_to_coverage_enabled: false,
+                //alpha_to_coverage_enabled: false,
+                alpha_to_coverage_enabled: true,
             },
             multiview: None,
         });
