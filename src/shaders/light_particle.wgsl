@@ -60,74 +60,33 @@ var base_texture: texture_2d<f32>;
 @group(0) @binding(1)
 var base_sampler: sampler;
 
-//@fragment
-//fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-//
-//    let v_pos = in.v_pos.xy;
-//    let idx = in.v_pos.z;
-//
-//    let circle_len = length(v_pos * 2.);
-//    let len = length(v_pos);
-//    let x = v_pos.x;
-//    let y = v_pos.y;
-//    var strength = 1.0 - len;
-//
-//    if (circle_len <= 1.0) {
-//        let normal = vec4<f32>(x, y, sqrt(1. - x * x - y * y), 0.);
-//        let world_normal = normal * camera.view;
-//
-//        let light_dir = vec3<f32>(camera.view_pos.xyz);
-//        let diffuse_strength = max(dot(world_normal.xyz, light_dir), 0.0);
-//        var arg = pi() * atan((y + 2. ) / (x + 2.)) * sin(idx + em.elapsed_sec * 0.4) +
-//            sin(2.0 + em.elapsed_sec * 0.1);
-//
-//        let noise = create_layers(v_pos, arg, em.elapsed_sec, em.delta_sec);
-//
-//        let color = vec4<f32>(in.color.rgb * diffuse_strength * noise, 1.0);
-//        return (color + 1.) / 2.;
-//    } else if (1. < len) {
-//        discard;
-//    } else {
-//        var angle = atan(y / x);
-//
-//        //var pattern = sin(idx + em.elapsed_sec * 2.5 + angle * 15.);
-//        //pattern += sin((idx + em.elapsed_sec - 1.) * 14. + angle * 23.);
-//        //pattern += sin(idx + em.elapsed_sec * 1.4 + 11. + angle * 19.);
-//
-//        //let mix = max(abs(pattern), 1.0);
-//
-//        //let sin_dist = abs(sin(angle * 2. * 4.) * len);
-//        
-//        var strength = 1.0 - len;
-//        //let d_sun = smoothstep(0.0, 1.0, distance);
-//
-//        //let strength = 1.0 - distance * 0.04;
-//        
-//        var color = in.color * strength;
-//
-//        //color *= mix(1.0, 0.0, 1. - strength);
-//
-//        return vec4<f32>(color);
-//
-//        //let r = max(min(d_sun * in.color.r, 1.0), 0.);
-//        //let g = max(min(d_sun * in.color.g * 0.9, 1.0), 0.);
-//        //let b = max(min(d_sun * in.color.b * 0.9, 1.0), 0.);
-//        //let a = max(min(d_sun * 0.9, 1.0), 0.);
-//
-//        //if a < 0.1 || (r < 0.1 && b < 0.1 && a < 0.1) {
-//        //    discard;
-//        //} else {
-//        //    return vec4<f32>(r, g, b, a);
-//        //}
-//    }
-//}
+fn glow(len: f32, color: vec3<f32>, v_pos: vec2<f32>, idx: f32) -> vec4<f32> {
+    var angle = atan(v_pos.y / v_pos.x);
+    var delta = 1.0 - (len - 0.9) * 10.;
+    var sum = vec4<f32>(0.0);
+
+    for (var i = 1; i < 3; i++) {
+        var formula: f32;
+        if i % 2 == 1 {
+            formula = sin(em.elapsed_sec * 5.5);
+        } else {
+            formula = sin(em.elapsed_sec * 4.5);
+        }
+
+        var glow = sin(8. * angle * f32(i + 2) + idx + formula);
+
+        glow *= smoothstep(0.1, 1.0, delta);
+
+        sum += glow;
+    }
+
+    return sum;
+}
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let v_pos = in.v_pos.xy;
-    let idx = in.v_pos.z;
-
     let len = length(v_pos);
 
     if 1.0 < len {
@@ -139,18 +98,23 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let x = v_pos.x;
     let y = v_pos.y;
-    let normal = sqrt(1. - x * x - y * y);
+    let idx = in.v_pos.z;
 
+    let normal = sqrt(1. - x * x - y * y);
 
     var effect = create_layers(v_pos, idx, em.elapsed_sec);
     effect *= 1. - 0.02 / in.color.rgb;
     effect += 0.5;
 
-    //effect = 0.02 / effect;
+    // Glow
+    if (0.9 < len) {
+        return glow(len, in.color.rgb, v_pos, idx);
+    } else if (0.8 < len) {
+        var out = vec3<f32>(color * effect * normal);
+        var delta = smoothstep(0.8, 1.0, len);
+        var res = mix(out, vec3<f32>(1.0), delta);
+        return vec4<f32>(res, 1.0); 
+    } 
 
-    //effect.r = effect.b;
-    //effect.b = 0.;
-    
-        
-    return vec4<f32>(color * normal * effect, 1.0);
+    return vec4<f32>(color * effect * normal, 1.0);
 }

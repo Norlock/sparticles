@@ -69,7 +69,7 @@ fn create_layers(v_pos: vec2<f32>, idx: f32, time: f32) -> vec3<f32> {
     var scale = 2.;
 
     for (var i = 0; i < 5; i++) {
-        let rotation = pitch_matrix(time * 0.1) * roll_matrix(time * 0.05);
+        let rotation = pitch_matrix(time * 0.1) * roll_matrix(time * -0.05);
         var noise = perlin_noise(rotation * vec3<f32>(v_pos.xy * scale, idx + time * 0.04));
 
         sum += vec3<f32>(noise) * amp;
