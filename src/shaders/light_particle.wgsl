@@ -102,19 +102,19 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let normal = sqrt(1. - x * x - y * y);
 
-    var effect = create_layers(v_pos, idx, em.elapsed_sec);
-    effect *= 1. - 0.02 / in.color.rgb;
+    var effect = create_layers(v_pos, normal, idx, em.elapsed_sec);
+    effect *= 1. - 0.02 / color.rgb;
     effect += 0.5;
 
     // Glow
     if (0.9 < len) {
-        return glow(len, in.color.rgb, v_pos, idx);
+        return glow(len, color.rgb, v_pos, idx);
     } else if (0.8 < len) {
-        var out = vec3<f32>(color * effect * normal);
+        let out = vec3<f32>(color * effect * normal);
+        let white = vec3<f32>(1.0);
         var delta = smoothstep(0.8, 1.0, len);
-        var res = mix(out, vec3<f32>(1.0), delta);
-        return vec4<f32>(res, 1.0); 
+        return vec4<f32>(mix(out, white, delta), 1.0);
     } 
 
-    return vec4<f32>(color * effect * normal, 1.0);
+    return vec4<f32>(color * effect, 1.0);
 }
