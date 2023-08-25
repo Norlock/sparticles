@@ -1,11 +1,3 @@
-struct CameraUniform {
-    view_proj: mat4x4<f32>,
-    view: mat4x4<f32>,
-    rotated_vertices: mat4x4<f32>,
-    vertex_positions: mat4x2<f32>,
-    view_pos: vec4<f32>,
-};
-
 @group(1) @binding(0) 
 var<uniform> camera: CameraUniform;
 
@@ -16,10 +8,18 @@ var<storage, read> particles: array<Particle>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
+    // normal
     @location(0) color: vec4<f32>,
     @location(1) world_space: vec4<f32>,
     @location(2) v_pos: vec4<f32>,
 };
+
+struct FragmentOutput {
+    // normal
+    @location(0) color: vec4<f32>,
+    // brightness
+    @location(1) br_color: vec4<f32>,
+}
 
 @vertex
 fn vs_main(
@@ -55,12 +55,7 @@ fn vs_main(
     return out;
 }
 
-@group(0) @binding(0)
-var base_texture: texture_2d<f32>;
-@group(0) @binding(1)
-var base_sampler: sampler;
-
-fn glow(len: f32, color: vec3<f32>, v_pos: vec2<f32>, idx: f32) -> vec4<f32> {
+fn outer_ring(len: f32, color: vec3<f32>, v_pos: vec2<f32>, idx: f32) -> vec4<f32> {
     var angle = atan(v_pos.y / v_pos.x);
     var delta = 1.0 - (len - 0.9) * 10.;
     var sum = vec4<f32>(0.0);
@@ -83,9 +78,9 @@ fn glow(len: f32, color: vec3<f32>, v_pos: vec2<f32>, idx: f32) -> vec4<f32> {
     return sum;
 }
 
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
+@fragment
+fn fs_main(in: VertexOutput) -> FragmentOutput {
     let v_pos = in.v_pos.xy;
     let len = length(v_pos);
 
@@ -106,15 +101,21 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     effect *= 1. - 0.02 / color.rgb;
     effect += 0.5;
 
-    // Glow
-    if (0.9 < len) {
-        return glow(len, color.rgb, v_pos, idx);
-    } else if (0.8 < len) {
-        let out = vec3<f32>(color * effect * normal);
-        let white = vec3<f32>(1.0);
-        var delta = smoothstep(0.8, 1.0, len);
-        return vec4<f32>(mix(out, white, delta), 1.0);
-    } 
+    var out: FragmentOutput;
 
-    return vec4<f32>(color * effect, 1.0);
+    if (0.9 < len) {
+        out.color = outer_ring(len, color.rgb, v_pos, idx);
+    } else {
+        out.color = vec4<f32>(color * effect * normal, 1.0);
+    }
+
+    var brightness = dot(out.color.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+    
+    if (1.0 < brightness) { 
+        out.br_color = vec4<f32>(color, 1.0);
+    } else {
+        out.br_color = vec4<f32>(0.0);
+    }
+
+    return out;
 }

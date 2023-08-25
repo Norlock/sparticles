@@ -1,6 +1,6 @@
 use crate::InitApp;
 
-use super::{Camera, Clock, GfxState, GuiState, SpawnState};
+use super::{Camera, Clock, GfxState, GuiState, PostProcess, SpawnState};
 use egui_wgpu::wgpu;
 use egui_winit::winit::event::KeyboardInput;
 
@@ -10,6 +10,7 @@ pub struct AppState {
     pub light_spawner: SpawnState,
     pub spawners: Vec<SpawnState>,
     pub gui: GuiState,
+    pub post_process: PostProcess,
 }
 
 impl AppState {
@@ -56,18 +57,44 @@ impl AppState {
 
     pub fn window_resize(&mut self, gfx_state: &GfxState) {
         self.camera.window_resize(&gfx_state);
+        self.post_process.resize(&gfx_state);
     }
 
     pub fn process_events(&mut self, input: KeyboardInput) {
         self.camera.process_input(input);
     }
 
-    pub fn compute<'a>(&'a self, compute_pass: &mut wgpu::ComputePass<'a>) {
-        self.light_spawner.compute(&self.clock, compute_pass);
+    pub fn compute<'a>(&'a self, c_pass: &mut wgpu::ComputePass<'a>) {
+        self.light_spawner.compute(&self.clock, c_pass);
 
         for spawner in self.spawners.iter() {
-            spawner.compute(&self.clock, compute_pass);
+            spawner.compute(&self.clock, c_pass);
         }
+    }
+
+    pub fn compute_fx(&self, encoder: &mut wgpu::CommandEncoder) {
+        let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Post process pipeline"),
+        });
+
+        self.post_process.compute_fx(&mut c_pass);
+    }
+
+    pub fn render_fx(&self, encoder: &mut wgpu::CommandEncoder, output_view: &wgpu::TextureView) {
+        let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Post process render"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &output_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
+
+        self.post_process.render_fx(&mut r_pass);
     }
 
     pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
@@ -89,6 +116,7 @@ impl GfxState {
         let spawners = init_app.create_spawners(&self, &light_spawner.bind_group_layout, &camera);
 
         let gui = GuiState::new(&spawners, show_gui);
+        let post_process = self.create_post_process();
 
         AppState {
             clock,
@@ -96,6 +124,7 @@ impl GfxState {
             spawners,
             light_spawner,
             gui,
+            post_process,
         }
     }
 }

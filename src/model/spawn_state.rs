@@ -12,10 +12,10 @@ use crate::{
     traits::{CalculateBufferSize, CustomShader},
 };
 
-use super::{emitter::Emitter, gfx_state::GfxState, Camera, Clock, GuiState};
+use super::{post_process, Camera, Clock, Emitter, GfxState, PostProcess};
 use egui_wgpu::wgpu;
-use egui_wgpu::wgpu::util::DeviceExt;
 use glam::Vec3;
+use wgpu::util::DeviceExt;
 
 #[allow(dead_code)]
 pub struct SpawnState {
@@ -209,6 +209,7 @@ impl GfxState {
             visibility = wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX;
         }
 
+        // Compute ---------
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 // Particles
@@ -328,9 +329,9 @@ impl GfxState {
             blend_state = wgpu::BlendState::REPLACE;
         } else {
             is_light = true;
-            shader = device.create_shader("light_particle.wgsl", "Particle render");
+            shader = device.create_shader("light_particle.wgsl", "Light particle render");
             pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Particle render Pipeline Layout"),
+                label: Some("Light particle render Pipeline Layout"),
                 bind_group_layouts: &[
                     &diffuse_texture.bind_group_layout,
                     &camera.bind_group_layout,
@@ -377,7 +378,6 @@ impl GfxState {
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
-                //alpha_to_coverage_enabled: false,
                 alpha_to_coverage_enabled: true,
             },
             multiview: None,

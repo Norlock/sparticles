@@ -39,8 +39,8 @@ fn create_particle_position(input_random: f32) -> vec3<f32> {
     return vec3<f32>(em.box_x, em.box_y, em.box_z) + local_rot;
 }
 
-fn spawn_particle(index: u32) {
-    var particle = particles_src[index];
+fn spawn_particle(index: u32, particle: Particle) {
+    var particle = particle;
 
     let input_random = f32(index);
 
@@ -84,12 +84,13 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
+    var particle = particles_src[index];
+
     if (u32(em.spawn_from) <= index && index < u32(em.spawn_until)) {
-        spawn_particle(index);
+        spawn_particle(index, particle);
         return;
     } 
 
-    var particle = particles_src[index];
     particle.lifetime += em.delta_sec;
 
     if (is_decayed(particle)) {

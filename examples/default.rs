@@ -14,7 +14,7 @@ use sparticles::{
 };
 
 fn main() {
-    let spawner_1 = get_spawner("Jep".to_owned());
+    let spawner_1 = get_spawner("Normal".to_owned());
     let light = get_light_spawner();
 
     sparticles::start(InitApp {
@@ -31,9 +31,10 @@ fn get_light_spawner() -> SpawnInit {
     emitter.box_pos.x = -3.;
     emitter.box_pos.y = -3.;
     emitter.particle_color = Vec4::from_rgb(175, 175, 255);
-    emitter.particle_size = Range::new(0.45, 0.45);
+    emitter.particle_size = Range::new(0.15, 0.25);
     emitter.particle_speed = Range::new(5., 7.);
     emitter.spawn_count = 1;
+    emitter.spawn_delay_sec = 1.;
 
     let emitter_sway_animation = SwayAnimation {
         life_cycle: LifeCycle {

@@ -1,5 +1,5 @@
 use crate::model::gfx_state::GfxState;
-use egui_wgpu::wgpu::{self, Device, SurfaceConfiguration};
+use egui_wgpu::wgpu;
 use image::GenericImageView;
 
 pub struct DiffuseTexture {
@@ -16,7 +16,7 @@ pub struct DepthTexture {
 impl DepthTexture {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
-    pub fn new(device: &Device, surface_config: &SurfaceConfiguration) -> DepthTexture {
+    pub fn new(device: &wgpu::Device, surface_config: &wgpu::SurfaceConfiguration) -> DepthTexture {
         let size = wgpu::Extent3d {
             width: surface_config.width,
             height: surface_config.height,

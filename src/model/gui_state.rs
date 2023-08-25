@@ -18,7 +18,6 @@ impl GuiState {
     pub fn new(spawners: &Vec<SpawnState>, show_gui: bool) -> Self {
         let spawner = spawners.first();
 
-        let spawn_gui = spawner.map_or(None, |s| Some(s.create_gui()));
         let selected_id = spawner.map_or("".to_owned(), |s| s.id.to_owned());
 
         Self {

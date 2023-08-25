@@ -210,43 +210,42 @@ impl GfxState {
 
         let clipped_primitives = self.draw_gui(app_state, &mut encoder);
 
-        {
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("Compute pipeline"),
-            });
+        let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Compute pipeline"),
+        });
 
-            app_state.compute(&mut compute_pass);
-        }
+        app_state.compute(&mut c_pass);
+        drop(c_pass);
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &output_view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
+        let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &app_state.post_process.frame_tex_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: true,
                 }),
-            });
+                stencil_ops: None,
+            }),
+        });
 
-            app_state.render(&mut render_pass);
+        app_state.render(&mut r_pass);
 
-            self.renderer.render(
-                &mut render_pass,
-                &clipped_primitives,
-                &self.screen_descriptor,
-            );
-        }
+        self.renderer
+            .render(&mut r_pass, &clipped_primitives, &self.screen_descriptor);
+
+        drop(r_pass);
+
+        app_state.compute_fx(&mut encoder);
+        app_state.render_fx(&mut encoder, &output_view);
 
         // Submit the commands.
         self.queue.submit(iter::once(encoder.finish()));

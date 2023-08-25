@@ -1,11 +1,3 @@
-struct CameraUniform {
-    view_proj: mat4x4<f32>,
-    view: mat4x4<f32>,
-    rotated_vertices: mat4x4<f32>,
-    vertex_positions: mat4x2<f32>,
-    view_pos: vec4<f32>,
-};
-
 @group(1) @binding(0) 
 var<uniform> camera: CameraUniform;
 

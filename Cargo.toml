@@ -13,3 +13,4 @@ pollster = "0.3.0"
 image = { version = "0.24.6", features = ["png", "jpeg"] }
 env_logger = "0.10.0"
 bytemuck = "1.13.1"
+rand = "0.8.5"
