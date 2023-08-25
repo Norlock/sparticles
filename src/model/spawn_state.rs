@@ -12,7 +12,7 @@ use crate::{
     traits::{CalculateBufferSize, CustomShader},
 };
 
-use super::{post_process, Camera, Clock, Emitter, GfxState, PostProcess};
+use super::{post_process, Camera, Clock, Emitter, GfxState};
 use egui_wgpu::wgpu;
 use glam::Vec3;
 use wgpu::util::DeviceExt;
@@ -117,9 +117,8 @@ impl<'a> SpawnState {
         let nr = clock.get_alt_bindgroup_nr();
 
         render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_bind_group(0, &self.diffuse_texture.bind_group, &[]);
-        render_pass.set_bind_group(1, &camera.bind_group, &[]);
-        render_pass.set_bind_group(2, &self.bind_groups[nr], &[]);
+        render_pass.set_bind_group(0, &camera.bind_group, &[]);
+        render_pass.set_bind_group(1, &self.bind_groups[nr], &[]);
 
         render_pass.draw(0..4, 0..self.particle_count() as u32);
     }
@@ -332,11 +331,7 @@ impl GfxState {
             shader = device.create_shader("light_particle.wgsl", "Light particle render");
             pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Light particle render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &diffuse_texture.bind_group_layout,
-                    &camera.bind_group_layout,
-                    &bind_group_layout,
-                ],
+                bind_group_layouts: &[&camera.bind_group_layout, &bind_group_layout],
                 push_constant_ranges: &[],
             });
             blend_state = wgpu::BlendState::ALPHA_BLENDING;

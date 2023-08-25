@@ -16,5 +16,5 @@ pub use emitter::Emitter;
 pub use gfx_state::GfxState;
 pub use gui_state::GuiState;
 pub use life_cycle::LifeCycle;
-pub use post_process::PostProcess;
+pub use post_process::Bloom;
 pub use spawn_state::{SpawnGuiState, SpawnState};

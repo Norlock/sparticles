@@ -1,7 +1,7 @@
-use crate::InitApp;
+use crate::{texture::DepthTexture, InitApp};
 
-use super::{Camera, Clock, GfxState, GuiState, PostProcess, SpawnState};
-use egui_wgpu::wgpu;
+use super::{Bloom, Camera, Clock, GfxState, GuiState, SpawnState};
+use egui_wgpu::{wgpu, Renderer};
 use egui_winit::winit::event::KeyboardInput;
 
 pub struct AppState {
@@ -10,7 +10,7 @@ pub struct AppState {
     pub light_spawner: SpawnState,
     pub spawners: Vec<SpawnState>,
     pub gui: GuiState,
-    pub post_process: PostProcess,
+    pub post_process: Bloom,
 }
 
 impl AppState {
@@ -64,11 +64,15 @@ impl AppState {
         self.camera.process_input(input);
     }
 
-    pub fn compute<'a>(&'a self, c_pass: &mut wgpu::ComputePass<'a>) {
-        self.light_spawner.compute(&self.clock, c_pass);
+    pub fn compute<'a>(&'a self, encoder: &mut wgpu::CommandEncoder) {
+        let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Compute pipeline"),
+        });
+
+        self.light_spawner.compute(&self.clock, &mut c_pass);
 
         for spawner in self.spawners.iter() {
-            spawner.compute(&self.clock, c_pass);
+            spawner.compute(&self.clock, &mut c_pass);
         }
     }
 
@@ -78,31 +82,39 @@ impl AppState {
         });
 
         self.post_process.compute_fx(&mut c_pass);
+        drop(c_pass);
     }
 
-    pub fn render_fx(&self, encoder: &mut wgpu::CommandEncoder, output_view: &wgpu::TextureView) {
+    pub fn render_fx<'a>(&'a self, r_pass: &mut wgpu::RenderPass<'a>) {
+        self.post_process.render_fx(r_pass);
+    }
+
+    pub fn render<'a>(&'a self, encoder: &mut wgpu::CommandEncoder, depth_texture: &DepthTexture) {
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Post process render"),
+            label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &output_view,
+                view: &self.post_process.res.frame_tex_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: true,
                 },
             })],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
         });
 
-        self.post_process.render_fx(&mut r_pass);
-    }
-
-    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
         self.light_spawner
-            .render_light(&self.clock, &self.camera, render_pass);
+            .render_light(&self.clock, &self.camera, &mut r_pass);
 
         for spawner in self.spawners.iter() {
-            spawner.render(&self.clock, &self.camera, &self.light_spawner, render_pass);
+            spawner.render(&self.clock, &self.camera, &self.light_spawner, &mut r_pass);
         }
     }
 }

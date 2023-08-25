@@ -1,10 +1,10 @@
-@group(1) @binding(0) 
+@group(0) @binding(0) 
 var<uniform> camera: CameraUniform;
 
-@group(2) @binding(0) 
+@group(1) @binding(0) 
 var<storage, read> particles: array<Particle>;
 
-@group(2) @binding(2) var<uniform> em: Emitter; 
+@group(1) @binding(2) var<uniform> em: Emitter; 
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -13,13 +13,6 @@ struct VertexOutput {
     @location(1) world_space: vec4<f32>,
     @location(2) v_pos: vec4<f32>,
 };
-
-struct FragmentOutput {
-    // normal
-    @location(0) color: vec4<f32>,
-    // brightness
-    @location(1) br_color: vec4<f32>,
-}
 
 @vertex
 fn vs_main(
@@ -80,7 +73,7 @@ fn outer_ring(len: f32, color: vec3<f32>, v_pos: vec2<f32>, idx: f32) -> vec4<f3
 
 
 @fragment
-fn fs_main(in: VertexOutput) -> FragmentOutput {
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let v_pos = in.v_pos.xy;
     let len = length(v_pos);
 
@@ -101,21 +94,11 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     effect *= 1. - 0.02 / color.rgb;
     effect += 0.5;
 
-    var out: FragmentOutput;
+    return vec4<f32>(color * effect * normal, 1.0);
 
-    if (0.9 < len) {
-        out.color = outer_ring(len, color.rgb, v_pos, idx);
-    } else {
-        out.color = vec4<f32>(color * effect * normal, 1.0);
-    }
-
-    var brightness = dot(out.color.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
-    
-    if (1.0 < brightness) { 
-        out.br_color = vec4<f32>(color, 1.0);
-    } else {
-        out.br_color = vec4<f32>(0.0);
-    }
-
-    return out;
+    //if (0.9 < len) {
+    //    return outer_ring(len, color.rgb, v_pos, idx);
+    //} else {
+    //    return vec4<f32>(color * effect * normal, 1.0);
+    //}
 }

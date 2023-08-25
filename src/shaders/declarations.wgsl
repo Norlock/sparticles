@@ -44,6 +44,17 @@ struct CameraUniform {
     view_pos: vec4<f32>,
 };
 
+struct Bloom {
+    br_treshold: f32,
+    gamma: f32,
+    weight_1: f32,
+    weight_2: f32,
+    weight_3: f32,
+    weight_4: f32,
+    weight_5: f32,
+}
+
+
 fn pi() -> f32 {
     return 3.141592653589;
 }
