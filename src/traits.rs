@@ -1,8 +1,6 @@
-use std::num::NonZeroU64;
-
-use egui_wgpu::wgpu;
-
 use crate::model::{gfx_state::GfxState, AppState, Clock, Emitter, SpawnState};
+use egui_wgpu::wgpu;
+use std::num::NonZeroU64;
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -66,4 +64,14 @@ pub trait CreateSpawner {
     fn create_emitter(&self) -> Emitter;
 
     fn create_id(&self) -> String;
+}
+
+pub trait PostProcessFx {
+    fn compute<'a>(&'a self, input: Vec<&'a wgpu::BindGroup>, c_pass: &mut wgpu::ComputePass<'a>);
+    fn resize(&mut self, gfx_state: &GfxState, dispatch_xy: &[u32; 2]);
+    fn enabled(&self) -> bool;
+}
+
+pub trait CreateFxView {
+    fn into_view(&self) -> wgpu::TextureView;
 }

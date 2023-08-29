@@ -44,7 +44,7 @@ pub struct Camera {
     is_rotate_down_pressed: bool,
 
     vertex_positions: Mat4x2,
-    proj: Mat4,
+    pub proj: Mat4,
 }
 
 impl Camera {

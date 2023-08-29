@@ -48,30 +48,6 @@ fn vs_main(
     return out;
 }
 
-fn outer_ring(len: f32, color: vec3<f32>, v_pos: vec2<f32>, idx: f32) -> vec4<f32> {
-    var angle = atan(v_pos.y / v_pos.x);
-    var delta = 1.0 - (len - 0.9) * 10.;
-    var sum = vec4<f32>(0.0);
-
-    for (var i = 1; i < 3; i++) {
-        var formula: f32;
-        if i % 2 == 1 {
-            formula = sin(em.elapsed_sec * 5.5);
-        } else {
-            formula = sin(em.elapsed_sec * 4.5);
-        }
-
-        var glow = sin(8. * angle * f32(i + 2) + idx + formula);
-
-        glow *= smoothstep(0.1, 1.0, delta);
-
-        sum += glow;
-    }
-
-    return sum;
-}
-
-
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let v_pos = in.v_pos.xy;
@@ -94,11 +70,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     effect *= 1. - 0.02 / color.rgb;
     effect += 0.5;
 
-    return vec4<f32>(color * effect * normal, 1.0);
-
-    //if (0.9 < len) {
-    //    return outer_ring(len, color.rgb, v_pos, idx);
-    //} else {
-    //    return vec4<f32>(color * effect * normal, 1.0);
-    //}
+    return vec4<f32>(effect, 1.0);
 }

@@ -65,7 +65,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let y = in.pos_uv.y;
 
     let normal = vec3<f32>(x, y, sqrt(1. - x * x - y * y));
-    let world_normal = vec4<f32>(normal, 0.) * camera.view;
+    let world_normal = (vec4<f32>(normal, 0.) * camera.view).xyz;
 
     var result = vec3<f32>(0.0);
 
@@ -85,10 +85,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let view_dir = normalize(camera.view_pos.xyz - in.world_space.xyz);
         let half_dir = normalize(view_dir + light_dir);
 
-        let diffuse_strength = max(dot(world_normal.xyz, light_dir), 0.0);
+        let diffuse_strength = max(dot(world_normal, light_dir), 0.0);
         let diffuse_color = diffuse_strength * ambient_color;
 
-        let specular_strength = pow(max(dot(world_normal.xyz, half_dir), 0.0), 32.0);
+        let specular_strength = pow(max(dot(world_normal, half_dir), 0.0), 32.0);
         let specular_color = specular_strength * ambient_color;
 
         result += diffuse_color + specular_color;

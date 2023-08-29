@@ -9,6 +9,7 @@ use winit::window::WindowId;
 
 pub mod animations;
 pub mod debug;
+pub mod fx;
 pub mod init;
 pub mod math;
 pub mod model;
@@ -49,11 +50,11 @@ pub fn start(init_app: InitApp) {
                 match event {
                     winit::event::WindowEvent::Resized(size) => {
                         gfx_state.window_resize(size);
-                        app_state.window_resize(&gfx_state);
+                        app_state.resize(&gfx_state);
                     }
                     winit::event::WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                         gfx_state.window_resize(*new_inner_size);
-                        app_state.window_resize(&gfx_state);
+                        app_state.resize(&gfx_state);
                     }
                     winit::event::WindowEvent::CloseRequested => {
                         *control_flow = ControlFlow::Exit;

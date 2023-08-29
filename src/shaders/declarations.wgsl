@@ -47,11 +47,8 @@ struct CameraUniform {
 struct Bloom {
     br_treshold: f32,
     gamma: f32,
-    weight_1: f32,
-    weight_2: f32,
-    weight_3: f32,
-    weight_4: f32,
-    weight_5: f32,
+    kernel_size: u32,
+    radius: u32,
 }
 
 

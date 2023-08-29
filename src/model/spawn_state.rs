@@ -1,7 +1,4 @@
-use crate::{
-    texture::DepthTexture,
-    traits::{Animation, EmitterAnimation},
-};
+use crate::traits::{Animation, EmitterAnimation};
 use std::{
     fmt::{Debug, Formatter},
     num::NonZeroU64,
@@ -12,7 +9,7 @@ use crate::{
     traits::{CalculateBufferSize, CustomShader},
 };
 
-use super::{post_process, Camera, Clock, Emitter, GfxState};
+use super::{Camera, Clock, Emitter, GfxState};
 use egui_wgpu::wgpu;
 use glam::Vec3;
 use wgpu::util::DeviceExt;
@@ -364,7 +361,7 @@ impl GfxState {
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: DepthTexture::DEPTH_FORMAT,
+                format: GfxState::DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),

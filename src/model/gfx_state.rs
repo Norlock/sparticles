@@ -1,7 +1,5 @@
 use std::iter;
 
-use crate::texture::DepthTexture;
-
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::CommandEncoder;
@@ -29,7 +27,6 @@ pub struct GfxState {
     renderer: Renderer,
     ctx: Context,
     screen_descriptor: ScreenDescriptor,
-    depth_texture: DepthTexture,
 }
 
 impl GfxState {
@@ -108,8 +105,6 @@ impl GfxState {
             pixels_per_point: window.scale_factor() as f32,
         };
 
-        let depth_texture = DepthTexture::new(&device, &surface_config);
-
         Self {
             surface,
             window,
@@ -120,7 +115,6 @@ impl GfxState {
             winit,
             ctx,
             screen_descriptor,
-            depth_texture,
         }
     }
 
@@ -141,7 +135,6 @@ impl GfxState {
             self.surface_config.width = size.width;
             self.surface_config.height = size.height;
             self.surface.configure(&self.device, &self.surface_config);
-            self.depth_texture = self.recreate_depth_texture();
 
             self.screen_descriptor = ScreenDescriptor {
                 size_in_pixels: [self.surface_config.width, self.surface_config.height],
@@ -240,10 +233,10 @@ impl GfxState {
         app_state.compute(&mut encoder);
 
         // Rendering particles
-        app_state.render(&mut encoder, &self.depth_texture);
+        app_state.render(&mut encoder);
 
         // Post processing compute
-        app_state.compute_fx(&mut encoder);
+        app_state.apply_fx(&mut encoder);
 
         // Post processing render
         self.render_fx(app_state, output_view, &mut encoder);

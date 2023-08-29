@@ -1,4 +1,4 @@
-use crate::model::gfx_state::GfxState;
+use crate::{fx::PostProcessState, model::gfx_state::GfxState, traits::CreateFxView};
 use egui_wgpu::wgpu;
 use image::GenericImageView;
 
@@ -7,16 +7,13 @@ pub struct DiffuseTexture {
     pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
-pub struct DepthTexture {
-    pub texture: wgpu::Texture,
-    pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
-}
-
-impl DepthTexture {
+impl GfxState {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
-    pub fn new(device: &wgpu::Device, surface_config: &wgpu::SurfaceConfiguration) -> DepthTexture {
+    pub fn create_depth_view(&self) -> wgpu::TextureView {
+        let device = &self.device;
+        let surface_config = &self.surface_config;
+
         let size = wgpu::Extent3d {
             width: surface_config.width,
             height: surface_config.height,
@@ -29,37 +26,59 @@ impl DepthTexture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: DepthTexture::DEPTH_FORMAT,
+            format: Self::DEPTH_FORMAT,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         };
 
         let texture = device.create_texture(&desc);
 
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
-            lod_min_clamp: 0.0,
-            lod_max_clamp: 100.0,
-            ..Default::default()
-        });
-
-        DepthTexture {
-            texture,
-            view,
-            sampler,
-        }
+        return texture.create_view(&wgpu::TextureViewDescriptor::default());
     }
-}
 
-impl GfxState {
+    pub fn create_frame_tex(&self) -> wgpu::Texture {
+        let config = &self.surface_config;
+
+        self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Frame view"),
+            size: wgpu::Extent3d {
+                width: config.width,
+                height: config.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            view_formats: &[],
+            dimension: wgpu::TextureDimension::D2,
+            format: config.format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+        })
+    }
+
+    pub fn create_fx_view(&self, width: u32, height: u32) -> wgpu::TextureView {
+        let format = PostProcessState::TEXTURE_FORMAT;
+
+        self.device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                view_formats: &[],
+                dimension: wgpu::TextureDimension::D2,
+                format,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
+            })
+            .into_view()
+    }
+
     pub fn create_diffuse_texture(&self) -> DiffuseTexture {
+        let device = &self.device;
+
         let diffuse_bytes = include_bytes!("assets/particle-diffuse.jpg");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
         let diffuse_rgba = diffuse_image.to_rgba8();
@@ -72,7 +91,7 @@ impl GfxState {
             depth_or_array_layers: 1,
         };
 
-        let diffuse_texture = self.device.create_texture(&wgpu::TextureDescriptor {
+        let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
             size: texture_size,
             mip_level_count: 1,
             sample_count: 1,
@@ -102,7 +121,7 @@ impl GfxState {
         let diffuse_texture_view =
             diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let diffuse_sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
+        let diffuse_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -112,31 +131,29 @@ impl GfxState {
             ..Default::default()
         });
 
-        let bind_group_layout =
-            self.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Texture {
-                                multisampled: false,
-                                view_dimension: wgpu::TextureViewDimension::D2,
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            },
-                            count: None,
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                            count: None,
-                        },
-                    ],
-                    label: Some("texture_bind_group_layout"),
-                });
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+            label: Some("texture_bind_group_layout"),
+        });
 
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -156,8 +173,10 @@ impl GfxState {
             bind_group_layout,
         }
     }
+}
 
-    pub fn recreate_depth_texture(&self) -> DepthTexture {
-        DepthTexture::new(&self.device, &self.surface_config)
+impl CreateFxView for wgpu::Texture {
+    fn into_view(&self) -> wgpu::TextureView {
+        self.create_view(&wgpu::TextureViewDescriptor::default())
     }
 }

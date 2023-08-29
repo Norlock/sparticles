@@ -1,7 +1,6 @@
-use crate::{texture::DepthTexture, InitApp};
-
-use super::{Bloom, Camera, Clock, GfxState, GuiState, SpawnState};
-use egui_wgpu::{wgpu, Renderer};
+use super::{Camera, Clock, GfxState, GuiState, SpawnState};
+use crate::{fx::PostProcessState, InitApp};
+use egui_wgpu::wgpu;
 use egui_winit::winit::event::KeyboardInput;
 
 pub struct AppState {
@@ -10,7 +9,7 @@ pub struct AppState {
     pub light_spawner: SpawnState,
     pub spawners: Vec<SpawnState>,
     pub gui: GuiState,
-    pub post_process: Bloom,
+    pub post_process: PostProcessState,
 }
 
 impl AppState {
@@ -55,9 +54,9 @@ impl AppState {
         format!("Particle count: {}", particle_count)
     }
 
-    pub fn window_resize(&mut self, gfx_state: &GfxState) {
-        self.camera.window_resize(&gfx_state);
-        self.post_process.resize(&gfx_state);
+    pub fn resize(&mut self, gfx_state: &GfxState) {
+        self.post_process.resize(gfx_state);
+        self.camera.window_resize(gfx_state);
     }
 
     pub fn process_events(&mut self, input: KeyboardInput) {
@@ -76,24 +75,27 @@ impl AppState {
         }
     }
 
-    pub fn compute_fx(&self, encoder: &mut wgpu::CommandEncoder) {
-        let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-            label: Some("Post process pipeline"),
-        });
-
-        self.post_process.compute_fx(&mut c_pass);
-        drop(c_pass);
+    pub fn apply_fx(&self, encoder: &mut wgpu::CommandEncoder) {
+        self.post_process.compute(encoder);
     }
 
     pub fn render_fx<'a>(&'a self, r_pass: &mut wgpu::RenderPass<'a>) {
-        self.post_process.render_fx(r_pass);
+        self.post_process.render(r_pass);
     }
 
-    pub fn render<'a>(&'a self, encoder: &mut wgpu::CommandEncoder, depth_texture: &DepthTexture) {
+    fn frame_view(&self) -> &wgpu::TextureView {
+        &self.post_process.res.frame_view
+    }
+
+    fn depth_view(&self) -> &wgpu::TextureView {
+        &self.post_process.res.depth_view
+    }
+
+    pub fn render<'a>(&'a self, encoder: &mut wgpu::CommandEncoder) {
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &self.post_process.res.frame_tex_view,
+                view: self.frame_view(),
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -101,7 +103,7 @@ impl AppState {
                 },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &depth_texture.view,
+                view: &self.depth_view(),
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: true,
@@ -128,7 +130,7 @@ impl GfxState {
         let spawners = init_app.create_spawners(&self, &light_spawner.bind_group_layout, &camera);
 
         let gui = GuiState::new(&spawners, show_gui);
-        let post_process = self.create_post_process();
+        let post_process = PostProcessState::new(&self);
 
         AppState {
             clock,
