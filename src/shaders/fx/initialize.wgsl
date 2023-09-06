@@ -1,5 +1,5 @@
 @group(0) @binding(0) var fx_texture: texture_storage_2d<rgba8unorm, write>;
-@group(0) @binding(2) var frame_texture: texture_2d<f32>;
+@group(1) @binding(0) var frame_texture: texture_2d<f32>;
 
 @compute
 @workgroup_size(8, 8, 1)

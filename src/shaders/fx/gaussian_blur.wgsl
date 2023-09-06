@@ -1,10 +1,13 @@
-@group(0) @binding(1) var frame_texture: texture_2d<f32>;
-@group(0) @binding(2) var depth_texture: texture_2d<f32>;
+// input
+@group(0) @binding(1) var input_texture: texture_2d<f32>;
+
 // fx dst
 @group(1) @binding(0) var dst_texture: texture_storage_2d<rgba8unorm, write>;
 // fx src
 @group(1) @binding(1) var src_texture: texture_2d<f32>;
+
 @group(2) @binding(0) var<uniform> global: Bloom; 
+@group(2) @binding(1) var depth_texture: texture_2d<f32>;
 
 fn get_offset(is_horizontal: bool) -> vec2<u32> {
     if is_horizontal {
@@ -66,7 +69,7 @@ fn blur_y(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let pos = global_invocation_id.xy;
     let fx_size = vec2<u32>(textureDimensions(dst_texture));
-    let frame_size = vec2<u32>(textureDimensions(frame_texture));
+    let frame_size = vec2<u32>(textureDimensions(input_texture));
 
     if any(fx_size < pos) {
         return;
@@ -83,7 +86,7 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     for (var x = start_x; x < end_x; x++) {
         for (var y = start_y; y < end_y; y++) {
             if x < frame_size.x && y < frame_size.y {
-                result += textureLoad(frame_texture, vec2<u32>(x, y), 0).rgb;
+                result += textureLoad(input_texture, vec2<u32>(x, y), 0).rgb;
                 weight++;
             }
         }

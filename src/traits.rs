@@ -1,4 +1,7 @@
-use crate::model::{gfx_state::GfxState, AppState, Clock, Emitter, SpawnState};
+use crate::{
+    fx::post_process::{FxChainOutput, FxState},
+    model::{gfx_state::GfxState, AppState, Clock, Emitter, SpawnState},
+};
 use egui_wgpu::wgpu;
 use std::num::NonZeroU64;
 
@@ -66,12 +69,32 @@ pub trait CreateSpawner {
     fn create_id(&self) -> String;
 }
 
-pub trait PostProcessFx {
-    fn compute<'a>(&'a self, input: Vec<&'a wgpu::BindGroup>, c_pass: &mut wgpu::ComputePass<'a>);
-    fn resize(&mut self, gfx_state: &GfxState, dispatch_xy: &[u32; 2]);
+pub trait PostFx {
+    fn compute<'a>(
+        &'a self,
+        fx_inputs: Vec<&'a wgpu::BindGroup>,
+        c_pass: &mut wgpu::ComputePass<'a>,
+    );
+    fn resize(&mut self, gfx_state: &GfxState);
+    fn fx_state(&self) -> &FxState;
+    fn output(&self) -> &wgpu::BindGroup;
+}
+
+pub trait PostFxChain {
+    fn compute<'a>(
+        &'a self,
+        input: &'a wgpu::BindGroup,
+        c_pass: &mut wgpu::ComputePass<'a>,
+    ) -> FxChainOutput;
+
+    fn resize(&mut self, gfx_state: &GfxState);
     fn enabled(&self) -> bool;
 }
 
 pub trait CreateFxView {
     fn into_view(&self) -> wgpu::TextureView;
+}
+
+pub trait FxDimensions {
+    fn fx_dimensions(&self) -> [u32; 2];
 }

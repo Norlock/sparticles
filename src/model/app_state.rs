@@ -75,7 +75,7 @@ impl AppState {
         }
     }
 
-    pub fn apply_fx(&self, encoder: &mut wgpu::CommandEncoder) {
+    pub fn apply_fx(&mut self, encoder: &mut wgpu::CommandEncoder) {
         self.post_process.compute(encoder);
     }
 
@@ -84,11 +84,11 @@ impl AppState {
     }
 
     fn frame_view(&self) -> &wgpu::TextureView {
-        &self.post_process.res.frame_view
+        &self.post_process.frame_state.frame_view
     }
 
     fn depth_view(&self) -> &wgpu::TextureView {
-        &self.post_process.res.depth_view
+        &self.post_process.frame_state.depth_view
     }
 
     pub fn render<'a>(&'a self, encoder: &mut wgpu::CommandEncoder) {

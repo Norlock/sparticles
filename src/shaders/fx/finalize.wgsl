@@ -11,9 +11,9 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> @builtin(position) vec4<
     }
 }
 
-@group(0) @binding(1) var fx_texture: texture_2d<f32>;
+@group(0) @binding(1) var output: texture_2d<f32>;
 
 @fragment
 fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-    return textureLoad(fx_texture, vec2<i32>(position.xy), 0);
+    return textureLoad(output, vec2<i32>(position.xy), 0);
 }
