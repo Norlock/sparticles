@@ -10,6 +10,7 @@ use egui_winit::egui::Ui;
 pub struct Bloom {
     blur: Blur,
     upscale: Upscale,
+    enabled: bool,
 }
 
 impl PostFxChain for Bloom {
@@ -33,7 +34,7 @@ impl PostFxChain for Bloom {
     }
 
     fn enabled(&self) -> bool {
-        true
+        self.enabled
     }
 
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState) {
@@ -42,6 +43,8 @@ impl PostFxChain for Bloom {
 
         self.blur.create_ui(ui, gfx_state);
         self.upscale.create_ui(ui, gfx_state);
+
+        ui.checkbox(&mut self.enabled, "Enabled");
     }
 }
 
@@ -52,6 +55,10 @@ impl Bloom {
         let blur = Blur::new(gfx_state, depth_view, "split_bloom");
         let upscale = Upscale::new(gfx_state);
 
-        Self { blur, upscale }
+        Self {
+            blur,
+            upscale,
+            enabled: true,
+        }
     }
 }

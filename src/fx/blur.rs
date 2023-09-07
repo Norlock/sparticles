@@ -96,21 +96,31 @@ impl PostFx for Blur {
 
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState) {
         let queue = &gfx_state.queue;
+        let config = &gfx_state.surface_config;
+        let blur = &mut self.blur;
+        let mut kernel_size = blur.kernel_size;
 
         ui.label("Gaussian blur");
-        ui.add(
-            Slider::new(&mut self.blur.brightness_threshold, 0.0..=1.0)
-                .text("Brightness threshold"),
-        );
-        ui.add(Slider::new(&mut self.blur.kernel_size, 4..=32).text("Kernel size"));
-        ui.add(Slider::new(&mut self.blur.radius, 4..=16).text("Blur radius"));
+        ui.add(Slider::new(&mut blur.brightness_threshold, 0.0..=1.0).text("Brightness threshold"));
+        ui.add(Slider::new(&mut kernel_size, 4..=32).text("Kernel size"));
+        ui.add(Slider::new(&mut blur.radius, 4..=16).text("Blur radius"));
         ui.add(
             Slider::new(&mut self.passes, 2..=100)
                 .step_by(2.)
                 .text("Amount of passes"),
         );
 
-        queue.write_buffer(&self.blur_buffer, 0, &self.blur.create_buffer_content());
+        queue.write_buffer(&self.blur_buffer, 0, &blur.create_buffer_content());
+
+        if kernel_size != blur.kernel_size {
+            blur.kernel_size = kernel_size;
+
+            self.fx_state = FxState::new(FxStateOptions {
+                label: "Blur".to_string(),
+                tex_dimensions: Self::tex_dimensions(config, kernel_size),
+                gfx_state,
+            });
+        }
     }
 }
 

@@ -8,11 +8,11 @@ struct Neighbour {
 @group(0) @binding(1) var src_texture: texture_2d<f32>;
 @group(1) @binding(0) var dst_texture: texture_storage_2d<rgba8unorm, write>;
 
-fn get_offset(is_horizontal: bool) -> vec2<i32> {
+fn get_offset(is_horizontal: bool) -> vec2<f32> {
     if is_horizontal {
-        return vec2<i32>(1, 0);
+        return vec2<f32>(1., 0.);
     } else {
-        return vec2<i32>(0, 1);
+        return vec2<f32>(0., 1.);
     }
 }
 
@@ -23,17 +23,17 @@ fn get_offset(is_horizontal: bool) -> vec2<i32> {
 // center = 8 / 2 = 4 
 // d_center = 4 - 3
 // pct = 1 / 8
-fn get_neighbour_x(pos: vec2<i32>, color: vec3<f32>, scale: i32, max_x: i32) -> vec3<f32> {
+fn get_neighbour_x(pos: vec2<f32>, color: vec3<f32>, scale: f32, max_x: f32) -> vec3<f32> {
     let fx_pos = pos / scale;
     let local_pos = pos.x % scale;
-    let center = scale / 2;
+    let center = scale / 2.;
 
     if local_pos == center {
         return color;
     } 
 
     let d_center = abs(center - local_pos);
-    let pct = f32(d_center) / f32(scale);
+    let pct = d_center / scale;
 
     if center < local_pos {
         // right neighbour
@@ -45,7 +45,7 @@ fn get_neighbour_x(pos: vec2<i32>, color: vec3<f32>, scale: i32, max_x: i32) -> 
     } else {
         // left neighbour
         let nb_pos = fx_pos - get_offset(false);
-        if 0 <= nb_pos.x {
+        if 0. <= nb_pos.x {
             let nb_col = textureLoad(src_texture, vec2<u32>(nb_pos), 0).rgb;
             return mix(color, nb_col, pct);
         }
@@ -54,17 +54,17 @@ fn get_neighbour_x(pos: vec2<i32>, color: vec3<f32>, scale: i32, max_x: i32) -> 
     return color;
 }
 
-fn get_neighbour_y(pos: vec2<i32>, color: vec3<f32>, scale: i32, max_y: i32) -> vec3<f32> {
+fn get_neighbour_y(pos: vec2<f32>, color: vec3<f32>, scale: f32, max_y: f32) -> vec3<f32> {
     let fx_pos = pos / scale;
     let local_pos = pos.y % scale;
-    let center = scale / 2;
+    let center = scale / 2.;
 
     if local_pos == center {
         return color;
     } 
  
     let d_center = abs(center - local_pos);
-    let pct = f32(d_center) / f32(scale);
+    let pct = d_center / scale;
 
     if center < local_pos {
         // down neighbour
@@ -76,7 +76,7 @@ fn get_neighbour_y(pos: vec2<i32>, color: vec3<f32>, scale: i32, max_y: i32) -> 
     } else {
         // up neighbour
         let nb_pos = fx_pos - get_offset(false);
-        if 0 <= nb_pos.y {
+        if 0. <= nb_pos.y {
             let nb_col = textureLoad(src_texture, vec2<u32>(nb_pos), 0).rgb;
             return mix(color, nb_col, pct);
         }
@@ -88,9 +88,9 @@ fn get_neighbour_y(pos: vec2<i32>, color: vec3<f32>, scale: i32, max_y: i32) -> 
 @compute
 @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-    let pos = vec2<i32>(global_invocation_id.xy);
-    let upscaled_size = vec2<i32>(textureDimensions(dst_texture));
-    let fx_size = vec2<i32>(textureDimensions(src_texture));
+    let upscaled_size = vec2<f32>(textureDimensions(dst_texture));
+    let fx_size = vec2<f32>(textureDimensions(src_texture));
+    let pos = vec2<f32>(global_invocation_id.xy);
 
     if any(upscaled_size < pos) {
         return;
@@ -98,10 +98,11 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     let scale = upscaled_size.x / fx_size.x;
 
-    var result = textureLoad(src_texture, pos / scale, 0).rgb;
+    //var result = textureLoad(src_texture, vec2<u32>(pos / scale), 0).rgb;
 
-    result = get_neighbour_x(pos, result, scale, fx_size.x);
-    result = get_neighbour_y(pos, result, scale, fx_size.y);
+    //result = get_neighbour_x(pos, result, scale, fx_size.x);
+    //result = get_neighbour_y(pos, result, scale, fx_size.y);
 
-    textureStore(dst_texture, pos, vec4<f32>(result, 1.0));
+    //textureStore(dst_texture, pos, vec4<f32>(result, 1.0));
+    textureStore(dst_texture, pos, vec4<f32>( 1.0));
 }

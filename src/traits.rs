@@ -66,7 +66,6 @@ pub trait HandleAngles {
 
 pub trait CreateSpawner {
     fn create_emitter(&self) -> Emitter;
-
     fn create_id(&self) -> String;
 }
 

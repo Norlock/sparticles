@@ -1,4 +1,8 @@
-use crate::{fx::PostProcessState, model::gfx_state::GfxState, traits::CreateFxView};
+use crate::{
+    fx::PostProcessState,
+    model::gfx_state::GfxState,
+    traits::{CreateFxView, FxDimensions},
+};
 use egui_wgpu::wgpu;
 use image::GenericImageView;
 
@@ -12,17 +16,16 @@ impl GfxState {
 
     pub fn create_depth_view(&self) -> wgpu::TextureView {
         let device = &self.device;
-        let surface_config = &self.surface_config;
-
-        let size = wgpu::Extent3d {
-            width: surface_config.width,
-            height: surface_config.height,
-            depth_or_array_layers: 1,
-        };
+        let config = &self.surface_config;
+        let dimensions = config.fx_dimensions();
 
         let desc = wgpu::TextureDescriptor {
             label: Some("Depth texture"),
-            size,
+            size: wgpu::Extent3d {
+                width: dimensions[0],
+                height: dimensions[1],
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -31,20 +34,19 @@ impl GfxState {
             view_formats: &[],
         };
 
-        let texture = device.create_texture(&desc);
-
-        return texture.create_view(&wgpu::TextureViewDescriptor::default());
+        return device.create_texture(&desc).into_view();
     }
 
     pub fn create_frame_view(&self) -> wgpu::TextureView {
         let config = &self.surface_config;
+        let dimensions = config.fx_dimensions();
 
         self.device
             .create_texture(&wgpu::TextureDescriptor {
                 label: Some("Frame view"),
                 size: wgpu::Extent3d {
-                    width: config.width,
-                    height: config.height,
+                    width: dimensions[0],
+                    height: dimensions[1],
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
