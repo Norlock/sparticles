@@ -97,4 +97,5 @@ pub trait CreateFxView {
 
 pub trait FxDimensions {
     fn fx_dimensions(&self) -> [u32; 2];
+    fn fx_offset(&self) -> u32;
 }

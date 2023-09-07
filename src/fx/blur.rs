@@ -80,8 +80,8 @@ impl PostFx for Blur {
     }
 
     fn resize(&mut self, gfx_state: &GfxState) {
-        let dim = Self::tex_dimensions(&gfx_state.surface_config, self.blur.kernel_size);
-        self.fx_state.resize(dim[0], dim[1], gfx_state);
+        let dims = Self::tex_dimensions(&gfx_state.surface_config, self.blur.kernel_size);
+        self.fx_state.resize(dims, gfx_state);
     }
 
     fn fx_state(&self) -> &FxState {
@@ -95,8 +95,9 @@ impl PostFx for Blur {
 
 impl Blur {
     fn tex_dimensions(config: &wgpu::SurfaceConfiguration, kernel_size: u32) -> [u32; 2] {
-        let tex_width = (config.width as f32 / kernel_size as f32).ceil() as u32;
-        let tex_height = (config.height as f32 / kernel_size as f32).ceil() as u32;
+        let fx_dim = config.fx_dimensions();
+        let tex_width = (fx_dim[0] as f32 / kernel_size as f32).ceil() as u32;
+        let tex_height = (fx_dim[1] as f32 / kernel_size as f32).ceil() as u32;
 
         [tex_width, tex_height]
     }
@@ -117,13 +118,11 @@ impl Blur {
             usage: wgpu::BufferUsages::UNIFORM,
         });
 
-        let dim = Self::tex_dimensions(config, blur.kernel_size);
         let passes = 8;
 
         let fx_state = FxState::new(FxStateOptions {
             label: "Blur".to_string(),
-            tex_width: dim[0],
-            tex_height: dim[1],
+            tex_dimensions: Self::tex_dimensions(config, blur.kernel_size),
             gfx_state,
         });
 

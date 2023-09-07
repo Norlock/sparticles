@@ -36,34 +36,37 @@ impl GfxState {
         return texture.create_view(&wgpu::TextureViewDescriptor::default());
     }
 
-    pub fn create_frame_tex(&self) -> wgpu::Texture {
+    pub fn create_frame_view(&self) -> wgpu::TextureView {
         let config = &self.surface_config;
 
-        self.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Frame view"),
-            size: wgpu::Extent3d {
-                width: config.width,
-                height: config.height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            view_formats: &[],
-            dimension: wgpu::TextureDimension::D2,
-            format: config.format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
-        })
+        self.device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("Frame view"),
+                size: wgpu::Extent3d {
+                    width: config.width,
+                    height: config.height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                view_formats: &[],
+                dimension: wgpu::TextureDimension::D2,
+                format: config.format,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            })
+            .into_view()
     }
 
-    pub fn create_fx_view(&self, width: u32, height: u32) -> wgpu::TextureView {
+    pub fn create_fx_view(&self, dimensions: [u32; 2]) -> wgpu::TextureView {
         let format = PostProcessState::TEXTURE_FORMAT;
 
         self.device
             .create_texture(&wgpu::TextureDescriptor {
                 label: None,
                 size: wgpu::Extent3d {
-                    width,
-                    height,
+                    width: dimensions[0],
+                    height: dimensions[1],
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,

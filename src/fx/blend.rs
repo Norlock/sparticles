@@ -28,7 +28,6 @@ impl Blend {
             count_y,
         } = compute;
 
-        // 0 is frame, 1 is fx,
         c_pass.set_pipeline(&self.additive_pipeline);
         c_pass.set_bind_group(0, input, &[]);
         c_pass.set_bind_group(1, output, &[]);

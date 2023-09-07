@@ -11,7 +11,7 @@ pub struct Upscale {
 impl PostFx for Upscale {
     fn resize(&mut self, gfx_state: &GfxState) {
         let config = &gfx_state.surface_config;
-        self.fx_state.resize(config.width, config.height, gfx_state);
+        self.fx_state.resize(config.fx_dimensions(), gfx_state);
     }
 
     fn compute<'a>(
@@ -45,8 +45,7 @@ impl Upscale {
 
         let fx_state = FxState::new(FxStateOptions {
             label: "upscale".to_string(),
-            tex_width: config.width,
-            tex_height: config.height,
+            tex_dimensions: config.fx_dimensions(),
             gfx_state,
         });
 
@@ -61,13 +60,6 @@ impl Upscale {
             layout: Some(&pipeline_layout),
             module: &upscale_shader,
             entry_point: "main",
-        });
-
-        let fx_state = FxState::new(super::FxStateOptions {
-            label: "upscale".to_string(),
-            tex_width: config.width,
-            tex_height: config.height,
-            gfx_state,
         });
 
         Self { pipeline, fx_state }
