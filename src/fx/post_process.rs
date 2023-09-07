@@ -10,8 +10,8 @@ use super::{blend::BlendCompute, Blend, BlendType, Bloom};
 
 pub struct PostProcessState {
     pub frame_state: FrameState,
+    pub post_fx: Vec<Box<dyn PostFxChain>>,
     fx_state: FxState,
-    post_fx: Vec<Box<dyn PostFxChain>>,
     frame_group_layout: wgpu::BindGroupLayout,
     initialize_pipeline: wgpu::ComputePipeline,
     finalize_pipeline: wgpu::RenderPipeline,

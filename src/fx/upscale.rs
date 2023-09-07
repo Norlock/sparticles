@@ -2,6 +2,7 @@ use super::{FxState, FxStateOptions};
 use crate::traits::*;
 use crate::{model::GfxState, traits::PostFx};
 use egui_wgpu::wgpu;
+use egui_winit::egui::Ui;
 
 pub struct Upscale {
     fx_state: FxState,
@@ -34,6 +35,8 @@ impl PostFx for Upscale {
     fn output(&self) -> &wgpu::BindGroup {
         &self.fx_state.bind_group(1)
     }
+
+    fn create_ui(&mut self, _ui: &mut Ui, _: &GfxState) {}
 }
 
 impl Upscale {

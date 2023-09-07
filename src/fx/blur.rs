@@ -3,6 +3,8 @@ use super::post_process::FxStateOptions;
 use crate::traits::*;
 use crate::GfxState;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
+use egui_winit::egui::Slider;
+use egui_winit::egui::Ui;
 use encase::{ShaderType, UniformBuffer};
 use std::num::NonZeroU64;
 
@@ -91,6 +93,25 @@ impl PostFx for Blur {
     fn output(&self) -> &wgpu::BindGroup {
         self.fx_state.bind_group(self.passes % 2)
     }
+
+    fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState) {
+        let queue = &gfx_state.queue;
+
+        ui.label("Gaussian blur");
+        ui.add(
+            Slider::new(&mut self.blur.brightness_threshold, 0.0..=1.0)
+                .text("Brightness threshold"),
+        );
+        ui.add(Slider::new(&mut self.blur.kernel_size, 4..=32).text("Kernel size"));
+        ui.add(Slider::new(&mut self.blur.radius, 4..=16).text("Blur radius"));
+        ui.add(
+            Slider::new(&mut self.passes, 2..=100)
+                .step_by(2.)
+                .text("Amount of passes"),
+        );
+
+        queue.write_buffer(&self.blur_buffer, 0, &self.blur.create_buffer_content());
+    }
 }
 
 impl Blur {
@@ -115,7 +136,7 @@ impl Blur {
         let blur_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Blur uniform"),
             contents: &buffer_content,
-            usage: wgpu::BufferUsages::UNIFORM,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
         let passes = 8;

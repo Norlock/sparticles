@@ -5,6 +5,7 @@ use super::Upscale;
 use crate::traits::*;
 use crate::GfxState;
 use egui_wgpu::wgpu::{self};
+use egui_winit::egui::Ui;
 
 pub struct Bloom {
     blur: Blur,
@@ -33,6 +34,14 @@ impl PostFxChain for Bloom {
 
     fn enabled(&self) -> bool {
         true
+    }
+
+    fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState) {
+        ui.label("Bloom settings");
+        ui.add_space(5.0);
+
+        self.blur.create_ui(ui, gfx_state);
+        self.upscale.create_ui(ui, gfx_state);
     }
 }
 

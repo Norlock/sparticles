@@ -3,6 +3,7 @@ use crate::{
     model::{gfx_state::GfxState, AppState, Clock, Emitter, SpawnState},
 };
 use egui_wgpu::wgpu;
+use egui_winit::egui::Ui;
 use std::num::NonZeroU64;
 
 pub trait FromRGB {
@@ -78,6 +79,7 @@ pub trait PostFx {
     fn resize(&mut self, gfx_state: &GfxState);
     fn fx_state(&self) -> &FxState;
     fn output(&self) -> &wgpu::BindGroup;
+    fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
 }
 
 pub trait PostFxChain {
@@ -89,6 +91,7 @@ pub trait PostFxChain {
 
     fn resize(&mut self, gfx_state: &GfxState);
     fn enabled(&self) -> bool;
+    fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
 }
 
 pub trait CreateFxView {

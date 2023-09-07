@@ -1,4 +1,6 @@
-use super::{spawn_state::SpawnGuiState, AppState, SpawnState};
+use crate::traits::PostFxChain;
+
+use super::{spawn_state::SpawnGuiState, AppState, GfxState, SpawnState};
 use egui::{Color32, Context, RichText, Slider, Ui, Window};
 use egui_winit::egui;
 
@@ -10,8 +12,23 @@ pub struct GuiState {
     cpu_time_text: String,
     elapsed_text: String,
     particle_count_text: String,
+    selected_tab: Tab,
 
     pub selected_id: String,
+}
+
+#[derive(PartialEq)]
+enum Tab {
+    SpawnSettings,
+    PostFxSettings,
+    AnimationSettings,
+}
+
+struct GuiContext<'a> {
+    spawners: &'a mut Vec<SpawnState>,
+    light_spawner: &'a mut SpawnState,
+    post_fx: &'a mut Vec<Box<dyn PostFxChain>>,
+    gfx_state: &'a GfxState,
 }
 
 impl GuiState {
@@ -28,6 +45,7 @@ impl GuiState {
             elapsed_text: "".to_string(),
             particle_count_text: "".to_string(),
             selected_id,
+            selected_tab: Tab::SpawnSettings,
         }
     }
 
@@ -104,13 +122,55 @@ impl GuiState {
         );
     }
 
-    fn create_gui(
-        &mut self,
-        spawners: &mut Vec<SpawnState>,
-        light_spawner: &mut SpawnState,
-        ctx: &Context,
-    ) {
-        Window::new("Emitter settings").show(&ctx, |ui| {
+    fn post_fx_tab(&self, gui_ctx: GuiContext, ui: &mut Ui) {
+        let GuiContext {
+            post_fx, gfx_state, ..
+        } = gui_ctx;
+
+        for fx in post_fx.iter_mut() {
+            fx.create_ui(ui, gfx_state);
+            ui.separator();
+        }
+    }
+
+    fn spawn_tab(&mut self, gui_ctx: GuiContext, ui: &mut Ui) {
+        let GuiContext {
+            spawners,
+            light_spawner,
+            ..
+        } = gui_ctx;
+
+        let mut ids: Vec<&str> = spawners.iter().map(|s| s.id.as_str()).collect();
+        ids.push(&light_spawner.id);
+
+        egui::ComboBox::from_id_source("sel-spawner")
+            .selected_text(&self.selected_id)
+            .show_ui(ui, |ui| {
+                for id in ids.into_iter() {
+                    ui.selectable_value(&mut self.selected_id, id.to_owned(), id.to_owned());
+                }
+            });
+
+        let opt_light_spawner = || {
+            if light_spawner.id == self.selected_id {
+                Some(light_spawner)
+            } else {
+                None
+            }
+        };
+
+        let spawner: Option<&mut SpawnState> = spawners
+            .iter_mut()
+            .find(|s| s.id == self.selected_id)
+            .or_else(opt_light_spawner);
+
+        if let Some(spawner) = spawner {
+            self.create_spawner_menu(ui, &mut spawner.gui, &spawner.id);
+        }
+    }
+
+    fn create_gui(&mut self, data: GuiContext, ctx: &Context) {
+        Window::new("Sparticles settings").show(&ctx, |ui| {
             create_label(ui, &self.fps_text);
             create_label(ui, &self.cpu_time_text);
             create_label(ui, &self.elapsed_text);
@@ -118,44 +178,39 @@ impl GuiState {
 
             self.reset_camera = ui.button("Reset camera").clicked();
             ui.add_space(5.0);
+            ui.separator();
 
-            let mut ids: Vec<&str> = spawners.iter().map(|s| s.id.as_str()).collect();
-            ids.push(&light_spawner.id);
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.selected_tab, Tab::SpawnSettings, "Spawn settings");
+                ui.selectable_value(&mut self.selected_tab, Tab::PostFxSettings, "Post FX");
+                ui.selectable_value(&mut self.selected_tab, Tab::AnimationSettings, "Animations");
+            });
 
-            egui::ComboBox::from_id_source("sel-spawner")
-                .selected_text(&self.selected_id)
-                .show_ui(ui, |ui| {
-                    for id in ids.into_iter() {
-                        ui.selectable_value(&mut self.selected_id, id.to_owned(), id.to_owned());
-                    }
-                });
+            ui.separator();
+            ui.add_space(5.0);
 
-            let maybe_light_spawner = || {
-                if light_spawner.id == self.selected_id {
-                    Some(light_spawner)
-                } else {
-                    None
-                }
+            match self.selected_tab {
+                Tab::SpawnSettings => self.spawn_tab(data, ui),
+                Tab::PostFxSettings => self.post_fx_tab(data, ui),
+                Tab::AnimationSettings => {}
             };
-
-            let spawner = spawners
-                .iter_mut()
-                .find(|s| s.id == self.selected_id)
-                .or_else(maybe_light_spawner);
-
-            if let Some(spawner) = spawner {
-                self.create_spawner_menu(ui, &mut spawner.gui, &spawner.id);
-            }
         });
     }
 }
 
 impl AppState {
-    pub fn update_gui(&mut self, ctx: &Context) {
+    pub fn update_gui(&mut self, ctx: &Context, gfx_state: &GfxState) {
         if self.gui.show {
             self.update_labels();
-            let gui = &mut self.gui;
-            gui.create_gui(&mut self.spawners, &mut self.light_spawner, ctx);
+
+            let options = GuiContext {
+                spawners: &mut self.spawners,
+                light_spawner: &mut self.light_spawner,
+                post_fx: &mut self.post_process.post_fx,
+                gfx_state,
+            };
+
+            self.gui.create_gui(options, ctx);
         }
     }
 

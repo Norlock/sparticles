@@ -151,7 +151,7 @@ impl GfxState {
         let input = self.winit.take_egui_input(&self.window);
 
         let full_output = self.ctx.run(input, |ui| {
-            app_state.update_gui(ui);
+            app_state.update_gui(ui, self);
         });
 
         let clipped_primitives = self.ctx.tessellate(full_output.shapes);
