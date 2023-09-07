@@ -98,11 +98,10 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     let scale = upscaled_size.x / fx_size.x;
 
-    //var result = textureLoad(src_texture, vec2<u32>(pos / scale), 0).rgb;
+    var result = textureLoad(src_texture, vec2<u32>(pos / scale), 0).rgb;
 
-    //result = get_neighbour_x(pos, result, scale, fx_size.x);
-    //result = get_neighbour_y(pos, result, scale, fx_size.y);
+    result = get_neighbour_x(pos, result, scale, fx_size.x);
+    result = get_neighbour_y(pos, result, scale, fx_size.y);
 
-    //textureStore(dst_texture, pos, vec4<f32>(result, 1.0));
-    textureStore(dst_texture, pos, vec4<f32>( 1.0));
+    textureStore(dst_texture, vec2<u32>(pos), vec4<f32>(result, 1.0));
 }
