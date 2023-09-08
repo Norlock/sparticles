@@ -91,6 +91,9 @@ pub trait PostFxChain {
     fn resize(&mut self, gfx_state: &GfxState);
     fn enabled(&self) -> bool;
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
+
+    /// Make sure only one Fx returns to prevent overrides
+    fn debug(&self) -> Option<&wgpu::BindGroup>;
 }
 
 pub trait CreateFxView {

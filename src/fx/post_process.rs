@@ -34,12 +34,16 @@ pub struct FxChainOutput<'a> {
 #[derive(ShaderType, Clone)]
 pub struct OffsetUniform {
     offset: i32,
+    view_width: f32,
+    view_height: f32,
 }
 
 impl OffsetUniform {
     fn new(config: &wgpu::SurfaceConfiguration) -> Self {
         Self {
             offset: config.fx_offset() as i32,
+            view_width: config.width as f32,
+            view_height: config.height as f32,
         }
     }
 
@@ -121,7 +125,20 @@ impl PostProcessState {
 
     pub fn render<'a>(&'a self, r_pass: &mut wgpu::RenderPass<'a>) {
         r_pass.set_pipeline(&self.finalize_pipeline);
-        r_pass.set_bind_group(0, self.render_output(), &[]);
+
+        let opt_bind_group = self
+            .post_fx
+            .iter()
+            .map(|fx| fx.debug())
+            .find(|fx| fx.is_some())
+            .map(|fx| fx.unwrap());
+
+        if let Some(bind_group) = opt_bind_group {
+            r_pass.set_bind_group(0, bind_group, &[]);
+        } else {
+            r_pass.set_bind_group(0, self.render_output(), &[]);
+        }
+
         r_pass.set_bind_group(1, &self.frame_state.bind_group, &[]);
         r_pass.draw(0..3, 0..1);
     }

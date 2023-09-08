@@ -9,59 +9,41 @@
 @group(2) @binding(0) var<uniform> global: Bloom; 
 @group(2) @binding(1) var depth_texture: texture_2d<f32>;
 
-fn get_offset(is_horizontal: bool) -> vec2<u32> {
-    if is_horizontal {
-        return vec2<u32>(1u, 0u);
-    } else {
-        return vec2<u32>(0u, 1u);
-    }
-}
-
-fn apply_blur(is_horizontal: bool, pos: vec2<u32>) {
-    let size = vec2<u32>(textureDimensions(src_texture));
+fn apply_blur(is_horizontal: bool, pos: vec2<i32>) {
+    let size = vec2<i32>(textureDimensions(src_texture));
 
     if any(size < pos) {
         return;
     }
 
-    // Radius must be uniform field 
-    let radius_f32 = f32(global.radius);
-
-    var result = textureLoad(src_texture, pos, 0).rgb;
-    var total_weight = pow(radius_f32, 2.);
-
     // delta offset
-    var offset = get_offset(is_horizontal);
+    var current = textureLoad(src_texture, pos, 0).rgb;
+    var largest = vec3<f32>(0.);
 
-    for(var i = 1u; i < global.radius; i++) {
-        var weight = pow(radius_f32 - f32(i), 2.); // Quadratic blur fall off
-        var i_pos = pos + offset * i; // increased pos
-        var d_pos = pos - offset * i; // decreased pos
+    for (var x = -1; x < 2; x++) {
+        for (var y = -1; y < 2; y++) {
+            var offset = pos + vec2<i32>(x, y);
 
-        if all(i_pos < size) {
-            result += textureLoad(src_texture, i_pos, 0).rgb * weight;
-            total_weight += weight;
-        }
-
-        if all(0u <= d_pos) {
-            result += textureLoad(src_texture, d_pos, 0).rgb * weight;
-            total_weight += weight;
+            if all(0 < offset) && all(offset < size) {
+                var nb = textureLoad(src_texture, pos, 0).rgb;
+                largest = max(largest, nb);
+            }
         }
     }
 
-    textureStore(dst_texture, pos, vec4<f32>(result / f32(total_weight), 1.0));
+    textureStore(dst_texture, pos, vec4<f32>(current, 1.0));
 }
 
 @compute
 @workgroup_size(8, 8, 1)
 fn blur_x(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-    apply_blur(true, global_invocation_id.xy);
+    apply_blur(true, vec2<i32>(global_invocation_id.xy));
 }
 
 @compute
 @workgroup_size(8, 8, 1)
 fn blur_y(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-    apply_blur(false, global_invocation_id.xy);
+    apply_blur(false, vec2<i32>(global_invocation_id.xy));
 }
 
 @compute
@@ -95,10 +77,7 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Averaging out
     result /= f32(weight); 
 
-    // TODO vec3 in uniform
-    let brightness = dot(result, vec3<f32>(0.2126, 0.7152, 0.0722));
-    
-    if global.br_treshold < brightness {
+    if any(global.br_treshold < result) {
         textureStore(dst_texture, pos, vec4<f32>(result, 1.0));
     } else {
         textureStore(dst_texture, pos, vec4<f32>(0.0));

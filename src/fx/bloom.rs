@@ -1,3 +1,6 @@
+use std::fmt::Display;
+use std::fmt::Formatter;
+
 use super::blend::BlendType;
 use super::blur::Blur;
 use super::post_process::FxChainOutput;
@@ -5,15 +8,32 @@ use super::Upscale;
 use crate::traits::*;
 use crate::GfxState;
 use egui_wgpu::wgpu::{self};
+use egui_winit::egui::ComboBox;
 use egui_winit::egui::Ui;
 
 pub struct Bloom {
     blur: Blur,
     upscale: Upscale,
     enabled: bool,
+    debug: Debug,
+}
+
+#[derive(PartialEq, Debug)]
+enum Debug {
+    Blur,
+    Upscale,
+    None,
 }
 
 impl PostFxChain for Bloom {
+    fn debug(&self) -> Option<&wgpu::BindGroup> {
+        match self.debug {
+            Debug::None => None,
+            Debug::Blur => Some(self.blur.output()),
+            Debug::Upscale => Some(self.upscale.output()),
+        }
+    }
+
     fn compute<'a>(
         &'a self,
         input: &'a wgpu::BindGroup,
@@ -45,6 +65,15 @@ impl PostFxChain for Bloom {
         self.upscale.create_ui(ui, gfx_state);
 
         ui.checkbox(&mut self.enabled, "Enabled");
+
+        // Dropdown
+        ComboBox::from_label("Select debug type")
+            .selected_text(format!("{:?}", &self.debug))
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut self.debug, Debug::None, "None");
+                ui.selectable_value(&mut self.debug, Debug::Blur, "Blur");
+                ui.selectable_value(&mut self.debug, Debug::Upscale, "Upscale");
+            });
     }
 }
 
@@ -59,6 +88,7 @@ impl Bloom {
             blur,
             upscale,
             enabled: true,
+            debug: Debug::None,
         }
     }
 }
