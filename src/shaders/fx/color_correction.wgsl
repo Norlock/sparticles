@@ -18,7 +18,9 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    let value = textureLoad(src_texture, pos, 0).rgb;
-    let color = (value - 0.5) * globals.contrast + 0.5 + globals.brightness;
-    textureStore(dst_texture, pos, vec4<f32>(color, 1.0));
+    var out = textureLoad(src_texture, pos, 0).rgb;
+
+    out = pow(out, vec3<f32>(1.0 / globals.gamma));
+    out = (out - 0.5) * globals.contrast + 0.5 + globals.brightness;
+    textureStore(dst_texture, pos, vec4<f32>(out, 1.0));
 }

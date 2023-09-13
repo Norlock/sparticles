@@ -58,7 +58,7 @@ impl PostFxChain for ColorCorrection {
         ui.label("Gaussian blur");
         ui.add(Slider::new(&mut uniform.gamma, 0.1..=4.0).text("Gamma"));
         ui.add(Slider::new(&mut uniform.contrast, 0.1..=4.0).text("Contrast"));
-        ui.add(Slider::new(&mut uniform.brightness, 0.1..=4.0).text("Brightness"));
+        ui.add(Slider::new(&mut uniform.brightness, 0.01..=1.0).text("Brightness"));
         ui.checkbox(&mut self.enabled, "Enabled");
 
         queue.write_buffer(&self.buffer, 0, &self.uniform.create_buffer_content());
