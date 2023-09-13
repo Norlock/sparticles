@@ -4,13 +4,13 @@ use egui_wgpu::wgpu;
 
 pub struct Blend {
     additive_pipeline: wgpu::ComputePipeline,
+    count_x: u32,
+    count_y: u32,
 }
 
 pub struct BlendCompute<'a> {
     pub input: &'a wgpu::BindGroup,
     pub output: &'a wgpu::BindGroup,
-    pub count_x: u32,
-    pub count_y: u32,
 }
 
 pub enum BlendType {
@@ -20,18 +20,21 @@ pub enum BlendType {
 }
 
 impl Blend {
-    pub fn add<'a>(&'a self, compute: BlendCompute<'a>, c_pass: &mut wgpu::ComputePass<'a>) {
-        let BlendCompute {
-            input,
-            output,
-            count_x,
-            count_y,
-        } = compute;
-
+    pub fn add<'a>(
+        &'a self,
+        input: &'a wgpu::BindGroup,
+        output: &'a wgpu::BindGroup,
+        c_pass: &mut wgpu::ComputePass<'a>,
+    ) {
         c_pass.set_pipeline(&self.additive_pipeline);
         c_pass.set_bind_group(0, input, &[]);
         c_pass.set_bind_group(1, output, &[]);
-        c_pass.dispatch_workgroups(count_x, count_y, 1);
+        c_pass.dispatch_workgroups(self.count_x, self.count_y, 1);
+    }
+
+    pub fn resize(&mut self, fx_state: &FxState) {
+        self.count_x = fx_state.count_x;
+        self.count_y = fx_state.count_y;
     }
 
     pub fn new(gfx_state: &GfxState, fx_state: &FxState) -> Self {
@@ -53,6 +56,10 @@ impl Blend {
             entry_point: "additive",
         });
 
-        Self { additive_pipeline }
+        Self {
+            additive_pipeline,
+            count_x: fx_state.count_x,
+            count_y: fx_state.count_y,
+        }
     }
 }

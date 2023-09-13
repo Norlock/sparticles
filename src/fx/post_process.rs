@@ -6,7 +6,7 @@ use encase::{ShaderType, UniformBuffer};
 
 use crate::model::GfxState;
 
-use super::{blend::BlendCompute, Blend, BlendType, Bloom};
+use super::Bloom;
 
 pub struct PostProcessState {
     pub frame_state: FrameState,
@@ -15,7 +15,6 @@ pub struct PostProcessState {
     frame_group_layout: wgpu::BindGroupLayout,
     initialize_pipeline: wgpu::ComputePipeline,
     finalize_pipeline: wgpu::RenderPipeline,
-    blend: Blend,
     uniform: OffsetUniform,
     offset_buffer: wgpu::Buffer,
 }
@@ -24,11 +23,6 @@ pub struct FrameState {
     pub depth_view: wgpu::TextureView,
     pub frame_view: wgpu::TextureView,
     bind_group: wgpu::BindGroup,
-}
-
-pub struct FxChainOutput<'a> {
-    pub blend: BlendType,
-    pub bind_group: &'a wgpu::BindGroup,
 }
 
 #[derive(ShaderType, Clone)]
@@ -77,31 +71,7 @@ impl PostProcessState {
         self.fx_state.resize(config.fx_dimensions(), gfx_state);
 
         for pfx in self.post_fx.iter_mut() {
-            pfx.resize(&gfx_state);
-        }
-    }
-
-    pub fn blend<'a>(
-        &'a self,
-        input: FxChainOutput<'a>,
-        output: &'a wgpu::BindGroup,
-        c_pass: &mut wgpu::ComputePass<'a>,
-    ) {
-        let compute = BlendCompute {
-            input: input.bind_group,
-            output,
-            count_x: self.fx_state.count_x,
-            count_y: self.fx_state.count_y,
-        };
-
-        match input.blend {
-            BlendType::ADDITIVE => self.blend.add(compute, c_pass),
-            BlendType::BLEND => {
-                todo!("todo")
-            }
-            BlendType::REPLACE => {
-                todo!("todo")
-            }
+            pfx.resize(&gfx_state, &self.fx_state);
         }
     }
 
@@ -116,10 +86,8 @@ impl PostProcessState {
         c_pass.dispatch_workgroups(self.fx_state.count_x, self.fx_state.count_y, 1);
 
         for (i, pfx) in self.post_fx.iter().filter(|fx| fx.enabled()).enumerate() {
-            let frame = self.fx_state.bind_group(i);
-            let fx = pfx.compute(frame, &mut c_pass);
-
-            self.blend(fx, frame, &mut c_pass);
+            let input = self.fx_state.bind_group(i);
+            pfx.compute(input, &mut c_pass);
         }
     }
 
@@ -188,14 +156,14 @@ impl PostProcessState {
         let uniform = OffsetUniform::new(config);
         let buffer_content = uniform.buffer_content();
 
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let offset_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Offset"),
             contents: &buffer_content,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
         let frame_group_layout = Self::create_fx_layout(&device, &uniform);
-        let frame_state = FrameState::new(gfx_state, &frame_group_layout, &buffer);
+        let frame_state = FrameState::new(gfx_state, &frame_group_layout, &offset_buffer);
 
         let fx_state = FxState::new(FxStateOptions {
             label: "Post process start".to_string(),
@@ -248,8 +216,6 @@ impl PostProcessState {
             multiview: None,
         });
 
-        let blend = Blend::new(gfx_state, &fx_state);
-
         Self {
             frame_state,
             fx_state,
@@ -257,15 +223,14 @@ impl PostProcessState {
             frame_group_layout,
             initialize_pipeline,
             finalize_pipeline,
-            blend,
-            offset_buffer: buffer,
+            offset_buffer,
             uniform,
         }
         .append_fx(gfx_state)
     }
 
     fn append_fx(mut self, gfx_state: &GfxState) -> Self {
-        let bloom = Bloom::new(gfx_state, &self.frame_state.depth_view);
+        let bloom = Bloom::new(gfx_state, &self.fx_state, &self.frame_state.depth_view);
 
         self.post_fx.push(Box::new(bloom));
 

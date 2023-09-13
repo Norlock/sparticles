@@ -1,5 +1,5 @@
 use crate::{
-    fx::post_process::{FxChainOutput, FxState},
+    fx::post_process::FxState,
     model::{gfx_state::GfxState, AppState, Clock, Emitter, SpawnState},
 };
 use egui_wgpu::wgpu;
@@ -82,13 +82,9 @@ pub trait PostFx {
 }
 
 pub trait PostFxChain {
-    fn compute<'a>(
-        &'a self,
-        input: &'a wgpu::BindGroup,
-        c_pass: &mut wgpu::ComputePass<'a>,
-    ) -> FxChainOutput;
+    fn compute<'a>(&'a self, input: &'a wgpu::BindGroup, c_pass: &mut wgpu::ComputePass<'a>);
 
-    fn resize(&mut self, gfx_state: &GfxState);
+    fn resize(&mut self, gfx_state: &GfxState, fx_state: &FxState);
     fn enabled(&self) -> bool;
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
 

@@ -26,25 +26,28 @@ pub struct Blur {
 pub struct BlurUniform {
     /// 0.10 - 0.15 is reasonable
     pub brightness_threshold: f32,
-    /// 2.2 - 2.6 is reasonable
-    pub gamma: f32,
+
     /// Kernel size (8 default) too high or too low slows down performance
-    /// Lower is more precise
+    /// Lower is more precise (pow of 2 values is better) (TODO maybe downscale attr? instead of kernel_size)
     pub kernel_size: u32,
 
-    // How far should the blur reach (in relation with kernel size)
-    pub radius: u32,
-    //pub depth_add: f32,
-    //pub depth_mul: f32,
+    // How far to look
+    pub radius: i32,
+
+    /// Number between 0. and 1.
+    pub decay: f32,
+    /// Number between 0. and 1.
+    pub weight: f32,
 }
 
 impl BlurUniform {
     pub fn new() -> Self {
         Self {
-            brightness_threshold: 0.2,
-            gamma: 2.2,
+            brightness_threshold: 0.9,
             kernel_size: 16,
-            radius: 16,
+            radius: 3,
+            decay: 0.1,
+            weight: 0.5,
         }
     }
 
@@ -102,8 +105,14 @@ impl PostFx for Blur {
 
         ui.label("Gaussian blur");
         ui.add(Slider::new(&mut blur.brightness_threshold, 0.0..=1.0).text("Brightness threshold"));
-        ui.add(Slider::new(&mut kernel_size, 4..=32).text("Kernel size"));
-        ui.add(Slider::new(&mut blur.radius, 4..=16).text("Blur radius"));
+        ui.add(
+            Slider::new(&mut kernel_size, 4..=32)
+                .step_by(2.)
+                .text("Kernel size"),
+        );
+        ui.add(Slider::new(&mut blur.decay, 0f32..=1.0).text("Blur decay"));
+        ui.add(Slider::new(&mut blur.weight, 0f32..=5.0).text("Blur weight"));
+        ui.add(Slider::new(&mut blur.radius, 2..=10).text("Blur radius"));
         ui.add(
             Slider::new(&mut self.passes, 2..=100)
                 .step_by(2.)

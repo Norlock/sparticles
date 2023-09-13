@@ -1,19 +1,17 @@
-use std::fmt::Display;
-use std::fmt::Formatter;
-
-use super::blend::BlendType;
 use super::blur::Blur;
-use super::post_process::FxChainOutput;
+use super::Blend;
+use super::FxState;
 use super::Upscale;
 use crate::traits::*;
 use crate::GfxState;
-use egui_wgpu::wgpu::{self};
+use egui_wgpu::wgpu;
 use egui_winit::egui::ComboBox;
 use egui_winit::egui::Ui;
 
 pub struct Bloom {
     blur: Blur,
     upscale: Upscale,
+    blend: Blend,
     enabled: bool,
     debug: Debug,
 }
@@ -34,23 +32,16 @@ impl PostFxChain for Bloom {
         }
     }
 
-    fn compute<'a>(
-        &'a self,
-        input: &'a wgpu::BindGroup,
-        c_pass: &mut wgpu::ComputePass<'a>,
-    ) -> FxChainOutput {
+    fn compute<'a>(&'a self, input: &'a wgpu::BindGroup, c_pass: &mut wgpu::ComputePass<'a>) {
         self.blur.compute(vec![input], c_pass);
         self.upscale.compute(vec![self.blur.output()], c_pass);
-
-        FxChainOutput {
-            blend: BlendType::ADDITIVE,
-            bind_group: self.upscale.output(),
-        }
+        self.blend.add(self.upscale.output(), input, c_pass);
     }
 
-    fn resize(&mut self, gfx_state: &GfxState) {
+    fn resize(&mut self, gfx_state: &GfxState, fx_state: &FxState) {
         self.blur.resize(gfx_state);
         self.upscale.resize(gfx_state);
+        self.blend.resize(fx_state);
     }
 
     fn enabled(&self) -> bool {
@@ -80,12 +71,14 @@ impl PostFxChain for Bloom {
 impl Bloom {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-    pub fn new(gfx_state: &GfxState, depth_view: &wgpu::TextureView) -> Self {
+    pub fn new(gfx_state: &GfxState, fx_state: &FxState, depth_view: &wgpu::TextureView) -> Self {
         let blur = Blur::new(gfx_state, depth_view, "split_bloom");
         let upscale = Upscale::new(gfx_state);
+        let blend = Blend::new(gfx_state, fx_state);
 
         Self {
             blur,
+            blend,
             upscale,
             enabled: true,
             debug: Debug::None,
