@@ -33,7 +33,7 @@ fn apply_blur(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
                 var yf = f32(y);
 
                 var rhs = exp(-(xf * xf + yf * yf) / two_ss);
-                var lhs = 1. / (two_ss * pi()) * globals.fall_off;
+                var lhs = 1. / (two_ss * pi());
 
                 var coeff = lhs * rhs * globals.intensity;
                 var nb_col = textureLoad(src_texture, nb_pos, 0).rgb;

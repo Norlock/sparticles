@@ -51,7 +51,6 @@ struct Bloom {
     sigma: f32,
     hdr_mul: f32,
     intensity: f32,
-    fall_off: f32,
 }
 
 

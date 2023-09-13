@@ -36,7 +36,6 @@ pub struct BlurUniform {
     pub sigma: f32,
     pub hdr_mul: f32,
     pub intensity: f32,
-    pub fall_off: f32,
 }
 
 impl BlurUniform {
@@ -48,7 +47,6 @@ impl BlurUniform {
             sigma: 1.3,
             hdr_mul: 25.,
             intensity: 0.9, // betere naam verzinnen
-            fall_off: 0.8,
         }
     }
 
@@ -113,7 +111,6 @@ impl PostFx for Blur {
         );
         ui.add(Slider::new(&mut blur.sigma, 0.1..=8.0).text("Blur sigma"));
         ui.add(Slider::new(&mut blur.hdr_mul, 0.1..=10.0).text("HDR multiplication"));
-        ui.add(Slider::new(&mut blur.fall_off, 0.1..=2.0).text("Fall off"));
         ui.add(Slider::new(&mut blur.radius, 2..=10).text("Blur radius"));
         ui.add(
             Slider::new(&mut self.passes, 2..=100)
