@@ -51,6 +51,7 @@ impl GfxState {
                 },
                 mip_level_count: 1,
                 sample_count: 1,
+                //view_formats: &[wgpu::TextureFormat::Bgra8UnormSrgb],
                 view_formats: &[],
                 dimension: wgpu::TextureDimension::D2,
                 format: config.format,

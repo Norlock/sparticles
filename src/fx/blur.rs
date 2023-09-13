@@ -33,21 +33,22 @@ pub struct BlurUniform {
 
     // How far to look
     pub radius: i32,
-
-    /// Number between 0. and 1.
-    pub decay: f32,
-    /// Number between 0. and 1.
-    pub weight: f32,
+    pub sigma: f32,
+    pub hdr_mul: f32,
+    pub intensity: f32,
+    pub fall_off: f32,
 }
 
 impl BlurUniform {
     pub fn new() -> Self {
         Self {
-            brightness_threshold: 0.9,
+            brightness_threshold: 0.6,
             kernel_size: 16,
-            radius: 3,
-            decay: 0.1,
-            weight: 0.5,
+            radius: 4,
+            sigma: 1.3,
+            hdr_mul: 25.,
+            intensity: 0.9, // betere naam verzinnen
+            fall_off: 0.8,
         }
     }
 
@@ -110,8 +111,9 @@ impl PostFx for Blur {
                 .step_by(2.)
                 .text("Kernel size"),
         );
-        ui.add(Slider::new(&mut blur.decay, 0f32..=1.0).text("Blur decay"));
-        ui.add(Slider::new(&mut blur.weight, 0f32..=5.0).text("Blur weight"));
+        ui.add(Slider::new(&mut blur.sigma, 0.1..=8.0).text("Blur sigma"));
+        ui.add(Slider::new(&mut blur.hdr_mul, 0.1..=10.0).text("HDR multiplication"));
+        ui.add(Slider::new(&mut blur.fall_off, 0.1..=2.0).text("Fall off"));
         ui.add(Slider::new(&mut blur.radius, 2..=10).text("Blur radius"));
         ui.add(
             Slider::new(&mut self.passes, 2..=100)

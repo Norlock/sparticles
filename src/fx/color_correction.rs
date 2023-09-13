@@ -68,8 +68,8 @@ impl PostFxChain for ColorCorrection {
 impl ColorCorrectionUniform {
     pub fn new() -> Self {
         Self {
-            gamma: 2.2,
-            contrast: 0.5,
+            gamma: 1.0,
+            contrast: 1.0,
             brightness: 0.5,
         }
     }

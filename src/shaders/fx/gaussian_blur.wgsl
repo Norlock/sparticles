@@ -19,12 +19,9 @@ fn apply_blur(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    var result = vec3<f32>(0.);
-    var weight = 0.;
-
     let edge = globals.radius;
-    let edge_f32 = f32(edge);
-    let sub = length(vec2<f32>(edge_f32) * globals.weight) * globals.decay + globals.weight;
+    let two_ss = 2. * globals.sigma * globals.sigma;
+    var result = vec3<f32>(0.);
 
     for (var x = -edge; x <= edge; x++) {
         for (var y =  -edge; y <= edge; y++) {
@@ -32,15 +29,21 @@ fn apply_blur(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             var nb_pos = pos + offset;
 
             if all(0 < nb_pos) && all(nb_pos < size) {
+                var xf = f32(x);
+                var yf = f32(y);
+
+                var rhs = exp(-(xf * xf + yf * yf) / two_ss);
+                var lhs = 1. / (two_ss * pi()) * globals.fall_off;
+
+                var coeff = lhs * rhs * globals.intensity;
                 var nb_col = textureLoad(src_texture, nb_pos, 0).rgb;
-                var coeff = sub - (length(vec2<f32>(offset)) * globals.weight * globals.decay);
+
                 result += nb_col * coeff;
-                weight += coeff;
             }
         }
     }
 
-    textureStore(dst_texture, pos, vec4<f32>(result / weight, 1.0));
+    textureStore(dst_texture, pos, vec4<f32>(result, 1.0));
 }
 
 @compute
@@ -76,7 +79,7 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     if any(globals.br_treshold < result) {
         // Convert to HDR
-        textureStore(dst_texture, pos, vec4<f32>(result * 20., 1.0));
+        textureStore(dst_texture, pos, vec4<f32>(result * globals.hdr_mul, 1.0));
     } else {
         textureStore(dst_texture, pos, vec4<f32>(0.0));
     }
