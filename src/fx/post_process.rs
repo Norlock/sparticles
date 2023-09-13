@@ -6,7 +6,7 @@ use encase::{ShaderType, UniformBuffer};
 
 use crate::model::GfxState;
 
-use super::Bloom;
+use super::{Bloom, ColorCorrection};
 
 pub struct PostProcessState {
     pub frame_state: FrameState,
@@ -231,8 +231,10 @@ impl PostProcessState {
 
     fn append_fx(mut self, gfx_state: &GfxState) -> Self {
         let bloom = Bloom::new(gfx_state, &self.fx_state, &self.frame_state.depth_view);
+        let col_cor = ColorCorrection::new(gfx_state, &self.fx_state);
 
         self.post_fx.push(Box::new(bloom));
+        self.post_fx.push(Box::new(col_cor));
 
         return self;
     }

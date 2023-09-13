@@ -9,7 +9,7 @@ use encase::{ShaderType, UniformBuffer};
 use std::num::NonZeroU64;
 
 pub struct Blur {
-    blur_pipelines: Vec<wgpu::ComputePipeline>,
+    blur_pipeline: wgpu::ComputePipeline,
     split_pipeline: wgpu::ComputePipeline,
 
     blur_bind_group: wgpu::BindGroup,
@@ -22,7 +22,7 @@ pub struct Blur {
     passes: usize,
 }
 
-#[derive(Debug, ShaderType)]
+#[derive(ShaderType)]
 pub struct BlurUniform {
     /// 0.10 - 0.15 is reasonable
     pub brightness_threshold: f32,
@@ -76,7 +76,7 @@ impl PostFx for Blur {
 
         // Smoothen downscaled texture
         for i in 0..self.passes {
-            c_pass.set_pipeline(&self.blur_pipelines[i % 2]);
+            c_pass.set_pipeline(&self.blur_pipeline);
             c_pass.set_bind_group(0, input, &[]);
             c_pass.set_bind_group(1, &output.bind_group(i), &[]);
             c_pass.set_bind_group(2, &self.blur_bind_group, &[]);
@@ -228,11 +228,11 @@ impl Blur {
             })
         };
 
-        let blur_pipelines = vec![new_pipeline("blur_x"), new_pipeline("blur_y")];
+        let blur_pipeline = new_pipeline("apply_blur");
         let split_pipeline = new_pipeline(shader_entry);
 
         Self {
-            blur_pipelines,
+            blur_pipeline,
             bind_group_layout,
             blur_bind_group,
             blur_buffer,

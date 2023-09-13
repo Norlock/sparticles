@@ -9,7 +9,10 @@
 @group(2) @binding(0) var<uniform> globals: Bloom; 
 @group(2) @binding(1) var depth_texture: texture_2d<f32>;
 
-fn apply_blur(is_horizontal: bool, pos: vec2<i32>) {
+@compute
+@workgroup_size(8, 8, 1)
+fn apply_blur(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+    let pos = vec2<i32>(global_invocation_id.xy);
     let size = vec2<i32>(textureDimensions(src_texture));
 
     if any(size < pos) {
@@ -38,18 +41,6 @@ fn apply_blur(is_horizontal: bool, pos: vec2<i32>) {
     }
 
     textureStore(dst_texture, pos, vec4<f32>(result / weight, 1.0));
-}
-
-@compute
-@workgroup_size(8, 8, 1)
-fn blur_x(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-    apply_blur(true, vec2<i32>(global_invocation_id.xy));
-}
-
-@compute
-@workgroup_size(8, 8, 1)
-fn blur_y(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-    apply_blur(false, vec2<i32>(global_invocation_id.xy));
 }
 
 @compute
