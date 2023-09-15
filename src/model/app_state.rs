@@ -1,5 +1,9 @@
 use super::{Camera, Clock, GfxState, GuiState, SpawnState};
-use crate::{fx::PostProcessState, InitApp};
+use crate::{
+    fx::{post_process::ImportOptions, PostProcessState},
+    util::Persistence,
+    InitApp,
+};
 use egui_wgpu::wgpu;
 use egui_winit::winit::event::KeyboardInput;
 
@@ -130,7 +134,16 @@ impl GfxState {
         let spawners = init_app.create_spawners(&self, &light_spawner.bind_group_layout, &camera);
 
         let gui = GuiState::new(&spawners, show_gui);
-        let post_process = PostProcessState::new(&self);
+        let mut post_process = PostProcessState::new(&self);
+
+        if let Ok(fx_types) = Persistence::fetch_post_fx() {
+            post_process.import_fx(ImportOptions {
+                fx_types,
+                gfx_state: self,
+            });
+        } else {
+            post_process.add_default_fx(self);
+        }
 
         AppState {
             clock,

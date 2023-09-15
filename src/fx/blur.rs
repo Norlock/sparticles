@@ -6,6 +6,8 @@ use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
 use encase::{ShaderType, UniformBuffer};
+use serde::Deserialize;
+use serde::Serialize;
 use std::num::NonZeroU64;
 
 pub struct Blur {
@@ -22,7 +24,7 @@ pub struct Blur {
     passes: usize,
 }
 
-#[derive(ShaderType)]
+#[derive(ShaderType, Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct BlurUniform {
     /// 0.10 - 0.15 is reasonable
     pub brightness_threshold: f32,
@@ -112,6 +114,7 @@ impl PostFx for Blur {
         ui.add(Slider::new(&mut blur.sigma, 0.1..=8.0).text("Blur sigma"));
         ui.add(Slider::new(&mut blur.hdr_mul, 0.1..=10.0).text("HDR multiplication"));
         ui.add(Slider::new(&mut blur.radius, 2..=10).text("Blur radius"));
+        ui.add(Slider::new(&mut blur.intensity, 0.1..=2.).text("Blur intensity"));
         ui.add(
             Slider::new(&mut self.passes, 2..=100)
                 .step_by(2.)
@@ -141,7 +144,15 @@ impl Blur {
         [tex_width, tex_height]
     }
 
-    pub fn new(gfx_state: &GfxState, depth_view: &wgpu::TextureView, shader_entry: &str) -> Self {
+    pub fn export(&self) -> BlurUniform {
+        self.blur
+    }
+
+    pub fn import(&mut self, uniform: BlurUniform) {
+        self.blur = uniform;
+    }
+
+    pub fn new(gfx_state: &GfxState, depth_view: &wgpu::TextureView) -> Self {
         let device = &gfx_state.device;
         let config = &gfx_state.surface_config;
 
@@ -228,7 +239,7 @@ impl Blur {
         };
 
         let blur_pipeline = new_pipeline("apply_blur");
-        let split_pipeline = new_pipeline(shader_entry);
+        let split_pipeline = new_pipeline("split_bloom");
 
         Self {
             blur_pipeline,

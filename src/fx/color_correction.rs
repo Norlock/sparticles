@@ -1,15 +1,12 @@
-use std::num::NonZeroU64;
-
-use egui_wgpu::wgpu::{self, util::DeviceExt};
-use egui_winit::egui::{self, Slider};
-use encase::{ShaderType, UniformBuffer};
-
+use super::{post_process::FxPersistenceType, FxState};
 use crate::{
     model::GfxState,
     traits::{CustomShader, PostFxChain},
 };
-
-use super::FxState;
+use egui_wgpu::wgpu::{self, util::DeviceExt};
+use egui_winit::egui::{self, Slider};
+use encase::{ShaderType, UniformBuffer};
+use std::num::NonZeroU64;
 
 #[allow(unused)]
 pub struct ColorCorrection {
@@ -55,13 +52,17 @@ impl PostFxChain for ColorCorrection {
         let uniform = &mut self.uniform;
         let queue = &gfx_state.queue;
 
-        ui.label("Gaussian blur");
+        ui.label("Color correction");
         ui.add(Slider::new(&mut uniform.gamma, 0.1..=4.0).text("Gamma"));
         ui.add(Slider::new(&mut uniform.contrast, 0.1..=4.0).text("Contrast"));
         ui.add(Slider::new(&mut uniform.brightness, 0.01..=1.0).text("Brightness"));
         ui.checkbox(&mut self.enabled, "Enabled");
 
         queue.write_buffer(&self.buffer, 0, &self.uniform.create_buffer_content());
+    }
+
+    fn export(&self, to_export: &mut Vec<FxPersistenceType>) {
+        //
     }
 }
 
@@ -72,6 +73,10 @@ impl ColorCorrectionUniform {
             contrast: 1.0,
             brightness: 0.5,
         }
+    }
+
+    fn import(&mut self, to_import: &mut Vec<FxPersistenceType>) {
+        //
     }
 
     // TODO default trait

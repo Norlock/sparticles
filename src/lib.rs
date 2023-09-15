@@ -16,6 +16,7 @@ pub mod model;
 pub mod shaders;
 pub mod texture;
 pub mod traits;
+mod util;
 
 pub fn start(init_app: InitApp) {
     env_logger::init();

@@ -1,4 +1,6 @@
 use super::blur::Blur;
+use super::blur::BlurUniform;
+use super::post_process::FxPersistenceType;
 use super::Blend;
 use super::FxState;
 use super::Upscale;
@@ -7,6 +9,8 @@ use crate::GfxState;
 use egui_wgpu::wgpu;
 use egui_winit::egui::ComboBox;
 use egui_winit::egui::Ui;
+use serde::Deserialize;
+use serde::Serialize;
 
 pub struct Bloom {
     blur: Blur,
@@ -21,6 +25,11 @@ enum Debug {
     Blur,
     Upscale,
     None,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BloomExport {
+    pub blur: BlurUniform,
 }
 
 impl PostFxChain for Bloom {
@@ -48,6 +57,12 @@ impl PostFxChain for Bloom {
         self.enabled
     }
 
+    fn export(&self, to_export: &mut Vec<FxPersistenceType>) {
+        to_export.push(FxPersistenceType::Bloom(BloomExport {
+            blur: self.blur.export(),
+        }));
+    }
+
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState) {
         ui.label("Bloom settings");
         ui.add_space(5.0);
@@ -72,7 +87,7 @@ impl Bloom {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
     pub fn new(gfx_state: &GfxState, fx_state: &FxState, depth_view: &wgpu::TextureView) -> Self {
-        let blur = Blur::new(gfx_state, depth_view, "split_bloom");
+        let blur = Blur::new(gfx_state, depth_view);
         let upscale = Upscale::new(gfx_state);
         let blend = Blend::new(gfx_state, fx_state);
 
@@ -83,5 +98,9 @@ impl Bloom {
             enabled: true,
             debug: Debug::None,
         }
+    }
+
+    pub fn import(&mut self, export: &mut BloomExport) {
+        self.blur.import(export.blur);
     }
 }

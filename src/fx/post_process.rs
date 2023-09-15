@@ -1,17 +1,15 @@
-use std::num::NonZeroU64;
-
+use super::{bloom::BloomExport, Bloom, ColorCorrection};
+use crate::model::GfxState;
 use crate::traits::*;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use encase::{ShaderType, UniformBuffer};
-
-use crate::model::GfxState;
-
-use super::{Bloom, ColorCorrection};
+use serde::{Deserialize, Serialize};
+use std::num::NonZeroU64;
 
 pub struct PostProcessState {
     pub frame_state: FrameState,
     pub post_fx: Vec<Box<dyn PostFxChain>>,
-    fx_state: FxState,
+    pub fx_state: FxState,
     frame_group_layout: wgpu::BindGroupLayout,
     initialize_pipeline: wgpu::ComputePipeline,
     finalize_pipeline: wgpu::RenderPipeline,
@@ -30,6 +28,17 @@ pub struct OffsetUniform {
     offset: i32,
     view_width: f32,
     view_height: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type")]
+pub enum FxPersistenceType {
+    Bloom(BloomExport),
+}
+
+pub struct ImportOptions<'a> {
+    pub gfx_state: &'a GfxState,
+    pub fx_types: Vec<FxPersistenceType>,
 }
 
 impl OffsetUniform {
@@ -226,17 +235,33 @@ impl PostProcessState {
             offset_buffer,
             uniform,
         }
-        .append_fx(gfx_state)
     }
 
-    fn append_fx(mut self, gfx_state: &GfxState) -> Self {
+    pub fn add_default_fx(&mut self, gfx_state: &GfxState) {
         let bloom = Bloom::new(gfx_state, &self.fx_state, &self.frame_state.depth_view);
         let col_cor = ColorCorrection::new(gfx_state, &self.fx_state);
 
         self.post_fx.push(Box::new(bloom));
         self.post_fx.push(Box::new(col_cor));
+    }
 
-        return self;
+    pub fn import_fx(&mut self, to_import: ImportOptions) {
+        let ImportOptions {
+            gfx_state,
+            mut fx_types,
+        } = to_import;
+
+        for item in fx_types.iter_mut() {
+            match item {
+                FxPersistenceType::Bloom(export) => {
+                    let mut bloom =
+                        Bloom::new(gfx_state, &self.fx_state, &self.frame_state.depth_view);
+                    bloom.import(export);
+
+                    self.post_fx.push(Box::new(bloom));
+                }
+            }
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::{
-    fx::post_process::FxState,
+    fx::post_process::{FxPersistenceType, FxState},
     model::{gfx_state::GfxState, AppState, Clock, Emitter, SpawnState},
 };
 use egui_wgpu::wgpu;
@@ -90,6 +90,7 @@ pub trait PostFxChain {
 
     /// Make sure only one Fx returns to prevent overrides
     fn debug(&self) -> Option<&wgpu::BindGroup>;
+    fn export(&self, to_export: &mut Vec<FxPersistenceType>);
 }
 
 pub trait CreateFxView {

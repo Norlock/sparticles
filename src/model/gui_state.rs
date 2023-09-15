@@ -1,4 +1,8 @@
-use crate::traits::PostFxChain;
+use crate::{
+    traits::PostFxChain,
+    util::{persistence::ExportType, Persistence},
+};
+use serde::{Serialize, Serializer};
 
 use super::{spawn_state::SpawnGuiState, AppState, GfxState, SpawnState};
 use egui::{Color32, Context, RichText, Slider, Ui, Window};
@@ -130,6 +134,16 @@ impl GuiState {
         for fx in post_fx.iter_mut() {
             fx.create_ui(ui, gfx_state);
             ui.separator();
+        }
+
+        if ui.button("Export").clicked() {
+            let mut to_export = Vec::new();
+
+            for fx in post_fx.iter() {
+                fx.export(&mut to_export);
+            }
+
+            Persistence::write_to_file(to_export, ExportType::PostFx);
         }
     }
 

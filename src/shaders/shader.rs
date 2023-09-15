@@ -22,6 +22,7 @@ impl CustomShader for wgpu::Device {
 fn get_file(filename: &str) -> String {
     let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     dir.push(format!("src/shaders/{}", filename));
-    fs::read_to_string(dir.to_str().expect("shader file doesn't exist"))
-        .expect("Shader file doesn't exist")
+
+    let path = dir.to_str().expect("shader file doesn't exist");
+    fs::read_to_string(path).expect("Shader file doesn't exist")
 }
