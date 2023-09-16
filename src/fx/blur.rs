@@ -1,3 +1,4 @@
+use super::post_process::CreateFxOptions;
 use super::post_process::FxState;
 use super::post_process::FxStateOptions;
 use crate::traits::*;
@@ -152,7 +153,13 @@ impl Blur {
         self.blur = uniform;
     }
 
-    pub fn new(gfx_state: &GfxState, depth_view: &wgpu::TextureView) -> Self {
+    pub fn new(options: &CreateFxOptions, uniform: Option<BlurUniform>) -> Self {
+        let CreateFxOptions {
+            gfx_state,
+            fx_state,
+            depth_view,
+        } = options;
+
         let device = &gfx_state.device;
         let config = &gfx_state.surface_config;
 

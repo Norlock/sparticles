@@ -1,5 +1,6 @@
 use super::blur::Blur;
 use super::blur::BlurUniform;
+use super::post_process::CreateFxOptions;
 use super::post_process::FxPersistenceType;
 use super::Blend;
 use super::FxState;
@@ -86,8 +87,14 @@ impl PostFxChain for Bloom {
 impl Bloom {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-    pub fn new(gfx_state: &GfxState, fx_state: &FxState, depth_view: &wgpu::TextureView) -> Self {
-        let blur = Blur::new(gfx_state, depth_view);
+    pub fn new(options: &CreateFxOptions, export: Option<&mut BloomExport>) -> Self {
+        let CreateFxOptions {
+            gfx_state,
+            fx_state,
+            ..
+        } = options;
+
+        let blur = Blur::new(options, export.map(|e| e.blur));
         let upscale = Upscale::new(gfx_state);
         let blend = Blend::new(gfx_state, fx_state);
 
@@ -98,9 +105,5 @@ impl Bloom {
             enabled: true,
             debug: Debug::None,
         }
-    }
-
-    pub fn import(&mut self, export: &mut BloomExport) {
-        self.blur.import(export.blur);
     }
 }

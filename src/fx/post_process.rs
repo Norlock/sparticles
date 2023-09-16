@@ -36,9 +36,10 @@ pub enum FxPersistenceType {
     Bloom(BloomExport),
 }
 
-pub struct ImportOptions<'a> {
+pub struct CreateFxOptions<'a> {
     pub gfx_state: &'a GfxState,
-    pub fx_types: Vec<FxPersistenceType>,
+    pub fx_state: &'a FxState,
+    pub depth_view: &'a wgpu::TextureView,
 }
 
 impl OffsetUniform {
@@ -237,26 +238,30 @@ impl PostProcessState {
         }
     }
 
+    pub fn create_fx_options<'a>(&'a self, gfx_state: &'a GfxState) -> CreateFxOptions {
+        CreateFxOptions {
+            gfx_state,
+            fx_state: &self.fx_state,
+            depth_view: &self.frame_state.depth_view,
+        }
+    }
+
     pub fn add_default_fx(&mut self, gfx_state: &GfxState) {
-        let bloom = Bloom::new(gfx_state, &self.fx_state, &self.frame_state.depth_view);
+        let options = self.create_fx_options(gfx_state);
+
+        let bloom = Bloom::new(&options, None);
         let col_cor = ColorCorrection::new(gfx_state, &self.fx_state);
 
         self.post_fx.push(Box::new(bloom));
         self.post_fx.push(Box::new(col_cor));
     }
 
-    pub fn import_fx(&mut self, to_import: ImportOptions) {
-        let ImportOptions {
-            gfx_state,
-            mut fx_types,
-        } = to_import;
-
+    pub fn import_fx(&mut self, gfx_state: &GfxState, mut fx_types: Vec<FxPersistenceType>) {
         for item in fx_types.iter_mut() {
             match item {
                 FxPersistenceType::Bloom(export) => {
-                    let mut bloom =
-                        Bloom::new(gfx_state, &self.fx_state, &self.frame_state.depth_view);
-                    bloom.import(export);
+                    let options = self.create_fx_options(gfx_state);
+                    let bloom = Bloom::new(&options, Some(export));
 
                     self.post_fx.push(Box::new(bloom));
                 }
