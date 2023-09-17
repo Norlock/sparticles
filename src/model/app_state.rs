@@ -32,7 +32,7 @@ impl AppState {
 
         self.camera.handle_gui(&self.gui);
 
-        if self.light_spawner.id == self.gui.selected_id {
+        if self.light_spawner.id == self.gui.selected_spawner_id {
             self.light_spawner.handle_gui(gfx_state, None, &self.camera);
         } else {
             let light_layout = &self.light_spawner.bind_group_layout;
@@ -40,7 +40,7 @@ impl AppState {
             let selected = self
                 .spawners
                 .iter_mut()
-                .find(|s| s.id == self.gui.selected_id);
+                .find(|s| s.id == self.gui.selected_spawner_id);
 
             if let Some(spawner) = selected {
                 spawner.handle_gui(gfx_state, Some(light_layout), &self.camera);

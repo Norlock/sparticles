@@ -1,4 +1,9 @@
-use super::{bloom::BloomExport, Bloom, ColorCorrection};
+use super::{
+    bloom::BloomExport,
+    blur::{BlurExport, BlurUniform},
+    color_processing::ColorProcessingUniform,
+    Bloom, ColorProcessing,
+};
 use crate::model::GfxState;
 use crate::traits::*;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
@@ -34,6 +39,7 @@ pub struct OffsetUniform {
 #[serde(tag = "type")]
 pub enum FxPersistenceType {
     Bloom(BloomExport),
+    ColorProcessing(ColorProcessingUniform),
 }
 
 pub struct CreateFxOptions<'a> {
@@ -248,22 +254,32 @@ impl PostProcessState {
 
     pub fn add_default_fx(&mut self, gfx_state: &GfxState) {
         let options = self.create_fx_options(gfx_state);
+        let blur_export = BlurExport {
+            uniform: BlurUniform::new(),
+            passes: 8,
+        };
 
-        let bloom = Bloom::new(&options, None);
-        let col_cor = ColorCorrection::new(gfx_state, &self.fx_state);
+        let bloom = Bloom::new(&options, BloomExport { blur: blur_export });
+        let col_cor = ColorProcessing::new(&options, ColorProcessingUniform::new());
 
         self.post_fx.push(Box::new(bloom));
         self.post_fx.push(Box::new(col_cor));
     }
 
-    pub fn import_fx(&mut self, gfx_state: &GfxState, mut fx_types: Vec<FxPersistenceType>) {
-        for item in fx_types.iter_mut() {
+    pub fn import_fx(&mut self, gfx_state: &GfxState, fx_types: Vec<FxPersistenceType>) {
+        for item in fx_types.into_iter() {
             match item {
                 FxPersistenceType::Bloom(export) => {
                     let options = self.create_fx_options(gfx_state);
-                    let bloom = Bloom::new(&options, Some(export));
+                    let bloom = Bloom::new(&options, export);
 
                     self.post_fx.push(Box::new(bloom));
+                }
+                FxPersistenceType::ColorProcessing(export) => {
+                    let options = self.create_fx_options(gfx_state);
+                    let fx = ColorProcessing::new(&options, export);
+
+                    self.post_fx.push(Box::new(fx));
                 }
             }
         }

@@ -1,4 +1,7 @@
-use super::{post_process::FxPersistenceType, FxState};
+use super::{
+    post_process::{CreateFxOptions, FxPersistenceType},
+    FxState,
+};
 use crate::{
     model::GfxState,
     traits::{CustomShader, PostFxChain},
@@ -6,11 +9,12 @@ use crate::{
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::{self, Slider};
 use encase::{ShaderType, UniformBuffer};
+use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
 
 #[allow(unused)]
-pub struct ColorCorrection {
-    uniform: ColorCorrectionUniform,
+pub struct ColorProcessing {
+    uniform: ColorProcessingUniform,
     buffer: wgpu::Buffer,
     bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
@@ -20,16 +24,20 @@ pub struct ColorCorrection {
     enabled: bool,
 }
 
-#[derive(ShaderType)]
-pub struct ColorCorrectionUniform {
+#[derive(ShaderType, Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct ColorProcessingUniform {
     pub gamma: f32,
     pub contrast: f32,
     pub brightness: f32,
 }
 
-impl PostFxChain for ColorCorrection {
+impl PostFxChain for ColorProcessing {
     fn debug(&self) -> Option<&wgpu::BindGroup> {
         None
+    }
+
+    fn delete(&self) -> bool {
+        false
     }
 
     fn resize(&mut self, _gfx_state: &GfxState, fx_state: &FxState) {
@@ -61,22 +69,18 @@ impl PostFxChain for ColorCorrection {
         queue.write_buffer(&self.buffer, 0, &self.uniform.create_buffer_content());
     }
 
-    fn export(&self, to_export: &mut Vec<FxPersistenceType>) {
-        //
+    fn export(&self) -> FxPersistenceType {
+        FxPersistenceType::ColorProcessing(self.uniform)
     }
 }
 
-impl ColorCorrectionUniform {
+impl ColorProcessingUniform {
     pub fn new() -> Self {
         Self {
             gamma: 1.0,
-            contrast: 1.0,
-            brightness: 0.5,
+            contrast: 2.5,
+            brightness: 0.3,
         }
-    }
-
-    fn import(&mut self, to_import: &mut Vec<FxPersistenceType>) {
-        //
     }
 
     // TODO default trait
@@ -87,11 +91,16 @@ impl ColorCorrectionUniform {
     }
 }
 
-impl ColorCorrection {
-    pub fn new(gfx_state: &GfxState, fx_state: &FxState) -> Self {
+impl ColorProcessing {
+    pub fn new(options: &CreateFxOptions, uniform: ColorProcessingUniform) -> Self {
+        let CreateFxOptions {
+            gfx_state,
+            fx_state,
+            ..
+        } = options;
+
         let device = &gfx_state.device;
 
-        let uniform = ColorCorrectionUniform::new();
         let buffer_content = uniform.create_buffer_content();
         let min_binding_size = NonZeroU64::new(buffer_content.len() as u64);
 

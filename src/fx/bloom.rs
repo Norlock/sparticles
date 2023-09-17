@@ -1,4 +1,5 @@
 use super::blur::Blur;
+use super::blur::BlurExport;
 use super::blur::BlurUniform;
 use super::post_process::CreateFxOptions;
 use super::post_process::FxPersistenceType;
@@ -30,7 +31,15 @@ enum Debug {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BloomExport {
-    pub blur: BlurUniform,
+    pub blur: BlurExport,
+}
+
+impl Default for BloomExport {
+    fn default() -> Self {
+        Self {
+            blur: BlurExport::default(),
+        }
+    }
 }
 
 impl PostFxChain for Bloom {
@@ -58,10 +67,10 @@ impl PostFxChain for Bloom {
         self.enabled
     }
 
-    fn export(&self, to_export: &mut Vec<FxPersistenceType>) {
-        to_export.push(FxPersistenceType::Bloom(BloomExport {
+    fn export(&self) -> FxPersistenceType {
+        FxPersistenceType::Bloom(BloomExport {
             blur: self.blur.export(),
-        }));
+        })
     }
 
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState) {
@@ -82,19 +91,23 @@ impl PostFxChain for Bloom {
                 ui.selectable_value(&mut self.debug, Debug::Upscale, "Upscale");
             });
     }
+
+    fn delete(&self) -> bool {
+        false
+    }
 }
 
 impl Bloom {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-    pub fn new(options: &CreateFxOptions, export: Option<&mut BloomExport>) -> Self {
+    pub fn new(options: &CreateFxOptions, export: BloomExport) -> Self {
         let CreateFxOptions {
             gfx_state,
             fx_state,
             ..
         } = options;
 
-        let blur = Blur::new(options, export.map(|e| e.blur));
+        let blur = Blur::new(options, export.blur);
         let upscale = Upscale::new(gfx_state);
         let blend = Blend::new(gfx_state, fx_state);
 

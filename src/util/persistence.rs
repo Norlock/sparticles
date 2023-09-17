@@ -44,26 +44,23 @@ impl Persistence {
         let path = dir.to_str().expect("Path is not correct");
 
         let file_res = fs::read_to_string(path);
+        let error_msg;
 
         match file_res {
-            Ok(val) => {
-                //println!("{}", val);
-
-                match serde_json::from_str::<Vec<FxPersistenceType>>(&val) {
-                    Ok(val) => {
-                        println!("joho {:?}", &val);
-                        return Ok(val);
-                    }
-                    Err(err) => println!("Wrong syntaxed JSON: {}", err),
+            Ok(val) => match serde_json::from_str::<Vec<FxPersistenceType>>(&val) {
+                Ok(val) => {
+                    println!("Import {:?}", &val);
+                    return Ok(val);
                 }
-            }
+                Err(err) => {
+                    error_msg = format!("Wrong syntaxed JSON: {}", err);
+                }
+            },
             Err(err) => {
-                println!("No post fx export: {}", err);
+                error_msg = format!("No post fx export: {}", err);
             }
         }
 
-        return Err(ImportError {
-            msg: "helaas pindakaas".to_owned(),
-        });
+        Err(ImportError { msg: error_msg })
     }
 }

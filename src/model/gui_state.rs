@@ -1,10 +1,12 @@
+use super::{spawn_state::SpawnGuiState, AppState, GfxState, SpawnState};
 use crate::{
+    fx::{
+        bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, FxPersistenceType,
+        PostProcessState,
+    },
     traits::PostFxChain,
     util::{persistence::ExportType, Persistence},
 };
-use serde::{Serialize, Serializer};
-
-use super::{spawn_state::SpawnGuiState, AppState, GfxState, SpawnState};
 use egui::{Color32, Context, RichText, Slider, Ui, Window};
 use egui_winit::egui;
 
@@ -18,7 +20,8 @@ pub struct GuiState {
     particle_count_text: String,
     selected_tab: Tab,
 
-    pub selected_id: String,
+    pub selected_spawner_id: String,
+    selected_post_fx: PostFx,
 }
 
 #[derive(PartialEq)]
@@ -28,10 +31,16 @@ enum Tab {
     AnimationSettings,
 }
 
+#[derive(PartialEq, Debug)]
+enum PostFx {
+    Bloom,
+    ColorProcessing,
+}
+
 struct GuiContext<'a> {
     spawners: &'a mut Vec<SpawnState>,
     light_spawner: &'a mut SpawnState,
-    post_fx: &'a mut Vec<Box<dyn PostFxChain>>,
+    post_process: &'a mut PostProcessState,
     gfx_state: &'a GfxState,
 }
 
@@ -48,8 +57,9 @@ impl GuiState {
             fps_text: "".to_string(),
             elapsed_text: "".to_string(),
             particle_count_text: "".to_string(),
-            selected_id,
+            selected_spawner_id: selected_id,
             selected_tab: Tab::SpawnSettings,
+            selected_post_fx: PostFx::Bloom,
         }
     }
 
@@ -126,24 +136,54 @@ impl GuiState {
         );
     }
 
-    fn post_fx_tab(&self, gui_ctx: GuiContext, ui: &mut Ui) {
+    fn post_fx_tab(&mut self, gui_ctx: GuiContext, ui: &mut Ui) {
         let GuiContext {
-            post_fx, gfx_state, ..
+            post_process,
+            gfx_state,
+            ..
         } = gui_ctx;
 
-        for fx in post_fx.iter_mut() {
+        for fx in post_process.post_fx.iter_mut() {
             fx.create_ui(ui, gfx_state);
             ui.separator();
         }
 
-        if ui.button("Export").clicked() {
-            let mut to_export = Vec::new();
+        ui.horizontal(|ui| {
+            egui::ComboBox::from_id_source("post-fx")
+                .selected_text(format!("{:?}", &self.selected_post_fx))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.selected_post_fx, PostFx::Bloom, "Bloom");
+                    ui.selectable_value(
+                        &mut self.selected_post_fx,
+                        PostFx::ColorProcessing,
+                        "ColorProcessing",
+                    );
+                });
 
-            for fx in post_fx.iter() {
-                fx.export(&mut to_export);
+            if ui.button("Add Post fx").clicked() {
+                match self.selected_post_fx {
+                    PostFx::Bloom => {
+                        let options = post_process.create_fx_options(gfx_state);
+                        let fx = Bloom::new(&options, BloomExport::default());
+
+                        post_process.post_fx.push(Box::new(fx));
+                    }
+                    PostFx::ColorProcessing => {
+                        let options = post_process.create_fx_options(gfx_state);
+                        let fx = ColorProcessing::new(&options, ColorProcessingUniform::new());
+
+                        post_process.post_fx.push(Box::new(fx));
+                    }
+                };
             }
+        });
+
+        if ui.button("Export").clicked() {
+            let to_export: Vec<FxPersistenceType> =
+                post_process.post_fx.iter().map(|fx| fx.export()).collect();
 
             Persistence::write_to_file(to_export, ExportType::PostFx);
+            // TODO feedback that export has been successful
         }
     }
 
@@ -158,15 +198,19 @@ impl GuiState {
         ids.push(&light_spawner.id);
 
         egui::ComboBox::from_id_source("sel-spawner")
-            .selected_text(&self.selected_id)
+            .selected_text(&self.selected_spawner_id)
             .show_ui(ui, |ui| {
                 for id in ids.into_iter() {
-                    ui.selectable_value(&mut self.selected_id, id.to_owned(), id.to_owned());
+                    ui.selectable_value(
+                        &mut self.selected_spawner_id,
+                        id.to_owned(),
+                        id.to_owned(),
+                    );
                 }
             });
 
         let opt_light_spawner = || {
-            if light_spawner.id == self.selected_id {
+            if light_spawner.id == self.selected_spawner_id {
                 Some(light_spawner)
             } else {
                 None
@@ -175,7 +219,7 @@ impl GuiState {
 
         let spawner: Option<&mut SpawnState> = spawners
             .iter_mut()
-            .find(|s| s.id == self.selected_id)
+            .find(|s| s.id == self.selected_spawner_id)
             .or_else(opt_light_spawner);
 
         if let Some(spawner) = spawner {
@@ -220,7 +264,7 @@ impl AppState {
             let options = GuiContext {
                 spawners: &mut self.spawners,
                 light_spawner: &mut self.light_spawner,
-                post_fx: &mut self.post_process.post_fx,
+                post_process: &mut self.post_process,
                 gfx_state,
             };
 

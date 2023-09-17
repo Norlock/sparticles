@@ -25,7 +25,7 @@ pub struct Blur {
     passes: usize,
 }
 
-#[derive(ShaderType, Serialize, Deserialize, Clone, Copy, Debug)]
+#[derive(ShaderType, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct BlurUniform {
     /// 0.10 - 0.15 is reasonable
     pub brightness_threshold: f32,
@@ -41,6 +41,21 @@ pub struct BlurUniform {
     pub intensity: f32,
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub struct BlurExport {
+    pub uniform: BlurUniform,
+    pub passes: usize,
+}
+
+impl Default for BlurExport {
+    fn default() -> Self {
+        Self {
+            uniform: BlurUniform::new(),
+            passes: 8,
+        }
+    }
+}
+
 impl BlurUniform {
     pub fn new() -> Self {
         Self {
@@ -49,7 +64,7 @@ impl BlurUniform {
             radius: 4,
             sigma: 1.3,
             hdr_mul: 25.,
-            intensity: 0.9, // betere naam verzinnen
+            intensity: 0.95, // betere naam verzinnen
         }
     }
 
@@ -113,7 +128,7 @@ impl PostFx for Blur {
                 .text("Kernel size"),
         );
         ui.add(Slider::new(&mut blur.sigma, 0.1..=8.0).text("Blur sigma"));
-        ui.add(Slider::new(&mut blur.hdr_mul, 0.1..=10.0).text("HDR multiplication"));
+        ui.add(Slider::new(&mut blur.hdr_mul, 0.1..=15.0).text("HDR multiplication"));
         ui.add(Slider::new(&mut blur.radius, 2..=10).text("Blur radius"));
         ui.add(Slider::new(&mut blur.intensity, 0.1..=2.).text("Blur intensity"));
         ui.add(
@@ -145,25 +160,26 @@ impl Blur {
         [tex_width, tex_height]
     }
 
-    pub fn export(&self) -> BlurUniform {
-        self.blur
+    pub fn export(&self) -> BlurExport {
+        BlurExport {
+            uniform: self.blur,
+            passes: self.passes,
+        }
     }
 
-    pub fn import(&mut self, uniform: BlurUniform) {
-        self.blur = uniform;
-    }
-
-    pub fn new(options: &CreateFxOptions, uniform: Option<BlurUniform>) -> Self {
+    pub fn new(options: &CreateFxOptions, export: BlurExport) -> Self {
         let CreateFxOptions {
             gfx_state,
-            fx_state,
             depth_view,
+            ..
         } = options;
 
         let device = &gfx_state.device;
         let config = &gfx_state.surface_config;
 
-        let blur = BlurUniform::new();
+        let blur = export.uniform;
+        let passes = export.passes;
+
         let buffer_content = blur.create_buffer_content();
         let min_binding_size = NonZeroU64::new(buffer_content.len() as u64);
 
@@ -174,8 +190,6 @@ impl Blur {
             contents: &buffer_content,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-
-        let passes = 8;
 
         let fx_state = FxState::new(FxStateOptions {
             label: "Blur".to_string(),

@@ -85,12 +85,14 @@ pub trait PostFxChain {
     fn compute<'a>(&'a self, input: &'a wgpu::BindGroup, c_pass: &mut wgpu::ComputePass<'a>);
 
     fn resize(&mut self, gfx_state: &GfxState, fx_state: &FxState);
-    fn enabled(&self) -> bool;
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
 
     /// Make sure only one Fx returns to prevent overrides
     fn debug(&self) -> Option<&wgpu::BindGroup>;
-    fn export(&self, to_export: &mut Vec<FxPersistenceType>);
+    fn export(&self) -> FxPersistenceType;
+
+    fn enabled(&self) -> bool;
+    fn delete(&self) -> bool;
 }
 
 pub trait CreateFxView {
