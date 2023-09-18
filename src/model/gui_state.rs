@@ -1,27 +1,25 @@
 use super::{spawn_state::SpawnGuiState, AppState, GfxState, SpawnState};
 use crate::{
     fx::{
-        bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, FxPersistenceType,
-        PostProcessState,
+        bloom::BloomExport, post_process::FxView, Bloom, ColorProcessing, ColorProcessingUniform,
+        FxPersistenceType, PostProcessState,
     },
     util::{persistence::ExportType, Persistence},
 };
 use egui::{Color32, Context, RichText, Slider, Ui, Window};
-use egui_winit::egui;
+use egui_winit::egui::{self, ComboBox};
 
 pub struct GuiState {
-    pub show: bool,
+    pub enabled: bool,
     pub reset_camera: bool,
+    pub selected_spawner_id: String,
 
     fps_text: String,
     cpu_time_text: String,
     elapsed_text: String,
     particle_count_text: String,
     selected_tab: Tab,
-
-    pub selected_spawner_id: String,
     selected_post_fx: PostFx,
-    //debug_data: Vec<DebugData<'a>>,
 }
 
 #[derive(PartialEq)]
@@ -51,7 +49,7 @@ impl GuiState {
         let selected_id = spawner.map_or("".to_owned(), |s| s.id.to_owned());
 
         Self {
-            show: show_gui,
+            enabled: show_gui,
             reset_camera: false,
             cpu_time_text: "".to_string(),
             fps_text: "".to_string(),
@@ -141,18 +139,26 @@ impl GuiState {
         let post_process = gui_ctx.post_process;
         let post_fx = &mut post_process.post_fx;
 
-        let mut debug_data = Vec::new();
-
-        for fx in post_fx.iter_mut() {
+        post_fx.retain_mut(|fx| {
             fx.create_ui(ui, gfx_state);
-            fx.debug(&mut debug_data);
             ui.separator();
-        }
+            !fx.delete()
+        });
 
-        post_fx.retain_mut(|fx| !fx.delete());
+        ComboBox::from_label("Selected view")
+            .selected_text(&post_process.selected_view)
+            .show_ui(ui, |ui| {
+                for item in post_process.views.iter() {
+                    ui.selectable_value(
+                        &mut post_process.selected_view,
+                        item.tag.to_string(),
+                        item.tag.to_string(),
+                    );
+                }
+            });
 
         ui.horizontal(|ui| {
-            egui::ComboBox::from_id_source("post-fx")
+            ComboBox::from_id_source("post-fx")
                 .selected_text(format!("{:?}", &self.selected_post_fx))
                 .show_ui(ui, |ui| {
                     ui.selectable_value(&mut self.selected_post_fx, PostFx::Bloom, "Bloom");
@@ -178,6 +184,8 @@ impl GuiState {
                         post_process.post_fx.push(Box::new(fx));
                     }
                 };
+
+                post_process.recreate_views();
             }
         });
 
@@ -261,7 +269,7 @@ impl GuiState {
 
 impl AppState {
     pub fn update_gui(&mut self, ctx: &Context, gfx_state: &GfxState) {
-        if self.gui.show {
+        if self.gui.enabled {
             self.update_labels();
 
             let options = GuiContext {

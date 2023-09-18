@@ -1,5 +1,5 @@
 use crate::{
-    fx::post_process::{DebugData, FxPersistenceType, FxState},
+    fx::post_process::{FxPersistenceType, FxState, FxView},
     model::{gfx_state::GfxState, AppState, Clock, Emitter, SpawnState},
 };
 use egui_wgpu::wgpu;
@@ -88,7 +88,7 @@ pub trait PostFxChain {
     fn resize(&mut self, gfx_state: &GfxState, fx_state: &FxState);
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
 
-    fn debug<'a>(&'a self, debug_data: &mut Vec<DebugData>);
+    fn add_views<'a>(&'a self, fx_views: &mut Vec<FxView>, idx: usize);
     fn export(&self) -> FxPersistenceType;
 
     fn enabled(&self) -> bool;

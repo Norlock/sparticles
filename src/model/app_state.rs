@@ -26,7 +26,7 @@ impl AppState {
     }
 
     pub fn handle_gui(&mut self, gfx_state: &GfxState) {
-        if !self.gui.show {
+        if !self.gui.enabled {
             return;
         }
 
@@ -129,7 +129,6 @@ impl GfxState {
         let light_spawner = init_app.create_light_spawner(&self, &camera);
         let spawners = init_app.create_spawners(&self, &light_spawner.bind_group_layout, &camera);
 
-        let gui = GuiState::new(&spawners, show_gui);
         let mut post_process = PostProcessState::new(&self);
 
         if let Ok(fx_types) = Persistence::fetch_post_fx() {
@@ -137,6 +136,8 @@ impl GfxState {
         } else {
             post_process.add_default_fx(self);
         }
+
+        let gui = GuiState::new(&spawners, show_gui);
 
         AppState {
             clock,

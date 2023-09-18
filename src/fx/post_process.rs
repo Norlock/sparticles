@@ -15,6 +15,9 @@ pub struct PostProcessState {
     pub frame_state: FrameState,
     pub post_fx: Vec<Box<dyn PostFxChain>>,
     pub fx_state: FxState,
+    pub selected_view: String,
+    pub views: Vec<FxView>,
+
     frame_group_layout: wgpu::BindGroupLayout,
     initialize_pipeline: wgpu::ComputePipeline,
     finalize_pipeline: wgpu::RenderPipeline,
@@ -35,9 +38,19 @@ pub struct OffsetUniform {
     view_height: f32,
 }
 
-pub struct DebugData {
+pub struct FxView {
     pub tag: String,
     pub bind_group: Rc<wgpu::BindGroup>,
+}
+
+impl PartialEq for FxView {
+    fn eq(&self, other: &Self) -> bool {
+        self.tag == other.tag
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        self.tag != other.tag
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -74,10 +87,26 @@ pub const WORK_GROUP_SIZE: [f32; 2] = [8., 8.];
 impl PostProcessState {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-    pub fn render_output(&self) -> &Rc<wgpu::BindGroup> {
+    pub fn output(&self) -> &Rc<wgpu::BindGroup> {
         let nr = self.post_fx.iter().filter(|fx| fx.enabled()).count();
 
         self.fx_state.bind_group(nr)
+    }
+
+    pub fn default_view(&self) -> FxView {
+        FxView {
+            tag: "Default".to_string(),
+            bind_group: self.output().clone(),
+        }
+    }
+
+    pub fn recreate_views(&mut self) {
+        self.views.clear();
+        self.views.push(self.default_view());
+
+        for (idx, fx) in self.post_fx.iter().enumerate() {
+            fx.add_views(&mut self.views, idx);
+        }
     }
 
     pub fn resize(&mut self, gfx_state: &GfxState) {
@@ -94,6 +123,8 @@ impl PostProcessState {
         for pfx in self.post_fx.iter_mut() {
             pfx.resize(&gfx_state, &self.fx_state);
         }
+
+        self.recreate_views();
     }
 
     pub fn compute(&self, encoder: &mut wgpu::CommandEncoder) {
@@ -110,19 +141,19 @@ impl PostProcessState {
 
         for (i, pfx) in self.post_fx.iter().filter(|fx| fx.enabled()).enumerate() {
             let input = self.fx_state.bind_group(i);
-            pfx.compute(&input, &mut c_pass);
+            pfx.compute(input, &mut c_pass);
         }
     }
 
     pub fn render<'a>(&'a self, r_pass: &mut wgpu::RenderPass<'a>) {
-        //if let Some(bind_group) = debug_bind_group {
-        //r_pass.set_bind_group(0, bind_group, &[]);
-        //} else {
-        //r_pass.set_bind_group(0, self.render_output(), &[]);
-        //}
+        let fx_bind_group = self
+            .views
+            .iter()
+            .find(|vw| vw.tag == self.selected_view)
+            .map_or(self.output(), |vw| &vw.bind_group);
 
         r_pass.set_pipeline(&self.finalize_pipeline);
-        r_pass.set_bind_group(0, &self.render_output(), &[]);
+        r_pass.set_bind_group(0, fx_bind_group, &[]);
         r_pass.set_bind_group(1, &self.frame_state.output(), &[]);
         r_pass.draw(0..3, 0..1);
     }
@@ -232,6 +263,8 @@ impl PostProcessState {
             multiview: None,
         });
 
+        let dummy_bind_group = fx_state.bind_group(0).clone();
+
         Self {
             frame_state,
             fx_state,
@@ -241,7 +274,8 @@ impl PostProcessState {
             finalize_pipeline,
             offset_buffer,
             uniform,
-            //debug_data: Vec::new(),
+            views: Vec::new(),
+            selected_view: "Default".to_string(),
         }
     }
 
@@ -265,6 +299,8 @@ impl PostProcessState {
 
         self.post_fx.push(Box::new(bloom));
         self.post_fx.push(Box::new(col_cor));
+
+        self.recreate_views();
     }
 
     pub fn import_fx(&mut self, gfx_state: &GfxState, fx_types: Vec<FxPersistenceType>) {
@@ -284,6 +320,8 @@ impl PostProcessState {
                 }
             }
         }
+
+        self.recreate_views();
     }
 }
 

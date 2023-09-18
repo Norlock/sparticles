@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, DebugData, FxPersistenceType},
+    post_process::{CreateFxOptions, FxPersistenceType, FxView},
     FxState,
 };
 use crate::{
@@ -33,7 +33,7 @@ pub struct ColorProcessingUniform {
 }
 
 impl PostFxChain for ColorProcessing {
-    fn debug<'a>(&'a self, bind_groups: &mut Vec<DebugData>) {}
+    fn add_views<'a>(&'a self, _bind_groups: &mut Vec<FxView>, _idx: usize) {}
 
     fn delete(&self) -> bool {
         self.delete
@@ -45,10 +45,10 @@ impl PostFxChain for ColorProcessing {
     }
 
     fn compute<'a>(&'a self, input: &'a Rc<wgpu::BindGroup>, c_pass: &mut wgpu::ComputePass<'a>) {
-        //c_pass.set_pipeline(&self.pipeline);
-        //c_pass.set_bind_group(0, &input, &[]);
-        //c_pass.set_bind_group(1, &self.bind_group, &[]);
-        //c_pass.dispatch_workgroups(self.count_x, self.count_y, 1);
+        c_pass.set_pipeline(&self.pipeline);
+        c_pass.set_bind_group(0, &input, &[]);
+        c_pass.set_bind_group(1, &self.bind_group, &[]);
+        c_pass.dispatch_workgroups(self.count_x, self.count_y, 1);
     }
 
     fn enabled(&self) -> bool {

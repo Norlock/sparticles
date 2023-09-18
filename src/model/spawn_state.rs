@@ -130,6 +130,7 @@ impl<'a> SpawnState {
         let nr = clock.get_alt_bindgroup_nr();
 
         render_pass.set_pipeline(&self.render_pipeline);
+        // TODO move diffuse texture to particle bind group
         render_pass.set_bind_group(0, &self.diffuse_texture.bind_group, &[]);
         render_pass.set_bind_group(1, &camera.bind_group, &[]);
         render_pass.set_bind_group(2, &self.bind_groups[nr], &[]);

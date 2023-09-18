@@ -3,15 +3,14 @@ use std::rc::Rc;
 use super::blur::Blur;
 use super::blur::BlurExport;
 use super::post_process::CreateFxOptions;
-use super::post_process::DebugData;
 use super::post_process::FxPersistenceType;
+use super::post_process::FxView;
 use super::Blend;
 use super::FxState;
 use super::Upscale;
 use crate::traits::*;
 use crate::GfxState;
 use egui_wgpu::wgpu;
-use egui_winit::egui::ComboBox;
 use egui_winit::egui::Ui;
 use serde::Deserialize;
 use serde::Serialize;
@@ -20,16 +19,8 @@ pub struct Bloom {
     blur: Blur,
     upscale: Upscale,
     blend: Blend,
-    debug: Debug,
     enabled: bool,
     delete: bool,
-}
-
-#[derive(PartialEq, Debug)]
-enum Debug {
-    Blur,
-    Upscale,
-    None,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -46,16 +37,16 @@ impl Default for BloomExport {
 }
 
 impl PostFxChain for Bloom {
-    fn debug<'a>(&'a self, bind_groups: &mut Vec<DebugData>) {
-        //bind_groups.push(DebugData {
-        //tag: "Blur".to_string(),
-        //bind_group: self.blur.output(),
-        //});
+    fn add_views<'a>(&'a self, bind_groups: &mut Vec<FxView>, idx: usize) {
+        bind_groups.push(FxView {
+            tag: format!("Blur-{}", idx),
+            bind_group: self.blur.output().clone(),
+        });
 
-        //bind_groups.push(DebugData {
-        //tag: "Upscale".to_string(),
-        //bind_group: self.upscale.output(),
-        //});
+        bind_groups.push(FxView {
+            tag: format!("Upscale-{}", idx),
+            bind_group: self.upscale.output().clone(),
+        });
     }
 
     fn compute<'a>(&'a self, input: &'a Rc<wgpu::BindGroup>, c_pass: &mut wgpu::ComputePass<'a>) {
@@ -89,15 +80,6 @@ impl PostFxChain for Bloom {
 
         ui.checkbox(&mut self.enabled, "Enabled");
 
-        // Dropdown
-        ComboBox::from_label("Select debug type")
-            .selected_text(format!("{:?}", &self.debug))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.debug, Debug::None, "None");
-                ui.selectable_value(&mut self.debug, Debug::Blur, "Blur");
-                ui.selectable_value(&mut self.debug, Debug::Upscale, "Upscale");
-            });
-
         if ui.button("Delete").clicked() {
             self.delete = true;
         }
@@ -126,7 +108,6 @@ impl Bloom {
             blur,
             blend,
             upscale,
-            debug: Debug::None,
             enabled: true,
             delete: false,
         }
