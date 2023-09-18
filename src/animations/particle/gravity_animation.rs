@@ -103,7 +103,7 @@ impl Animation for GravityAnimation {
     }
 
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState) {
-        self.uniform.update(&clock);
+        self.uniform.update(clock);
 
         if self.uniform.should_animate {
             let buffer_content = self.uniform.create_buffer_content();

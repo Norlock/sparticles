@@ -1,7 +1,7 @@
 use egui_winit::egui::Ui;
 
 use crate::{
-    model::{Clock, Emitter, GfxState, LifeCycle},
+    model::{Clock, Emitter, LifeCycle},
     traits::EmitterAnimation,
 };
 
@@ -29,7 +29,7 @@ impl EmitterAnimation for DiffusionAnimation {
             self.start_diff_depth + fraction * (self.end_diff_depth - self.start_diff_depth);
     }
 
-    fn create_gui(&mut self, ui: &mut Ui) {
+    fn create_gui(&mut self, _ui: &mut Ui) {
         //
     }
 }

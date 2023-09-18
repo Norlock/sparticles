@@ -1,8 +1,8 @@
 use super::{spawn_state::SpawnGuiState, AppState, GfxState, SpawnState};
 use crate::{
     fx::{
-        bloom::BloomExport, post_process::FxView, Bloom, ColorProcessing, ColorProcessingUniform,
-        FxPersistenceType, PostProcessState,
+        bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, FxPersistenceType,
+        PostProcessState,
     },
     util::{persistence::ExportType, Persistence},
 };
@@ -44,7 +44,7 @@ struct GuiContext<'a> {
 }
 
 impl GuiState {
-    pub fn new(spawners: &Vec<SpawnState>, show_gui: bool) -> Self {
+    pub fn new(spawners: &[SpawnState], show_gui: bool) -> Self {
         let spawner = spawners.first();
 
         let selected_id = spawner.map_or("".to_owned(), |s| s.id.to_owned());
@@ -139,13 +139,18 @@ impl GuiState {
         let GuiContext {
             spawners,
             light_spawner,
-            post_process,
-            gfx_state,
+            ..
         } = gui_ctx;
 
         ui.label("Light spawner");
 
         light_spawner.gui_emitter_animations(ui);
+
+        ui.label("Spawner");
+
+        for spawner in spawners.iter_mut() {
+            spawner.gui_emitter_animations(ui);
+        }
     }
 
     fn post_fx_tab(&mut self, gui_ctx: GuiContext, ui: &mut Ui) {
@@ -255,7 +260,7 @@ impl GuiState {
     }
 
     fn create_gui(&mut self, data: GuiContext, ctx: &Context) {
-        Window::new("Sparticles settings").show(&ctx, |ui| {
+        Window::new("Sparticles settings").show(ctx, |ui| {
             create_label(ui, &self.fps_text);
             create_label(ui, &self.cpu_time_text);
             create_label(ui, &self.elapsed_text);

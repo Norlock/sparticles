@@ -63,7 +63,7 @@ impl AppState {
         self.camera.process_input(input);
     }
 
-    pub fn compute<'a>(&'a self, encoder: &mut wgpu::CommandEncoder) {
+    pub fn compute(&self, encoder: &mut wgpu::CommandEncoder) {
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Compute pipeline"),
         });
@@ -91,7 +91,7 @@ impl AppState {
         &self.post_process.frame_state.depth_view
     }
 
-    pub fn render<'a>(&'a self, encoder: &mut wgpu::CommandEncoder) {
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder) {
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -103,7 +103,7 @@ impl AppState {
                 },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.depth_view(),
+                view: self.depth_view(),
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: true,
@@ -125,11 +125,11 @@ impl GfxState {
     pub fn create_app_state(&self, mut init_app: InitApp) -> AppState {
         let show_gui = init_app.show_gui;
         let clock = Clock::new();
-        let camera = Camera::new(&self);
-        let light_spawner = init_app.create_light_spawner(&self, &camera);
-        let spawners = init_app.create_spawners(&self, &light_spawner.bind_group_layout, &camera);
+        let camera = Camera::new(self);
+        let light_spawner = init_app.create_light_spawner(self, &camera);
+        let spawners = init_app.create_spawners(self, &light_spawner.bind_group_layout, &camera);
 
-        let mut post_process = PostProcessState::new(&self);
+        let mut post_process = PostProcessState::new(self);
 
         if let Ok(fx_types) = Persistence::fetch_post_fx() {
             post_process.import_fx(self, fx_types);

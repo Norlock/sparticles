@@ -7,6 +7,12 @@ struct History {
     last_str: String,
 }
 
+impl Default for Debugger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Debugger {
     pub fn new() -> Self {
         Self { history: vec![] }
@@ -16,7 +22,7 @@ impl Debugger {
         let opt_his_point = self.history.iter_mut().find(|his| his.id == id);
 
         if let Some(his_point) = opt_his_point {
-            if &his_point.last_str != &str {
+            if his_point.last_str != str {
                 println!("{}", &str);
                 his_point.last_str = str;
             }

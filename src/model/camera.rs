@@ -266,15 +266,14 @@ impl Camera {
         self.vertex_positions
             .into_iter()
             .map(|v_pos| camera_right * v_pos[0] + camera_up * v_pos[1])
-            .map(|v3| vec![v3.x, v3.y, v3.z, 1.])
-            .flatten()
+            .flat_map(|v3| vec![v3.x, v3.y, v3.z, 1.])
             .collect::<Vec<f32>>()
     }
 }
 
 impl ToVecF32 for Mat4x2 {
     fn to_vec_f32(&self) -> Vec<f32> {
-        self.into_iter().flatten().copied().collect()
+        self.iter().flatten().copied().collect()
     }
 }
 

@@ -176,7 +176,7 @@ impl GfxState {
             &self.screen_descriptor,
         );
 
-        return clipped_primitives;
+        clipped_primitives
     }
 
     pub fn render_fx(

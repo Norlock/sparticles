@@ -7,7 +7,6 @@ use super::post_process::FxPersistenceType;
 use super::post_process::FxView;
 use super::Blend;
 use super::FxState;
-use super::Upscale;
 use crate::traits::*;
 use crate::GfxState;
 use egui_wgpu::wgpu;
@@ -22,21 +21,13 @@ pub struct Bloom {
     delete: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct BloomExport {
     pub blur: BlurExport,
 }
 
-impl Default for BloomExport {
-    fn default() -> Self {
-        Self {
-            blur: BlurExport::default(),
-        }
-    }
-}
-
 impl PostFxChain for Bloom {
-    fn add_views<'a>(&'a self, bind_groups: &mut Vec<FxView>, idx: usize) {
+    fn add_views(&self, bind_groups: &mut Vec<FxView>, idx: usize) {
         bind_groups.push(FxView {
             tag: format!("Blur-{}", idx),
             bind_group: self.blur.output().clone(),

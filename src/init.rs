@@ -29,14 +29,14 @@ impl InitApp {
         });
 
         while let Some(anim) = light.particle_animations.pop() {
-            light_spawner.push_animation(anim.into_animation(&gfx_state, &light_spawner));
+            light_spawner.push_animation(anim.into_animation(gfx_state, &light_spawner));
         }
 
         while let Some(anim) = light.emitter_animations.pop() {
             light_spawner.push_emitter_animation(anim);
         }
 
-        return light_spawner;
+        light_spawner
     }
 
     pub fn create_spawners(
@@ -49,7 +49,7 @@ impl InitApp {
 
         for item in self.spawners {
             let mut spawner = gfx_state.create_spawner(SpawnOptions {
-                camera: &camera,
+                camera,
                 id: item.id,
                 emitter: item.emitter,
                 light_layout: Some(light_layout),
@@ -63,7 +63,7 @@ impl InitApp {
                 spawner.push_emitter_animation(anim);
             }
 
-            let is_unique = spawners.iter().find(|s| spawner.id == s.id).is_none();
+            let is_unique = spawners.iter().all(|s| spawner.id != s.id);
 
             assert!(!spawner.id.is_empty(), "Id can not be empty");
             assert!(is_unique, "Spawners requires an unique ID");
@@ -71,6 +71,6 @@ impl InitApp {
             spawners.push(spawner);
         }
 
-        return spawners;
+        spawners
     }
 }

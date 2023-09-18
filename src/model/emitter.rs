@@ -17,7 +17,13 @@ pub struct Range(f32, f32);
 impl Range {
     pub fn new(min: f32, max: f32) -> Self {
         assert!(min <= max, "Min must be smaller than max");
-        return Range(min, max);
+        Range(min, max)
+    }
+}
+
+impl Default for Emitter {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -138,7 +144,7 @@ impl Emitter {
         self.elapsed_sec = clock.elapsed_sec();
 
         let new_iteration = (self.elapsed_sec / self.spawn_delay_sec) as u32;
-        let current_batch = new_iteration % self.spawn_batches_count as u32;
+        let current_batch = new_iteration % self.spawn_batches_count;
 
         if new_iteration != self.iteration {
             self.spawn_from = current_batch * self.spawn_count;
@@ -168,12 +174,12 @@ impl Emitter {
     }
 
     pub fn from_spawn_options(&self, options: EmitSpawnOptions) -> Self {
-        let mut new = self.clone();
+        let mut new = *self;
         new.spawn_count = options.spawn_count;
         new.spawn_delay_sec = options.spawn_delay_sec;
         new.particle_lifetime_sec = options.particle_lifetime_sec;
 
-        return new;
+        new
     }
 
     pub fn create_buffer_content(&self) -> Vec<f32> {

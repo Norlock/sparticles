@@ -63,21 +63,21 @@ pub struct SpawnOptions<'a> {
 
 impl<'a> SpawnState {
     pub fn update(&mut self, gfx_state: &GfxState, clock: &Clock) {
+        let queue = &gfx_state.queue;
+
         self.emitter.update(clock);
 
         for anim in self.emitter_animations.iter_mut() {
-            anim.animate(&mut self.emitter, &clock);
+            anim.animate(&mut self.emitter, clock);
         }
 
         let buffer_content_raw = self.emitter.create_buffer_content();
         let buffer_content = bytemuck::cast_slice(&buffer_content_raw);
 
-        gfx_state
-            .queue
-            .write_buffer(&self.emitter_buffer, 0, &buffer_content);
+        queue.write_buffer(&self.emitter_buffer, 0, buffer_content);
 
         for anim in self.animations.iter_mut() {
-            anim.update(&clock, gfx_state);
+            anim.update(clock, gfx_state);
         }
     }
 
@@ -102,7 +102,7 @@ impl<'a> SpawnState {
         compute_pass.dispatch_workgroups(self.dispatch_x_count, 1, 1);
 
         for anim in self.animations.iter() {
-            anim.compute(&self, &clock, compute_pass);
+            anim.compute(self, clock, compute_pass);
         }
     }
 
@@ -148,13 +148,13 @@ impl<'a> SpawnState {
     ) {
         let mut new_self = gfx_state.create_spawner(SpawnOptions {
             id: self.id.clone(),
-            emitter: self.emitter.clone(),
+            emitter: self.emitter,
             light_layout,
             camera,
         });
 
         while let Some(animation) = self.animations.pop() {
-            new_self.push_animation(animation.recreate(gfx_state, &self));
+            new_self.push_animation(animation.recreate(gfx_state, &new_self));
         }
 
         while let Some(animation) = self.emitter_animations.pop() {
@@ -189,7 +189,7 @@ impl<'a> SpawnState {
 }
 
 impl GfxState {
-    pub fn create_spawner<'a>(&self, options: SpawnOptions<'a>) -> SpawnState {
+    pub fn create_spawner(&self, options: SpawnOptions<'_>) -> SpawnState {
         let SpawnOptions {
             id,
             emitter,
@@ -206,13 +206,11 @@ impl GfxState {
         let particle_buffer_size = NonZeroU64::new(emitter.particle_buffer_size());
         let emitter_buffer_size = emitter_buf_content.cal_buffer_size();
 
-        let visibility;
-
-        if light_layout.is_none() {
-            visibility = wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX_FRAGMENT;
+        let visibility = if light_layout.is_none() {
+            wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX_FRAGMENT
         } else {
-            visibility = wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX;
-        }
+            wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX
+        };
 
         // Compute ---------
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -327,7 +325,7 @@ impl GfxState {
                     &diffuse_texture.bind_group_layout,
                     &camera.bind_group_layout,
                     &bind_group_layout,
-                    &light_layout,
+                    light_layout,
                 ],
                 push_constant_ranges: &[],
             });

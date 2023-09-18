@@ -24,13 +24,9 @@ impl PostFx for Upscale {
         let fx_state = &self.fx_state;
 
         c_pass.set_pipeline(&self.pipeline);
-        c_pass.set_bind_group(0, &fx_inputs[0], &[]);
-        c_pass.set_bind_group(1, &fx_state.bind_group(0), &[]);
+        c_pass.set_bind_group(0, fx_inputs[0], &[]);
+        c_pass.set_bind_group(1, fx_state.bind_group(0), &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
-    }
-
-    fn fx_state(&self) -> &FxState {
-        &self.fx_state
     }
 
     fn output(&self) -> &Rc<wgpu::BindGroup> {

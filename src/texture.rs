@@ -34,7 +34,7 @@ impl GfxState {
             view_formats: &[],
         };
 
-        return device.create_texture(&desc).into_view();
+        device.create_texture(&desc).default_view()
     }
 
     pub fn create_frame_view(&self) -> wgpu::TextureView {
@@ -58,7 +58,7 @@ impl GfxState {
                 usage: wgpu::TextureUsages::TEXTURE_BINDING
                     | wgpu::TextureUsages::RENDER_ATTACHMENT,
             })
-            .into_view()
+            .default_view()
     }
 
     pub fn create_fx_view(&self, dimensions: [u32; 2]) -> wgpu::TextureView {
@@ -79,7 +79,7 @@ impl GfxState {
                 format,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
             })
-            .into_view()
+            .default_view()
     }
 
     pub fn create_diffuse_texture(&self) -> DiffuseTexture {
@@ -182,7 +182,7 @@ impl GfxState {
 }
 
 impl CreateFxView for wgpu::Texture {
-    fn into_view(&self) -> wgpu::TextureView {
+    fn default_view(&self) -> wgpu::TextureView {
         self.create_view(&wgpu::TextureViewDescriptor::default())
     }
 }

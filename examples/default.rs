@@ -40,7 +40,7 @@ fn get_light_spawner() -> SpawnInit {
             lifetime_sec: 4.,
         },
         yaw: glam::Vec2::ZERO,
-        pitch: Vec2::new(30., 90.).to_radians(),
+        pitch: Vec2::new(30., 120.).to_radians(),
         roll: glam::Vec2::ZERO,
     };
 

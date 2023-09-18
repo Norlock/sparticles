@@ -78,7 +78,6 @@ pub trait PostFx {
     );
 
     fn resize(&mut self, gfx_state: &GfxState);
-    fn fx_state(&self) -> &FxState;
     fn output(&self) -> &Rc<wgpu::BindGroup>;
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
 }
@@ -89,7 +88,7 @@ pub trait PostFxChain {
     fn resize(&mut self, gfx_state: &GfxState, fx_state: &FxState);
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
 
-    fn add_views<'a>(&'a self, fx_views: &mut Vec<FxView>, idx: usize);
+    fn add_views(&self, fx_views: &mut Vec<FxView>, idx: usize);
     fn export(&self) -> FxPersistenceType;
 
     fn enabled(&self) -> bool;
@@ -97,7 +96,7 @@ pub trait PostFxChain {
 }
 
 pub trait CreateFxView {
-    fn into_view(&self) -> wgpu::TextureView;
+    fn default_view(&self) -> wgpu::TextureView;
 }
 
 pub trait FxDimensions {

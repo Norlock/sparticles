@@ -57,6 +57,12 @@ impl Default for BlurExport {
     }
 }
 
+impl Default for BlurUniform {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BlurUniform {
     pub fn new() -> Self {
         Self {
@@ -86,16 +92,16 @@ impl PostFx for Blur {
 
         // Splits parts to fx tex
         c_pass.set_pipeline(&self.split_pipeline);
-        c_pass.set_bind_group(0, &fx_inputs[0], &[]);
-        c_pass.set_bind_group(1, &output.bind_group(1), &[]);
+        c_pass.set_bind_group(0, fx_inputs[0], &[]);
+        c_pass.set_bind_group(1, output.bind_group(1), &[]);
         c_pass.set_bind_group(2, &self.blur_bind_group, &[]);
         c_pass.dispatch_workgroups(output.count_x, output.count_y, 1);
 
         // Smoothen downscaled texture
         for i in 0..self.passes {
             c_pass.set_pipeline(&self.blur_pipeline);
-            c_pass.set_bind_group(0, &fx_inputs[0], &[]);
-            c_pass.set_bind_group(1, &output.bind_group(i), &[]);
+            c_pass.set_bind_group(0, fx_inputs[0], &[]);
+            c_pass.set_bind_group(1, output.bind_group(i), &[]);
             c_pass.set_bind_group(2, &self.blur_bind_group, &[]);
             c_pass.dispatch_workgroups(output.count_x, output.count_y, 1);
         }
@@ -106,12 +112,8 @@ impl PostFx for Blur {
         self.fx_state.resize(dims, gfx_state);
     }
 
-    fn fx_state(&self) -> &FxState {
-        &self.fx_state
-    }
-
     fn output(&self) -> &Rc<wgpu::BindGroup> {
-        &self.fx_state.bind_group(self.passes % 2)
+        self.fx_state.bind_group(self.passes % 2)
     }
 
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState) {

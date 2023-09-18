@@ -1,9 +1,4 @@
-use super::{
-    bloom::BloomExport,
-    blur::{BlurExport, BlurUniform},
-    color_processing::ColorProcessingUniform,
-    Bloom, ColorProcessing,
-};
+use super::{bloom::BloomExport, color_processing::ColorProcessingUniform, Bloom, ColorProcessing};
 use crate::model::GfxState;
 use crate::traits::*;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
@@ -46,10 +41,6 @@ pub struct FxView {
 impl PartialEq for FxView {
     fn eq(&self, other: &Self) -> bool {
         self.tag == other.tag
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        self.tag != other.tag
     }
 }
 
@@ -121,7 +112,7 @@ impl PostProcessState {
         self.fx_state.resize(config.fx_dimensions(), gfx_state);
 
         for pfx in self.post_fx.iter_mut() {
-            pfx.resize(&gfx_state, &self.fx_state);
+            pfx.resize(gfx_state, &self.fx_state);
         }
     }
 
@@ -133,8 +124,8 @@ impl PostProcessState {
         });
 
         c_pass.set_pipeline(&self.initialize_pipeline);
-        c_pass.set_bind_group(0, &input, &[]);
-        c_pass.set_bind_group(1, &self.frame_state.bind_group, &[]);
+        c_pass.set_bind_group(0, input, &[]);
+        c_pass.set_bind_group(1, self.frame_state.output(), &[]);
         c_pass.dispatch_workgroups(self.fx_state.count_x, self.fx_state.count_y, 1);
 
         for (i, pfx) in self.post_fx.iter().filter(|fx| fx.enabled()).enumerate() {
@@ -154,7 +145,7 @@ impl PostProcessState {
 
         r_pass.set_pipeline(&self.finalize_pipeline);
         r_pass.set_bind_group(0, fx_bind_group, &[]);
-        r_pass.set_bind_group(1, &self.frame_state.output(), &[]);
+        r_pass.set_bind_group(1, self.frame_state.output(), &[]);
         r_pass.draw(0..3, 0..1);
     }
 
@@ -209,7 +200,7 @@ impl PostProcessState {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let frame_group_layout = Self::create_fx_layout(&device, &uniform);
+        let frame_group_layout = Self::create_fx_layout(device, &uniform);
         let frame_state = FrameState::new(gfx_state, &frame_group_layout, &offset_buffer);
 
         let fx_state = FxState::new(FxStateOptions {
@@ -220,29 +211,23 @@ impl PostProcessState {
 
         let fx_group_layout = &fx_state.bind_group_layout;
 
-        let compute_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Init layout"),
-            bind_group_layouts: &[&fx_group_layout, &frame_group_layout],
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Post fx layout"),
+            bind_group_layouts: &[fx_group_layout, &frame_group_layout],
             push_constant_ranges: &[],
         });
 
         let initialize_pipeline =
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("Init pipeline"),
-                layout: Some(&compute_layout),
+                layout: Some(&pipeline_layout),
                 module: &initialize_shader,
                 entry_point: "init",
             });
 
-        let render_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Post fx render"),
-            bind_group_layouts: &[&fx_group_layout, &frame_group_layout],
-            push_constant_ranges: &[],
-        });
-
         let finalize_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Finalize pipeline"),
-            layout: Some(&render_layout),
+            layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &finalize_shader,
                 entry_point: "vs_main",
@@ -390,7 +375,7 @@ impl FxState {
         for i in 0..2 {
             let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: None,
-                layout: &layout,
+                layout,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -406,14 +391,14 @@ impl FxState {
             bind_groups.push(Rc::new(bg));
         }
 
-        return bind_groups;
+        bind_groups
     }
 
     fn get_dispatch_counts(dimensions: Dimensions) -> [u32; 2] {
         let count_x = (dimensions[0] as f32 / WORK_GROUP_SIZE[0]).ceil() as u32;
         let count_y = (dimensions[1] as f32 / WORK_GROUP_SIZE[1]).ceil() as u32;
 
-        return [count_x, count_y];
+        [count_x, count_y]
     }
 
     pub fn resize(&mut self, dimensions: Dimensions, gfx_state: &GfxState) {
