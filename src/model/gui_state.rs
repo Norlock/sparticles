@@ -26,7 +26,8 @@ pub struct GuiState {
 enum Tab {
     SpawnSettings,
     PostFxSettings,
-    AnimationSettings,
+    ParticleAnimations,
+    EmitterAnimations,
 }
 
 #[derive(PartialEq, Debug)]
@@ -132,6 +133,19 @@ impl GuiState {
             )
             .text("Particle size max"),
         );
+    }
+
+    fn emitter_animations_tab(&mut self, gui_ctx: GuiContext, ui: &mut Ui) {
+        let GuiContext {
+            spawners,
+            light_spawner,
+            post_process,
+            gfx_state,
+        } = gui_ctx;
+
+        ui.label("Light spawner");
+
+        light_spawner.gui_emitter_animations(ui);
     }
 
     fn post_fx_tab(&mut self, gui_ctx: GuiContext, ui: &mut Ui) {
@@ -254,7 +268,16 @@ impl GuiState {
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.selected_tab, Tab::SpawnSettings, "Spawn settings");
                 ui.selectable_value(&mut self.selected_tab, Tab::PostFxSettings, "Post FX");
-                ui.selectable_value(&mut self.selected_tab, Tab::AnimationSettings, "Animations");
+                ui.selectable_value(
+                    &mut self.selected_tab,
+                    Tab::ParticleAnimations,
+                    "Particle animations",
+                );
+                ui.selectable_value(
+                    &mut self.selected_tab,
+                    Tab::EmitterAnimations,
+                    "Emitter animations",
+                );
             });
 
             ui.separator();
@@ -263,7 +286,8 @@ impl GuiState {
             match self.selected_tab {
                 Tab::SpawnSettings => self.spawn_tab(data, ui),
                 Tab::PostFxSettings => self.post_fx_tab(data, ui),
-                Tab::AnimationSettings => {}
+                Tab::ParticleAnimations => {}
+                Tab::EmitterAnimations => self.emitter_animations_tab(data, ui),
             };
         });
     }

@@ -11,7 +11,7 @@ pub mod spawn_state;
 pub use app_state::AppState;
 pub use camera::Camera;
 pub use clock::Clock;
-pub use emitter::Emitter;
+pub use emitter::{Emitter, Range};
 pub use gfx_state::GfxState;
 pub use gui_state::GuiState;
 pub use life_cycle::LifeCycle;

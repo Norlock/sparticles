@@ -53,6 +53,7 @@ pub trait Animation {
 
 pub trait EmitterAnimation {
     fn animate(&mut self, emitter: &mut Emitter, clock: &Clock);
+    fn create_gui(&mut self, ui: &mut Ui);
 }
 
 pub trait CalculateBufferSize {

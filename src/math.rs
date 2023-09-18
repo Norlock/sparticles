@@ -1,7 +1,7 @@
 use std::num::NonZeroU64;
 
 use egui_wgpu::wgpu;
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 
 use crate::traits::{CalculateBufferSize, HandleAngles};
 
@@ -20,6 +20,22 @@ impl HandleAngles for Vec3 {
         let z = self.z.to_radians();
 
         Self { x, y, z }
+    }
+}
+
+impl HandleAngles for Vec2 {
+    fn to_degrees(&self) -> Self {
+        let x = self.x.to_degrees();
+        let y = self.y.to_degrees();
+
+        Self { x, y }
+    }
+
+    fn to_radians(&self) -> Self {
+        let x = self.x.to_radians();
+        let y = self.y.to_radians();
+
+        Self { x, y }
     }
 }
 

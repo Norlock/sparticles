@@ -11,6 +11,7 @@ use crate::{
 
 use super::{Camera, Clock, Emitter, GfxState};
 use egui_wgpu::wgpu;
+use egui_winit::egui::Ui;
 use glam::Vec3;
 use wgpu::util::DeviceExt;
 
@@ -169,6 +170,13 @@ impl<'a> SpawnState {
 
     pub fn push_emitter_animation(&mut self, animation: Box<dyn EmitterAnimation>) {
         self.emitter_animations.push(animation);
+    }
+
+    pub fn gui_emitter_animations(&mut self, ui: &mut Ui) {
+        for anim in self.emitter_animations.iter_mut() {
+            anim.create_gui(ui);
+            ui.separator();
+        }
     }
 
     pub fn particle_count(&self) -> u64 {

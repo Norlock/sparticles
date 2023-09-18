@@ -1,16 +1,13 @@
 #![allow(dead_code, unused)]
-use glam::{Vec3, Vec4};
+use glam::{Vec2, Vec3, Vec4};
 use sparticles::{
     animations::{
-        sway_animation::SwayAnimation, ColorUniform, DiffusionAnimation, ForceUniform,
-        GravityUniform, GravityUniformOptions, StrayUniform,
+        ColorUniform, DiffusionAnimation, ForceUniform, GravityUniform, GravityUniformOptions,
+        StrayUniform, SwayAnimation,
     },
     init::{InitApp, SpawnInit},
-    model::{
-        emitter::{Emitter, Range},
-        LifeCycle,
-    },
-    traits::FromRGB,
+    model::{Emitter, LifeCycle, Range},
+    traits::*,
 };
 
 fn main() {
@@ -42,9 +39,9 @@ fn get_light_spawner() -> SpawnInit {
             until_sec: 4.,
             lifetime_sec: 4.,
         },
-        yaw: 0f32.to_radians(),
-        pitch: 90f32.to_radians(),
-        roll: 0f32.to_radians(),
+        yaw: glam::Vec2::ZERO,
+        pitch: Vec2::new(30., 90.).to_radians(),
+        roll: glam::Vec2::ZERO,
     };
 
     return SpawnInit {
