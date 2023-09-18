@@ -263,8 +263,6 @@ impl PostProcessState {
             multiview: None,
         });
 
-        let dummy_bind_group = fx_state.bind_group(0).clone();
-
         Self {
             frame_state,
             fx_state,
@@ -492,6 +490,6 @@ impl FxDimensions for wgpu::SurfaceConfiguration {
     }
 
     fn fx_offset(&self) -> u32 {
-        (self.width / 60).max(32)
+        0 //(self.width / 60).max(32)
     }
 }
