@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use super::FxState;
 use crate::{model::GfxState, traits::CustomShader};
 use egui_wgpu::wgpu;
@@ -6,11 +8,6 @@ pub struct Blend {
     additive_pipeline: wgpu::ComputePipeline,
     count_x: u32,
     count_y: u32,
-}
-
-pub struct BlendCompute<'a> {
-    pub input: &'a wgpu::BindGroup,
-    pub output: &'a wgpu::BindGroup,
 }
 
 pub enum BlendType {
@@ -22,13 +19,13 @@ pub enum BlendType {
 impl Blend {
     pub fn add<'a>(
         &'a self,
-        input: &'a wgpu::BindGroup,
-        output: &'a wgpu::BindGroup,
+        input: &'a Rc<wgpu::BindGroup>,
+        output: &'a Rc<wgpu::BindGroup>,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
         c_pass.set_pipeline(&self.additive_pipeline);
-        c_pass.set_bind_group(0, input, &[]);
-        c_pass.set_bind_group(1, output, &[]);
+        c_pass.set_bind_group(0, &input, &[]);
+        c_pass.set_bind_group(1, &output, &[]);
         c_pass.dispatch_workgroups(self.count_x, self.count_y, 1);
     }
 

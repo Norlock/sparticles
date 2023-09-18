@@ -9,7 +9,7 @@ use crate::traits::*;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use encase::{ShaderType, UniformBuffer};
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroU64;
+use std::{num::NonZeroU64, rc::Rc};
 
 pub struct PostProcessState {
     pub frame_state: FrameState,
@@ -25,7 +25,7 @@ pub struct PostProcessState {
 pub struct FrameState {
     pub depth_view: wgpu::TextureView,
     pub frame_view: wgpu::TextureView,
-    bind_group: wgpu::BindGroup,
+    bind_group: Rc<wgpu::BindGroup>,
 }
 
 #[derive(ShaderType, Clone)]
@@ -33,6 +33,11 @@ pub struct OffsetUniform {
     offset: i32,
     view_width: f32,
     view_height: f32,
+}
+
+pub struct DebugData {
+    pub tag: String,
+    pub bind_group: Rc<wgpu::BindGroup>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -69,7 +74,7 @@ pub const WORK_GROUP_SIZE: [f32; 2] = [8., 8.];
 impl PostProcessState {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-    fn render_output(&self) -> &wgpu::BindGroup {
+    pub fn render_output(&self) -> &Rc<wgpu::BindGroup> {
         let nr = self.post_fx.iter().filter(|fx| fx.enabled()).count();
 
         self.fx_state.bind_group(nr)
@@ -92,38 +97,33 @@ impl PostProcessState {
     }
 
     pub fn compute(&self, encoder: &mut wgpu::CommandEncoder) {
+        let input = self.fx_state.bind_group(1);
+
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Post process pipeline"),
         });
 
         c_pass.set_pipeline(&self.initialize_pipeline);
-        c_pass.set_bind_group(0, &self.fx_state.bind_group(1), &[]);
+        c_pass.set_bind_group(0, &input, &[]);
         c_pass.set_bind_group(1, &self.frame_state.bind_group, &[]);
         c_pass.dispatch_workgroups(self.fx_state.count_x, self.fx_state.count_y, 1);
 
         for (i, pfx) in self.post_fx.iter().filter(|fx| fx.enabled()).enumerate() {
             let input = self.fx_state.bind_group(i);
-            pfx.compute(input, &mut c_pass);
+            pfx.compute(&input, &mut c_pass);
         }
     }
 
     pub fn render<'a>(&'a self, r_pass: &mut wgpu::RenderPass<'a>) {
+        //if let Some(bind_group) = debug_bind_group {
+        //r_pass.set_bind_group(0, bind_group, &[]);
+        //} else {
+        //r_pass.set_bind_group(0, self.render_output(), &[]);
+        //}
+
         r_pass.set_pipeline(&self.finalize_pipeline);
-
-        let opt_bind_group = self
-            .post_fx
-            .iter()
-            .map(|fx| fx.debug())
-            .find(|fx| fx.is_some())
-            .map(|fx| fx.unwrap());
-
-        if let Some(bind_group) = opt_bind_group {
-            r_pass.set_bind_group(0, bind_group, &[]);
-        } else {
-            r_pass.set_bind_group(0, self.render_output(), &[]);
-        }
-
-        r_pass.set_bind_group(1, &self.frame_state.bind_group, &[]);
+        r_pass.set_bind_group(0, &self.render_output(), &[]);
+        r_pass.set_bind_group(1, &self.frame_state.output(), &[]);
         r_pass.draw(0..3, 0..1);
     }
 
@@ -241,6 +241,7 @@ impl PostProcessState {
             finalize_pipeline,
             offset_buffer,
             uniform,
+            //debug_data: Vec::new(),
         }
     }
 
@@ -315,13 +316,17 @@ impl FrameState {
         Self {
             frame_view,
             depth_view,
-            bind_group,
+            bind_group: bind_group.into(),
         }
+    }
+
+    pub fn output(&self) -> &Rc<wgpu::BindGroup> {
+        &self.bind_group
     }
 }
 
 pub struct FxState {
-    bind_groups: Vec<wgpu::BindGroup>,
+    bind_groups: Vec<Rc<wgpu::BindGroup>>,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub count_x: u32,
     pub count_y: u32,
@@ -338,7 +343,7 @@ pub struct FxStateOptions<'a> {
 pub type Dimensions = [u32; 2];
 
 impl FxState {
-    pub fn bind_group(&self, idx: usize) -> &wgpu::BindGroup {
+    pub fn bind_group(&self, idx: usize) -> &Rc<wgpu::BindGroup> {
         &self.bind_groups[idx % 2]
     }
 
@@ -346,7 +351,7 @@ impl FxState {
         dimensions: Dimensions,
         layout: &wgpu::BindGroupLayout,
         gfx_state: &GfxState,
-    ) -> Vec<wgpu::BindGroup> {
+    ) -> Vec<Rc<wgpu::BindGroup>> {
         let device = &gfx_state.device;
 
         let mut bind_groups = Vec::new();
@@ -370,7 +375,7 @@ impl FxState {
                 ],
             });
 
-            bind_groups.push(bg);
+            bind_groups.push(Rc::new(bg));
         }
 
         return bind_groups;

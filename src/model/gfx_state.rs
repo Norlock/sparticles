@@ -30,7 +30,7 @@ pub struct GfxState {
 }
 
 impl GfxState {
-    pub async fn new<'a>(window: window::Window) -> Self {
+    pub async fn new(window: window::Window) -> Self {
         let instance = wgpu::Instance::default();
 
         let surface = unsafe {

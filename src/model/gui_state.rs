@@ -4,7 +4,6 @@ use crate::{
         bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, FxPersistenceType,
         PostProcessState,
     },
-    traits::PostFxChain,
     util::{persistence::ExportType, Persistence},
 };
 use egui::{Color32, Context, RichText, Slider, Ui, Window};
@@ -22,6 +21,7 @@ pub struct GuiState {
 
     pub selected_spawner_id: String,
     selected_post_fx: PostFx,
+    //debug_data: Vec<DebugData<'a>>,
 }
 
 #[derive(PartialEq)]
@@ -137,16 +137,19 @@ impl GuiState {
     }
 
     fn post_fx_tab(&mut self, gui_ctx: GuiContext, ui: &mut Ui) {
-        let GuiContext {
-            post_process,
-            gfx_state,
-            ..
-        } = gui_ctx;
+        let gfx_state = &gui_ctx.gfx_state;
+        let post_process = gui_ctx.post_process;
+        let post_fx = &mut post_process.post_fx;
 
-        for fx in post_process.post_fx.iter_mut() {
+        let mut debug_data = Vec::new();
+
+        for fx in post_fx.iter_mut() {
             fx.create_ui(ui, gfx_state);
+            fx.debug(&mut debug_data);
             ui.separator();
         }
+
+        post_fx.retain_mut(|fx| !fx.delete());
 
         ui.horizontal(|ui| {
             egui::ComboBox::from_id_source("post-fx")

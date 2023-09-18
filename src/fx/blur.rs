@@ -10,12 +10,13 @@ use encase::{ShaderType, UniformBuffer};
 use serde::Deserialize;
 use serde::Serialize;
 use std::num::NonZeroU64;
+use std::rc::Rc;
 
 pub struct Blur {
     blur_pipeline: wgpu::ComputePipeline,
     split_pipeline: wgpu::ComputePipeline,
 
-    blur_bind_group: wgpu::BindGroup,
+    blur_bind_group: Rc<wgpu::BindGroup>,
 
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub blur: BlurUniform,
@@ -64,7 +65,7 @@ impl BlurUniform {
             radius: 4,
             sigma: 1.3,
             hdr_mul: 25.,
-            intensity: 0.95, // betere naam verzinnen
+            intensity: 1.00, // betere naam verzinnen
         }
     }
 
@@ -78,15 +79,14 @@ impl BlurUniform {
 impl PostFx for Blur {
     fn compute<'a>(
         &'a self,
-        fx_inputs: Vec<&'a wgpu::BindGroup>,
+        fx_inputs: Vec<&'a Rc<wgpu::BindGroup>>,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
         let output = &self.fx_state;
-        let input = fx_inputs[0];
 
         // Splits parts to fx tex
         c_pass.set_pipeline(&self.split_pipeline);
-        c_pass.set_bind_group(0, input, &[]);
+        c_pass.set_bind_group(0, &fx_inputs[0], &[]);
         c_pass.set_bind_group(1, &output.bind_group(1), &[]);
         c_pass.set_bind_group(2, &self.blur_bind_group, &[]);
         c_pass.dispatch_workgroups(output.count_x, output.count_y, 1);
@@ -94,7 +94,7 @@ impl PostFx for Blur {
         // Smoothen downscaled texture
         for i in 0..self.passes {
             c_pass.set_pipeline(&self.blur_pipeline);
-            c_pass.set_bind_group(0, input, &[]);
+            c_pass.set_bind_group(0, &fx_inputs[0], &[]);
             c_pass.set_bind_group(1, &output.bind_group(i), &[]);
             c_pass.set_bind_group(2, &self.blur_bind_group, &[]);
             c_pass.dispatch_workgroups(output.count_x, output.count_y, 1);
@@ -110,8 +110,8 @@ impl PostFx for Blur {
         &self.fx_state
     }
 
-    fn output(&self) -> &wgpu::BindGroup {
-        self.fx_state.bind_group(self.passes % 2)
+    fn output(&self) -> &Rc<wgpu::BindGroup> {
+        &self.fx_state.bind_group(self.passes % 2)
     }
 
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState) {
@@ -265,7 +265,7 @@ impl Blur {
         Self {
             blur_pipeline,
             bind_group_layout,
-            blur_bind_group,
+            blur_bind_group: blur_bind_group.into(),
             blur_buffer,
             blur,
             fx_state,

@@ -1,10 +1,10 @@
 use crate::{
-    fx::post_process::{FxPersistenceType, FxState},
+    fx::post_process::{DebugData, FxPersistenceType, FxState},
     model::{gfx_state::GfxState, AppState, Clock, Emitter, SpawnState},
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
-use std::num::NonZeroU64;
+use std::{num::NonZeroU64, rc::Rc};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -72,23 +72,23 @@ pub trait CreateSpawner {
 pub trait PostFx {
     fn compute<'a>(
         &'a self,
-        fx_inputs: Vec<&'a wgpu::BindGroup>,
-        c_pass: &mut wgpu::ComputePass<'a>,
+        fx_inputs: Vec<&'a Rc<wgpu::BindGroup>>,
+        data: &mut wgpu::ComputePass<'a>,
     );
+
     fn resize(&mut self, gfx_state: &GfxState);
     fn fx_state(&self) -> &FxState;
-    fn output(&self) -> &wgpu::BindGroup;
+    fn output(&self) -> &Rc<wgpu::BindGroup>;
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
 }
 
 pub trait PostFxChain {
-    fn compute<'a>(&'a self, input: &'a wgpu::BindGroup, c_pass: &mut wgpu::ComputePass<'a>);
+    fn compute<'a>(&'a self, input: &'a Rc<wgpu::BindGroup>, c_pass: &mut wgpu::ComputePass<'a>);
 
     fn resize(&mut self, gfx_state: &GfxState, fx_state: &FxState);
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
 
-    /// Make sure only one Fx returns to prevent overrides
-    fn debug(&self) -> Option<&wgpu::BindGroup>;
+    fn debug<'a>(&'a self, debug_data: &mut Vec<DebugData>);
     fn export(&self) -> FxPersistenceType;
 
     fn enabled(&self) -> bool;

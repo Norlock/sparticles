@@ -1,7 +1,9 @@
+use std::rc::Rc;
+
 use super::blur::Blur;
 use super::blur::BlurExport;
-use super::blur::BlurUniform;
 use super::post_process::CreateFxOptions;
+use super::post_process::DebugData;
 use super::post_process::FxPersistenceType;
 use super::Blend;
 use super::FxState;
@@ -18,8 +20,9 @@ pub struct Bloom {
     blur: Blur,
     upscale: Upscale,
     blend: Blend,
-    enabled: bool,
     debug: Debug,
+    enabled: bool,
+    delete: bool,
 }
 
 #[derive(PartialEq, Debug)]
@@ -43,15 +46,19 @@ impl Default for BloomExport {
 }
 
 impl PostFxChain for Bloom {
-    fn debug(&self) -> Option<&wgpu::BindGroup> {
-        match self.debug {
-            Debug::None => None,
-            Debug::Blur => Some(self.blur.output()),
-            Debug::Upscale => Some(self.upscale.output()),
-        }
+    fn debug<'a>(&'a self, bind_groups: &mut Vec<DebugData>) {
+        //bind_groups.push(DebugData {
+        //tag: "Blur".to_string(),
+        //bind_group: self.blur.output(),
+        //});
+
+        //bind_groups.push(DebugData {
+        //tag: "Upscale".to_string(),
+        //bind_group: self.upscale.output(),
+        //});
     }
 
-    fn compute<'a>(&'a self, input: &'a wgpu::BindGroup, c_pass: &mut wgpu::ComputePass<'a>) {
+    fn compute<'a>(&'a self, input: &'a Rc<wgpu::BindGroup>, c_pass: &mut wgpu::ComputePass<'a>) {
         self.blur.compute(vec![input], c_pass);
         self.upscale.compute(vec![self.blur.output()], c_pass);
         self.blend.add(self.upscale.output(), input, c_pass);
@@ -90,10 +97,14 @@ impl PostFxChain for Bloom {
                 ui.selectable_value(&mut self.debug, Debug::Blur, "Blur");
                 ui.selectable_value(&mut self.debug, Debug::Upscale, "Upscale");
             });
+
+        if ui.button("Delete").clicked() {
+            self.delete = true;
+        }
     }
 
     fn delete(&self) -> bool {
-        false
+        self.delete
     }
 }
 
@@ -115,8 +126,9 @@ impl Bloom {
             blur,
             blend,
             upscale,
-            enabled: true,
             debug: Debug::None,
+            enabled: true,
+            delete: false,
         }
     }
 }

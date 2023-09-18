@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, FxPersistenceType},
+    post_process::{CreateFxOptions, DebugData, FxPersistenceType},
     FxState,
 };
 use crate::{
@@ -10,7 +10,7 @@ use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::{self, Slider};
 use encase::{ShaderType, UniformBuffer};
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroU64;
+use std::{num::NonZeroU64, rc::Rc};
 
 #[allow(unused)]
 pub struct ColorProcessing {
@@ -22,6 +22,7 @@ pub struct ColorProcessing {
     count_x: u32,
     count_y: u32,
     enabled: bool,
+    delete: bool,
 }
 
 #[derive(ShaderType, Serialize, Deserialize, Debug, Clone, Copy)]
@@ -32,12 +33,10 @@ pub struct ColorProcessingUniform {
 }
 
 impl PostFxChain for ColorProcessing {
-    fn debug(&self) -> Option<&wgpu::BindGroup> {
-        None
-    }
+    fn debug<'a>(&'a self, bind_groups: &mut Vec<DebugData>) {}
 
     fn delete(&self) -> bool {
-        false
+        self.delete
     }
 
     fn resize(&mut self, _gfx_state: &GfxState, fx_state: &FxState) {
@@ -45,11 +44,11 @@ impl PostFxChain for ColorProcessing {
         self.count_y = fx_state.count_y;
     }
 
-    fn compute<'a>(&'a self, input: &'a wgpu::BindGroup, c_pass: &mut wgpu::ComputePass<'a>) {
-        c_pass.set_pipeline(&self.pipeline);
-        c_pass.set_bind_group(0, input, &[]);
-        c_pass.set_bind_group(1, &self.bind_group, &[]);
-        c_pass.dispatch_workgroups(self.count_x, self.count_y, 1);
+    fn compute<'a>(&'a self, input: &'a Rc<wgpu::BindGroup>, c_pass: &mut wgpu::ComputePass<'a>) {
+        //c_pass.set_pipeline(&self.pipeline);
+        //c_pass.set_bind_group(0, &input, &[]);
+        //c_pass.set_bind_group(1, &self.bind_group, &[]);
+        //c_pass.dispatch_workgroups(self.count_x, self.count_y, 1);
     }
 
     fn enabled(&self) -> bool {
@@ -67,6 +66,10 @@ impl PostFxChain for ColorProcessing {
         ui.checkbox(&mut self.enabled, "Enabled");
 
         queue.write_buffer(&self.buffer, 0, &self.uniform.create_buffer_content());
+
+        if ui.button("Delete").clicked() {
+            self.delete = true;
+        }
     }
 
     fn export(&self) -> FxPersistenceType {
@@ -163,6 +166,7 @@ impl ColorProcessing {
             count_x: fx_state.count_x,
             count_y: fx_state.count_y,
             enabled: true,
+            delete: false,
         }
     }
 }
