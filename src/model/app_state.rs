@@ -79,7 +79,7 @@ impl AppState {
         self.post_process.compute(encoder);
     }
 
-    pub fn render_fx<'a>(&'a self, r_pass: &mut wgpu::RenderPass<'a>) {
+    pub fn render_fx<'a>(&'a mut self, r_pass: &mut wgpu::RenderPass<'a>) {
         self.post_process.render(r_pass);
     }
 

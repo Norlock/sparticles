@@ -17,7 +17,6 @@ use serde::Serialize;
 
 pub struct Bloom {
     blur: Blur,
-    upscale: Upscale,
     blend: Blend,
     enabled: bool,
     delete: bool,
@@ -42,22 +41,15 @@ impl PostFxChain for Bloom {
             tag: format!("Blur-{}", idx),
             bind_group: self.blur.output().clone(),
         });
-
-        bind_groups.push(FxView {
-            tag: format!("Upscale-{}", idx),
-            bind_group: self.upscale.output().clone(),
-        });
     }
 
     fn compute<'a>(&'a self, input: &'a Rc<wgpu::BindGroup>, c_pass: &mut wgpu::ComputePass<'a>) {
         self.blur.compute(vec![input], c_pass);
-        self.upscale.compute(vec![self.blur.output()], c_pass);
-        self.blend.add(self.upscale.output(), input, c_pass);
+        self.blend.add(self.blur.output(), input, c_pass);
     }
 
     fn resize(&mut self, gfx_state: &GfxState, fx_state: &FxState) {
         self.blur.resize(gfx_state);
-        self.upscale.resize(gfx_state);
         self.blend.resize(fx_state);
     }
 
@@ -76,7 +68,6 @@ impl PostFxChain for Bloom {
         ui.add_space(5.0);
 
         self.blur.create_ui(ui, gfx_state);
-        self.upscale.create_ui(ui, gfx_state);
 
         ui.checkbox(&mut self.enabled, "Enabled");
 
@@ -101,13 +92,11 @@ impl Bloom {
         } = options;
 
         let blur = Blur::new(options, export.blur);
-        let upscale = Upscale::new(gfx_state);
         let blend = Blend::new(gfx_state, fx_state);
 
         Self {
             blur,
             blend,
-            upscale,
             enabled: true,
             delete: false,
         }

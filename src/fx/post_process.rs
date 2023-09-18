@@ -100,7 +100,7 @@ impl PostProcessState {
         }
     }
 
-    pub fn recreate_views(&mut self) {
+    fn recreate_views(&mut self) {
         self.views.clear();
         self.views.push(self.default_view());
 
@@ -123,8 +123,6 @@ impl PostProcessState {
         for pfx in self.post_fx.iter_mut() {
             pfx.resize(&gfx_state, &self.fx_state);
         }
-
-        self.recreate_views();
     }
 
     pub fn compute(&self, encoder: &mut wgpu::CommandEncoder) {
@@ -145,7 +143,9 @@ impl PostProcessState {
         }
     }
 
-    pub fn render<'a>(&'a self, r_pass: &mut wgpu::RenderPass<'a>) {
+    pub fn render<'a>(&'a mut self, r_pass: &mut wgpu::RenderPass<'a>) {
+        self.recreate_views();
+
         let fx_bind_group = self
             .views
             .iter()
@@ -287,18 +287,12 @@ impl PostProcessState {
 
     pub fn add_default_fx(&mut self, gfx_state: &GfxState) {
         let options = self.create_fx_options(gfx_state);
-        let blur_export = BlurExport {
-            uniform: BlurUniform::new(),
-            passes: 8,
-        };
 
-        let bloom = Bloom::new(&options, BloomExport { blur: blur_export });
+        let bloom = Bloom::new(&options, BloomExport::default());
         let col_cor = ColorProcessing::new(&options, ColorProcessingUniform::new());
 
         self.post_fx.push(Box::new(bloom));
         self.post_fx.push(Box::new(col_cor));
-
-        self.recreate_views();
     }
 
     pub fn import_fx(&mut self, gfx_state: &GfxState, fx_types: Vec<FxPersistenceType>) {
@@ -318,8 +312,6 @@ impl PostProcessState {
                 }
             }
         }
-
-        self.recreate_views();
     }
 }
 

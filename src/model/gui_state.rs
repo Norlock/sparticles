@@ -157,6 +157,8 @@ impl GuiState {
                 }
             });
 
+        ui.separator();
+
         ui.horizontal(|ui| {
             ComboBox::from_id_source("post-fx")
                 .selected_text(format!("{:?}", &self.selected_post_fx))
@@ -184,10 +186,10 @@ impl GuiState {
                         post_process.post_fx.push(Box::new(fx));
                     }
                 };
-
-                post_process.recreate_views();
             }
         });
+
+        ui.separator();
 
         if ui.button("Export").clicked() {
             let to_export: Vec<FxPersistenceType> =
