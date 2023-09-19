@@ -33,16 +33,16 @@ fn get_light_spawner() -> SpawnInit {
     emitter.spawn_count = 1;
     emitter.spawn_delay_sec = 1.;
 
-    let emitter_sway_animation = SwayAnimation {
-        life_cycle: LifeCycle {
+    let emitter_sway_animation = SwayAnimation::new(
+        LifeCycle {
             from_sec: 0.,
             until_sec: 4.,
             lifetime_sec: 4.,
         },
-        yaw: glam::Vec2::ZERO,
-        pitch: Vec2::new(30., 120.).to_radians(),
-        roll: glam::Vec2::ZERO,
-    };
+        glam::Vec2::ZERO,
+        Vec2::new(30., 120.),
+        glam::Vec2::ZERO,
+    );
 
     return SpawnInit {
         id: "other".to_string(),
@@ -103,17 +103,15 @@ fn get_spawner(id: String) -> SpawnInit {
     let mut emitter = Emitter::new();
     emitter.spawn_count = 8;
 
-    let diff_anim = DiffusionAnimation {
-        life_cycle: LifeCycle {
+    let diff_anim = DiffusionAnimation::new(
+        LifeCycle {
             from_sec: 0.,
             until_sec: 5.,
             lifetime_sec: 5.,
         },
-        start_diff_width: 0.,
-        start_diff_depth: 0.,
-        end_diff_width: 45f32.to_radians(),
-        end_diff_depth: 15f32.to_radians(),
-    };
+        Vec2::new(0., 45.),
+        Vec2::new(0., 15.),
+    );
 
     return SpawnInit {
         id,

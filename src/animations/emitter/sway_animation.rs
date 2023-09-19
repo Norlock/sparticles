@@ -3,14 +3,39 @@ use glam::Vec2;
 
 use crate::{
     model::{Clock, Emitter, LifeCycle},
-    traits::EmitterAnimation,
+    traits::{EmitterAnimation, HandleAngles},
 };
 
+struct Gui {
+    yaw: Vec2,
+    pitch: Vec2,
+    roll: Vec2,
+}
+
 pub struct SwayAnimation {
-    pub life_cycle: LifeCycle,
-    pub yaw: Vec2,
-    pub pitch: Vec2,
-    pub roll: Vec2,
+    life_cycle: LifeCycle,
+    yaw: Vec2,
+    pitch: Vec2,
+    roll: Vec2,
+    gui: Gui,
+}
+
+impl SwayAnimation {
+    pub fn new(life_cycle: LifeCycle, yaw_deg: Vec2, pitch_deg: Vec2, roll_deg: Vec2) -> Self {
+        let gui = Gui {
+            yaw: yaw_deg,
+            pitch: pitch_deg,
+            roll: roll_deg,
+        };
+
+        Self {
+            life_cycle,
+            yaw: yaw_deg.to_radians(),
+            pitch: pitch_deg.to_radians(),
+            roll: roll_deg.to_radians(),
+            gui,
+        }
+    }
 }
 
 impl EmitterAnimation for SwayAnimation {
@@ -30,6 +55,7 @@ impl EmitterAnimation for SwayAnimation {
 
     fn create_gui(&mut self, ui: &mut Ui) {
         let life_cycle = &mut self.life_cycle;
+        let gui = &mut self.gui;
 
         ui.label("Sway animation");
 
@@ -51,6 +77,28 @@ impl EmitterAnimation for SwayAnimation {
             ui.label("Until restart animation");
             ui.add(DragValue::new(&mut life_cycle.lifetime_sec).speed(0.1));
         });
+
+        ui.horizontal(|ui| {
+            ui.label("Pitch (from - until)");
+            ui.add(DragValue::new(&mut gui.pitch.x).speed(0.1));
+            ui.add(DragValue::new(&mut gui.pitch.y).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Yaw (from - until)");
+            ui.add(DragValue::new(&mut gui.yaw.x).speed(0.1));
+            ui.add(DragValue::new(&mut gui.yaw.y).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Roll (from - until)");
+            ui.add(DragValue::new(&mut gui.roll.x).speed(0.1));
+            ui.add(DragValue::new(&mut gui.roll.y).speed(0.1));
+        });
+
+        self.yaw = gui.yaw.to_radians();
+        self.pitch = gui.pitch.to_radians();
+        self.roll = gui.pitch.to_radians();
     }
 }
 
