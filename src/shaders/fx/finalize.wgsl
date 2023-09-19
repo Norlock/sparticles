@@ -31,7 +31,7 @@ fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
         let x = i32(pos.x / scale_x);
         let y = i32(pos.y / scale_y);
 
-        //return textureLoad(output, vec2<i32>(x, y), 0);
+        return textureLoad(output, vec2<i32>(x, y), 0);
     } else {
         return textureLoad(output, vec2<i32>(pos.xy) + globals.offset, 0);
     }
