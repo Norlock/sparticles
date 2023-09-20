@@ -338,7 +338,7 @@ impl GfxState {
                 bind_group_layouts: &[&camera.bind_group_layout, &bind_group_layout],
                 push_constant_ranges: &[],
             });
-            blend_state = wgpu::BlendState::ALPHA_BLENDING;
+            blend_state = wgpu::BlendState::REPLACE;
         }
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {

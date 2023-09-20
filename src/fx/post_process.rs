@@ -180,6 +180,17 @@ impl PostProcessState {
                     },
                     count: None,
                 },
+                // Noise
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Texture {
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        multisampled: false,
+                    },
+                    count: None,
+                },
             ],
         })
     }
@@ -310,6 +321,7 @@ impl FrameState {
 
         let frame_view = gfx_state.create_frame_view();
         let depth_view = gfx_state.create_depth_view();
+        let noise_view = gfx_state.create_noise_view();
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
@@ -322,6 +334,10 @@ impl FrameState {
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&noise_view),
                 },
             ],
         });

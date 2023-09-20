@@ -1,6 +1,6 @@
 use super::{Camera, Clock, GfxState, GuiState, SpawnState};
 use crate::{fx::PostProcessState, util::Persistence, InitApp};
-use egui_wgpu::wgpu;
+use egui_wgpu::wgpu::{self, QuerySet};
 use egui_winit::winit::event::KeyboardInput;
 
 pub struct AppState {
@@ -16,7 +16,10 @@ impl AppState {
     pub fn update(&mut self, gfx_state: &GfxState) {
         self.clock.update();
         self.camera.update(gfx_state, &self.clock);
-        self.handle_gui(gfx_state);
+
+        if self.gui.enabled {
+            self.handle_gui(gfx_state);
+        }
 
         self.light_spawner.update(gfx_state, &self.clock);
 
@@ -25,11 +28,7 @@ impl AppState {
         }
     }
 
-    pub fn handle_gui(&mut self, gfx_state: &GfxState) {
-        if !self.gui.enabled {
-            return;
-        }
-
+    fn handle_gui(&mut self, gfx_state: &GfxState) {
         self.camera.handle_gui(&self.gui);
 
         if self.light_spawner.id == self.gui.selected_spawner_id {
@@ -49,7 +48,12 @@ impl AppState {
     }
 
     pub fn particle_count_text(&self) -> String {
-        let particle_count: u64 = self.spawners.iter().map(|s| s.particle_count()).sum();
+        let particle_count: u64 = self.light_spawner.particle_count()
+            + self
+                .spawners
+                .iter()
+                .map(|s| s.particle_count())
+                .sum::<u64>();
 
         format!("Particle count: {}", particle_count)
     }

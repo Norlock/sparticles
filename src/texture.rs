@@ -1,10 +1,13 @@
+use std::num::NonZeroU32;
+
 use crate::{
     fx::PostProcessState,
     model::gfx_state::GfxState,
     traits::{CreateFxView, FxDimensions},
 };
-use egui_wgpu::wgpu;
+use egui_wgpu::wgpu::{self, util::align_to};
 use image::GenericImageView;
+use rand::{rngs::ThreadRng, Rng};
 
 pub struct DiffuseTexture {
     pub bind_group: wgpu::BindGroup,
@@ -178,6 +181,63 @@ impl GfxState {
             bind_group,
             bind_group_layout,
         }
+    }
+
+    pub fn create_noise_view(&self) -> wgpu::TextureView {
+        let device = &self.device;
+        let queue = &self.queue;
+
+        let size = wgpu::Extent3d {
+            width: self.surface_config.width,
+            height: self.surface_config.height,
+            depth_or_array_layers: 1,
+        };
+
+        let mut noise_data = Vec::new();
+
+        let bytes_per_row = align_to(
+            size.width * std::mem::size_of::<f32>() as u32,
+            wgpu::COPY_BYTES_PER_ROW_ALIGNMENT,
+        );
+
+        let mut rand = ThreadRng::default();
+
+        for _ in 0..size.height {
+            for _ in 0..size.width {
+                noise_data.push(rand.gen_range(-1.0..=1.0));
+            }
+        }
+
+        let tex_content = bytemuck::cast_slice(&noise_data);
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            view_formats: &[],
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::R8Unorm,
+            usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
+        });
+
+        queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
+                aspect: wgpu::TextureAspect::All,
+            },
+            &tex_content,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(bytes_per_row),
+                rows_per_image: Some(size.height),
+            },
+            size,
+        );
+
+        texture.default_view()
     }
 }
 

@@ -62,9 +62,8 @@ impl GuiState {
         }
     }
 
-    fn create_spawner_menu(&mut self, ui: &mut Ui, spawn_gui: &mut SpawnGuiState, id: &str) {
+    fn create_spawner_menu(&mut self, ui: &mut Ui, spawn_gui: &mut SpawnGuiState) {
         ui.add_space(5.0);
-        create_label(ui, id);
 
         create_deg_slider(ui, &mut spawn_gui.box_rotation_deg.x, "Box yaw");
         create_deg_slider(ui, &mut spawn_gui.box_rotation_deg.y, "Box pitch");
@@ -141,6 +140,17 @@ impl GuiState {
             light_spawner,
             ..
         } = gui_ctx;
+
+        //ComboBox::from_label("Selected spawner") .selected_text(&self.selected_spawner_id)
+        //.show_ui(ui, |ui| {
+        //for item in .views.iter() {
+        //ui.selectable_value(
+        //&mut post_process.selected_view,
+        //item.tag.to_string(),
+        //item.tag.to_string(),
+        //);
+        //}
+        //});
 
         ui.label("Light spawner");
 
@@ -255,7 +265,7 @@ impl GuiState {
             .or_else(opt_light_spawner);
 
         if let Some(spawner) = spawner {
-            self.create_spawner_menu(ui, &mut spawner.gui, &spawner.id);
+            self.create_spawner_menu(ui, &mut spawner.gui);
         }
     }
 

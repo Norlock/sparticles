@@ -45,7 +45,7 @@ fn get_light_spawner() -> SpawnInit {
     );
 
     return SpawnInit {
-        id: "other".to_string(),
+        id: "Light spawner".to_string(),
         emitter,
         particle_animations: vec![],
         emitter_animations: vec![Box::new(emitter_sway_animation)],
