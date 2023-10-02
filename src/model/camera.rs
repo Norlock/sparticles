@@ -4,7 +4,7 @@ use glam::*;
 
 use crate::traits::{CreateAspect, ToVecF32};
 
-use super::{gfx_state::GfxState, Clock, GuiState};
+use super::{gfx_state::GfxState, Clock, GuiState, State};
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4 {
@@ -19,18 +19,19 @@ type Mat4x2 = [[f32; 2]; 4];
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Camera {
-    position: Vec3, // Camera position
-    view_dir: Vec3, // Camera aimed at
+    pub position: Vec3, // Camera position
+    pub view_dir: Vec3, // Camera aimed at
+    pub pitch: f32,
+    pub yaw: f32,
+    pub roll: f32,
+    pub bind_group_layout: wgpu::BindGroupLayout,
+    pub bind_group: wgpu::BindGroup,
+
     look_at: Vec3,
     fov: f32,  // Field of view (frustum vertical degrees)
     near: f32, // What is too close to show
     far: f32,  // What is too far to show
-    pitch: f32,
-    yaw: f32,
-    roll: f32,
     buffer: wgpu::Buffer,
-    pub bind_group_layout: wgpu::BindGroupLayout,
-    pub bind_group: wgpu::BindGroup,
 
     is_forward_pressed: bool,
     is_backward_pressed: bool,
@@ -123,73 +124,71 @@ impl Camera {
         }
     }
 
-    pub fn handle_gui(&mut self, gui_state: &GuiState) {
-        if gui_state.reset_camera {
-            self.pitch = 0.;
-            self.yaw = 0.;
-            self.position = glam::Vec3::new(0., 0., 10.);
-            self.view_dir = glam::Vec3::new(0., 0., -10.);
-        }
-    }
+    pub fn update(state: &mut State) {
+        let State {
+            gfx_state,
+            camera,
+            clock,
+            ..
+        } = state;
 
-    pub fn update(&mut self, gfx_state: &GfxState, clock: &Clock) {
         let queue = &gfx_state.queue;
         let speed = 3.0;
 
         let move_delta = speed * clock.delta_sec();
         let rotation = move_delta / 3.0;
-        let yaw_mat = Mat3::from_rotation_y(self.yaw);
-        let pitch_mat = Mat3::from_rotation_x(self.pitch);
+        let yaw_mat = Mat3::from_rotation_y(camera.yaw);
+        let pitch_mat = Mat3::from_rotation_x(camera.pitch);
 
         let rotate_vec = |unrotated_vec: Vec3| yaw_mat * pitch_mat * unrotated_vec;
 
-        if self.is_forward_pressed {
-            self.position += rotate_vec(Vec3::new(0., 0., -move_delta));
+        if camera.is_forward_pressed {
+            camera.position += rotate_vec(Vec3::new(0., 0., -move_delta));
         }
 
-        if self.is_backward_pressed {
-            self.position += rotate_vec(Vec3::new(0., 0., move_delta));
+        if camera.is_backward_pressed {
+            camera.position += rotate_vec(Vec3::new(0., 0., move_delta));
         }
 
-        if self.is_up_pressed {
-            self.position.y += move_delta;
+        if camera.is_up_pressed {
+            camera.position.y += move_delta;
         }
 
-        if self.is_down_pressed {
-            self.position.y -= move_delta;
+        if camera.is_down_pressed {
+            camera.position.y -= move_delta;
         }
 
-        if self.is_left_pressed {
-            self.position += rotate_vec(Vec3::new(-move_delta, 0., 0.));
+        if camera.is_left_pressed {
+            camera.position += rotate_vec(Vec3::new(-move_delta, 0., 0.));
         }
 
-        if self.is_right_pressed {
-            self.position += rotate_vec(Vec3::new(move_delta, 0., 0.));
+        if camera.is_right_pressed {
+            camera.position += rotate_vec(Vec3::new(move_delta, 0., 0.));
         }
 
-        if self.is_rotate_up_pressed {
-            self.pitch += rotation;
+        if camera.is_rotate_up_pressed {
+            camera.pitch += rotation;
         }
 
-        if self.is_rotate_down_pressed {
-            self.pitch -= rotation;
+        if camera.is_rotate_down_pressed {
+            camera.pitch -= rotation;
         }
 
-        if self.is_rotate_left_pressed {
-            self.yaw += rotation;
+        if camera.is_rotate_left_pressed {
+            camera.yaw += rotation;
         }
 
-        if self.is_rotate_right_pressed {
-            self.yaw -= rotation;
+        if camera.is_rotate_right_pressed {
+            camera.yaw -= rotation;
         }
 
-        let buf_content_raw = self.create_buffer_content();
+        let buf_content_raw = camera.create_buffer_content();
         let buf_content = bytemuck::cast_slice(&buf_content_raw);
 
-        queue.write_buffer(&self.buffer, 0, buf_content);
+        queue.write_buffer(&camera.buffer, 0, buf_content);
     }
 
-    pub fn window_resize(&mut self, gfx_state: &GfxState) {
+    pub fn resize(&mut self, gfx_state: &GfxState) {
         let aspect = gfx_state.surface_config.aspect();
         self.proj = Mat4::perspective_rh(self.fov, aspect, self.near, self.far);
     }

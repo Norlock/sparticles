@@ -1,6 +1,6 @@
 use crate::{
     fx::post_process::{FxPersistenceType, FxState, FxView},
-    model::{gfx_state::GfxState, AppState, Clock, Emitter, SpawnState},
+    model::{Clock, Emitter, GfxState, SpawnState, State},
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
@@ -19,7 +19,7 @@ pub trait CustomShader {
 }
 
 pub trait CreateGui {
-    fn create_gui(&self, app_state: &mut AppState);
+    fn create_gui(&self, app_state: &mut State);
 }
 
 pub trait ToVecF32 {

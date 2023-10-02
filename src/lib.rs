@@ -1,11 +1,9 @@
 use egui_winit::winit;
 use init::InitApp;
-use model::GfxState;
+use model::{GfxState, State};
 use winit::event::Event::*;
-use winit::event_loop::ControlFlow;
-use winit::event_loop::EventLoop;
-use winit::window;
-use winit::window::WindowId;
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::window::{self, WindowId};
 
 pub mod animations;
 pub mod debug;
@@ -31,16 +29,16 @@ pub fn start(init_app: InitApp) {
         .build(&event_loop)
         .unwrap();
 
-    let mut gfx_state = pollster::block_on(GfxState::new(window));
-    let mut app_state = gfx_state.create_app_state(init_app);
+    let mut state = State::new(init_app, window);
 
     event_loop.run(move |event, _, control_flow| {
+        let gfx_state = &mut state.gfx_state;
         let do_exec = |window_id: WindowId| window_id == gfx_state.window_id();
 
         match event {
             RedrawRequested(window_id) if do_exec(window_id) => {
-                app_state.update(&gfx_state);
-                gfx_state.render(&mut app_state);
+                state.update();
+                state.render();
             }
             MainEventsCleared => {
                 gfx_state.request_redraw();
@@ -50,19 +48,17 @@ pub fn start(init_app: InitApp) {
 
                 match event {
                     winit::event::WindowEvent::Resized(size) => {
-                        gfx_state.window_resize(size);
-                        app_state.resize(&gfx_state);
+                        state.resize(size);
                     }
                     winit::event::WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        gfx_state.window_resize(*new_inner_size);
-                        app_state.resize(&gfx_state);
+                        state.resize(*new_inner_size);
                     }
                     winit::event::WindowEvent::CloseRequested => {
                         *control_flow = ControlFlow::Exit;
                     }
                     winit::event::WindowEvent::KeyboardInput { input, .. } => {
                         if !response.consumed {
-                            app_state.process_events(input);
+                            state.process_events(input);
                         }
                     }
                     _ => {}

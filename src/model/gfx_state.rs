@@ -15,18 +15,22 @@ use egui_winit::EventResponse;
 use winit::dpi::PhysicalSize;
 use winit::window;
 
-use super::app_state::AppState;
+use crate::fx::PostProcessState;
+
+use super::state::State;
+use super::GuiState;
+use super::SpawnState;
 
 pub struct GfxState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface_config: wgpu::SurfaceConfiguration,
-    window: window::Window,
+    pub ctx: Context,
+    pub window: window::Window,
+    pub renderer: Renderer,
+    pub screen_descriptor: ScreenDescriptor,
     winit: egui_winit::State,
     surface: wgpu::Surface,
-    renderer: Renderer,
-    ctx: Context,
-    screen_descriptor: ScreenDescriptor,
 }
 
 impl GfxState {
@@ -130,7 +134,7 @@ impl GfxState {
         self.window.request_redraw();
     }
 
-    pub fn window_resize(&mut self, size: PhysicalSize<u32>) {
+    pub fn resize(&mut self, size: PhysicalSize<u32>) {
         if size.width > 0 && size.height > 0 {
             self.surface_config.width = size.width;
             self.surface_config.height = size.height;
@@ -143,72 +147,50 @@ impl GfxState {
         }
     }
 
-    fn draw_gui(
-        &mut self,
-        app_state: &mut AppState,
-        encoder: &mut CommandEncoder,
-    ) -> Vec<ClippedPrimitive> {
-        let input = self.winit.take_egui_input(&self.window);
+    pub fn draw_gui(state: &mut State, encoder: &mut CommandEncoder) -> Vec<ClippedPrimitive> {
+        let input = state
+            .gfx_state
+            .winit
+            .take_egui_input(&state.gfx_state.window);
 
-        let full_output = self.ctx.run(input, |ui| {
-            app_state.update_gui(ui, self);
-        });
+        state.gfx_state.ctx.begin_frame(input);
+        GuiState::update_gui(state);
+        let full_output = state.gfx_state.ctx.end_frame();
 
-        let clipped_primitives = self.ctx.tessellate(full_output.shapes);
+        let clipped_primitives = state.gfx_state.ctx.tessellate(full_output.shapes);
 
-        self.winit
-            .handle_platform_output(&self.window, &self.ctx, full_output.platform_output);
+        state.gfx_state.winit.handle_platform_output(
+            &state.gfx_state.window,
+            &state.gfx_state.ctx,
+            full_output.platform_output,
+        );
 
         for (tex_id, img_delta) in full_output.textures_delta.set {
-            self.renderer
-                .update_texture(&self.device, &self.queue, tex_id, &img_delta);
+            state.gfx_state.renderer.update_texture(
+                &state.gfx_state.device,
+                &state.gfx_state.queue,
+                tex_id,
+                &img_delta,
+            );
         }
 
         for tex_id in full_output.textures_delta.free {
-            self.renderer.free_texture(&tex_id);
+            state.gfx_state.renderer.free_texture(&tex_id);
         }
 
-        self.renderer.update_buffers(
-            &self.device,
-            &self.queue,
+        state.gfx_state.renderer.update_buffers(
+            &state.gfx_state.device,
+            &state.gfx_state.queue,
             encoder,
             &clipped_primitives,
-            &self.screen_descriptor,
+            &state.gfx_state.screen_descriptor,
         );
 
         clipped_primitives
     }
 
-    pub fn render_fx(
-        &mut self,
-        app_state: &mut AppState,
-        output_view: wgpu::TextureView,
-        encoder: &mut CommandEncoder,
-    ) {
-        let clipped_primitives = self.draw_gui(app_state, encoder);
-
-        let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Post process render"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &output_view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: None,
-        });
-
-        app_state.render_fx(&mut r_pass);
-
-        // Gui render
-        self.renderer
-            .render(&mut r_pass, &clipped_primitives, &self.screen_descriptor);
-    }
-
-    pub fn render(&mut self, app_state: &mut AppState) {
-        let output_frame = match self.surface.get_current_texture() {
+    pub fn render(state: &mut State) {
+        let output_frame = match state.gfx_state.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Outdated) => {
                 return;
@@ -219,30 +201,34 @@ impl GfxState {
             }
         };
 
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("encoder"),
-            });
+        let mut encoder =
+            state
+                .gfx_state
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("encoder"),
+                });
 
         let output_view = output_frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         // Computing particles
-        app_state.compute(&mut encoder);
+        SpawnState::compute_particles(state, &mut encoder);
 
         // Rendering particles
-        app_state.render(&mut encoder);
+        SpawnState::render_particles(state, &mut encoder);
 
         // Post processing compute
-        app_state.apply_fx(&mut encoder);
+        PostProcessState::compute(state, &mut encoder);
+
+        let clipped_primitives = GfxState::draw_gui(state, &mut encoder);
 
         // Post processing render
-        self.render_fx(app_state, output_view, &mut encoder);
+        PostProcessState::render(state, output_view, clipped_primitives, &mut encoder);
 
         // Submit the commands.
-        self.queue.submit(iter::once(encoder.finish()));
+        state.gfx_state.queue.submit(iter::once(encoder.finish()));
 
         // Redraw egui
         output_frame.present();

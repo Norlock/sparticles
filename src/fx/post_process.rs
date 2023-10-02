@@ -1,7 +1,8 @@
 use super::{bloom::BloomExport, color_processing::ColorProcessingUniform, Bloom, ColorProcessing};
-use crate::model::GfxState;
+use crate::model::{GfxState, State};
 use crate::traits::*;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
+use egui_winit::egui::ClippedPrimitive;
 use encase::{ShaderType, UniformBuffer};
 use serde::{Deserialize, Serialize};
 use std::{num::NonZeroU64, rc::Rc};
@@ -116,37 +117,63 @@ impl PostProcessState {
         }
     }
 
-    pub fn compute(&self, encoder: &mut wgpu::CommandEncoder) {
-        let input = self.fx_state.bind_group(1);
+    pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
+        let pp = &mut state.post_process;
+        let input = pp.fx_state.bind_group(1);
 
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Post process pipeline"),
         });
 
-        c_pass.set_pipeline(&self.initialize_pipeline);
+        c_pass.set_pipeline(&pp.initialize_pipeline);
         c_pass.set_bind_group(0, input, &[]);
-        c_pass.set_bind_group(1, self.frame_state.output(), &[]);
-        c_pass.dispatch_workgroups(self.fx_state.count_x, self.fx_state.count_y, 1);
+        c_pass.set_bind_group(1, pp.frame_state.output(), &[]);
+        c_pass.dispatch_workgroups(pp.fx_state.count_x, pp.fx_state.count_y, 1);
 
-        for (i, pfx) in self.post_fx.iter().filter(|fx| fx.enabled()).enumerate() {
-            let input = self.fx_state.bind_group(i);
+        for (i, pfx) in pp.post_fx.iter().filter(|fx| fx.enabled()).enumerate() {
+            let input = pp.fx_state.bind_group(i);
             pfx.compute(input, &mut c_pass);
         }
     }
 
-    pub fn render<'a>(&'a mut self, r_pass: &mut wgpu::RenderPass<'a>) {
-        self.recreate_views();
+    pub fn render(
+        state: &mut State,
+        output_view: wgpu::TextureView,
+        clipped_primitives: Vec<ClippedPrimitive>,
+        encoder: &mut wgpu::CommandEncoder,
+    ) {
+        let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Post process render"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &output_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
 
-        let fx_bind_group = self
+        let pp = &mut state.post_process;
+        pp.recreate_views();
+
+        let fx_bind_group = pp
             .views
             .iter()
-            .find(|vw| vw.tag == self.selected_view)
-            .map_or(self.output(), |vw| &vw.bind_group);
+            .find(|vw| vw.tag == pp.selected_view)
+            .map_or(pp.output(), |vw| &vw.bind_group);
 
-        r_pass.set_pipeline(&self.finalize_pipeline);
+        r_pass.set_pipeline(&pp.finalize_pipeline);
         r_pass.set_bind_group(0, fx_bind_group, &[]);
-        r_pass.set_bind_group(1, self.frame_state.output(), &[]);
+        r_pass.set_bind_group(1, pp.frame_state.output(), &[]);
         r_pass.draw(0..3, 0..1);
+
+        state.gfx_state.renderer.render(
+            &mut r_pass,
+            &clipped_primitives,
+            &state.gfx_state.screen_descriptor,
+        );
     }
 
     pub fn create_fx_layout(
