@@ -1,18 +1,16 @@
+use super::{Camera, Emitter, GfxState, State};
 use crate::traits::{Animation, EmitterAnimation};
-use std::{
-    fmt::{Debug, Formatter},
-    num::NonZeroU64,
-};
-
 use crate::{
     texture::DiffuseTexture,
     traits::{CalculateBufferSize, CustomShader},
 };
-
-use super::{Camera, Clock, Emitter, GfxState, State};
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
 use glam::Vec3;
+use std::{
+    fmt::{Debug, Formatter},
+    num::NonZeroU64,
+};
 use wgpu::util::DeviceExt;
 
 #[allow(dead_code)]
@@ -86,15 +84,34 @@ impl<'a> SpawnState {
             });
     }
 
-    pub fn compute_particles(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
+    pub fn compute_particles(state: &'a State, encoder: &'a mut wgpu::CommandEncoder) {
+        let State {
+            clock,
+            light_spawner,
+            spawners,
+            ..
+        } = state;
+
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Compute pipeline"),
         });
 
-        state.light_spawner.compute(&state.clock, &mut c_pass);
+        let bind_group_nr = clock.get_bindgroup_nr();
 
-        for spawner in state.spawners.iter() {
-            spawner.compute(&state.clock, &mut c_pass);
+        let compute = |c_pass: &mut wgpu::ComputePass<'a>, spawner: &'a SpawnState| {
+            c_pass.set_pipeline(&spawner.pipeline);
+            c_pass.set_bind_group(0, &spawner.bind_groups[bind_group_nr], &[]);
+            c_pass.dispatch_workgroups(spawner.dispatch_x_count, 1, 1);
+
+            for anim in spawner.animations.iter() {
+                anim.compute(spawner, clock, c_pass);
+            }
+        };
+
+        compute(&mut c_pass, light_spawner);
+
+        for spawner in spawners.iter() {
+            compute(&mut c_pass, spawner);
         }
     }
 
@@ -141,23 +158,10 @@ impl<'a> SpawnState {
 
             // TODO move diffuse texture to particle bind group
             r_pass.set_pipeline(&spawner.render_pipeline);
-            r_pass.set_bind_group(0, &spawner.diffuse_texture.bind_group, &[]);
-            r_pass.set_bind_group(1, &camera.bind_group, &[]);
-            r_pass.set_bind_group(2, &spawner.bind_groups[nr], &[]);
-            r_pass.set_bind_group(3, &light_spawner.bind_groups[nr], &[]);
+            r_pass.set_bind_group(0, &camera.bind_group, &[]);
+            r_pass.set_bind_group(1, &spawner.bind_groups[nr], &[]);
+            r_pass.set_bind_group(2, &light_spawner.bind_groups[nr], &[]);
             r_pass.draw(0..4, 0..spawner.particle_count() as u32);
-        }
-    }
-
-    pub fn compute(&'a self, clock: &Clock, compute_pass: &mut wgpu::ComputePass<'a>) {
-        let bind_group_nr = clock.get_bindgroup_nr();
-
-        compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &self.bind_groups[bind_group_nr], &[]);
-        compute_pass.dispatch_workgroups(self.dispatch_x_count, 1, 1);
-
-        for anim in self.animations.iter() {
-            anim.compute(self, clock, compute_pass);
         }
     }
 
@@ -265,6 +269,22 @@ impl GfxState {
                     },
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
             ],
             label: None,
         });
@@ -303,6 +323,14 @@ impl GfxState {
                         binding: 2,
                         resource: emitter_buffer.as_entire_binding(),
                     },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                    },
                 ],
                 label: None,
             }));
@@ -338,12 +366,7 @@ impl GfxState {
             shader = device.create_shader("particle.wgsl", "Particle render");
             pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Particle render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &diffuse_texture.bind_group_layout,
-                    &camera.bind_group_layout,
-                    &bind_group_layout,
-                    light_layout,
-                ],
+                bind_group_layouts: &[&camera.bind_group_layout, &bind_group_layout, light_layout],
                 push_constant_ranges: &[],
             });
             blend_state = wgpu::BlendState::REPLACE;

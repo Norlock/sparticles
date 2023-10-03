@@ -28,12 +28,6 @@ enum Tab {
     EmitterAnimations,
 }
 
-enum SpawnTab {
-    SpawnSettings,
-    EmitterAnimations,
-    ParticleAnimations,
-}
-
 #[derive(PartialEq, Debug)]
 enum PostFx {
     Bloom,
@@ -74,6 +68,23 @@ impl GuiState {
 
             gui.reset_camera = ui.button("Reset camera").clicked();
             ui.add_space(5.0);
+
+            let mut ids: Vec<&str> = spawners.iter().map(|s| s.id.as_str()).collect();
+            ids.push(&light_spawner.id);
+
+            egui::ComboBox::from_id_source("sel-spawner")
+                .selected_text(&gui.selected_spawner_id)
+                .show_ui(ui, |ui| {
+                    for id in ids.into_iter() {
+                        ui.selectable_value(
+                            &mut gui.selected_spawner_id,
+                            id.to_owned(),
+                            id.to_owned(),
+                        );
+                    }
+                });
+
+            ui.add_space(5.0);
             ui.separator();
 
             ui.horizontal(|ui| {
@@ -92,13 +103,31 @@ impl GuiState {
             });
 
             ui.separator();
-            ui.add_space(5.0);
 
-            match state.gui.selected_tab {
-                Tab::SpawnSettings => GuiState::spawn_tab(state, ui),
+            let selected_spawner = spawners
+                .iter_mut()
+                .find(|s| s.id == gui.selected_spawner_id)
+                .or_else(|| {
+                    if light_spawner.id == gui.selected_spawner_id {
+                        return Some(light_spawner);
+                    } else {
+                        return None;
+                    }
+                });
+
+            match gui.selected_tab {
+                Tab::SpawnSettings => {
+                    if let Some(spawner) = selected_spawner {
+                        gui.create_spawner_menu(ui, &mut spawner.gui);
+                    }
+                }
                 Tab::PostFxSettings => GuiState::post_fx_tab(state, ui),
                 Tab::ParticleAnimations => {}
-                Tab::EmitterAnimations => GuiState::emitter_animations_tab(state, ui),
+                Tab::EmitterAnimations => {
+                    if let Some(spawner) = selected_spawner {
+                        spawner.gui_emitter_animations(ui);
+                    }
+                }
             };
         });
     }
@@ -235,34 +264,6 @@ impl GuiState {
         );
     }
 
-    fn emitter_animations_tab(state: &mut State, ui: &mut Ui) {
-        let State {
-            spawners,
-            light_spawner,
-            ..
-        } = state;
-        //ComboBox::from_label("Selected spawner") .selected_text(&self.selected_spawner_id)
-        //.show_ui(ui, |ui| {
-        //for item in .views.iter() {
-        //ui.selectable_value(
-        //&mut post_process.selected_view,
-        //item.tag.to_string(),
-        //item.tag.to_string(),
-        //);
-        //}
-        //});
-
-        ui.label("Light spawner");
-
-        light_spawner.gui_emitter_animations(ui);
-
-        ui.label("Spawner");
-
-        for spawner in spawners.iter_mut() {
-            spawner.gui_emitter_animations(ui);
-        }
-    }
-
     fn post_fx_tab(state: &mut State, ui: &mut Ui) {
         let State {
             gfx_state,
@@ -333,41 +334,9 @@ impl GuiState {
         }
     }
 
-    fn spawn_tab(state: &mut State, ui: &mut Ui) {
-        let State {
-            spawners,
-            light_spawner,
-            gui,
-            ..
-        } = state;
-
-        let mut ids: Vec<&str> = spawners.iter().map(|s| s.id.as_str()).collect();
-        ids.push(&light_spawner.id);
-
-        egui::ComboBox::from_id_source("sel-spawner")
-            .selected_text(&gui.selected_spawner_id)
-            .show_ui(ui, |ui| {
-                for id in ids.into_iter() {
-                    ui.selectable_value(&mut gui.selected_spawner_id, id.to_owned(), id.to_owned());
-                }
-            });
-
-        let opt_light_spawner = || {
-            if light_spawner.id == gui.selected_spawner_id {
-                Some(light_spawner)
-            } else {
-                None
-            }
-        };
-
-        let spawner: Option<&mut SpawnState> = spawners
-            .iter_mut()
-            .find(|s| s.id == gui.selected_spawner_id)
-            .or_else(opt_light_spawner);
-
-        if let Some(spawner) = spawner {
-            gui.create_spawner_menu(ui, &mut spawner.gui);
-        }
+    pub fn create_title(ui: &mut Ui, str: &str) {
+        ui.label(RichText::new(str).color(Color32::WHITE).size(16.0));
+        ui.add_space(5.0);
     }
 }
 

@@ -1,10 +1,8 @@
+use super::{gfx_state::GfxState, State};
+use crate::traits::{CreateAspect, ToVecF32};
 use egui_wgpu::wgpu;
 use egui_winit::winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use glam::*;
-
-use crate::traits::{CreateAspect, ToVecF32};
-
-use super::{gfx_state::GfxState, Clock, GuiState, State};
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4 {

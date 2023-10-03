@@ -2,7 +2,7 @@ use egui_winit::egui::{DragValue, Ui};
 use glam::Vec2;
 
 use crate::{
-    model::{Clock, Emitter, LifeCycle},
+    model::{Clock, Emitter, GuiState, LifeCycle},
     traits::{EmitterAnimation, HandleAngles},
 };
 
@@ -57,7 +57,7 @@ impl EmitterAnimation for SwayAnimation {
         let life_cycle = &mut self.life_cycle;
         let gui = &mut self.gui;
 
-        ui.label("Sway animation");
+        GuiState::create_title(ui, "Sway animation");
 
         ui.horizontal(|ui| {
             ui.label("Animate from sec");

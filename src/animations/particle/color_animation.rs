@@ -1,4 +1,5 @@
 use egui_wgpu::wgpu;
+use encase::{ShaderType, UniformBuffer};
 use glam::Vec4;
 use wgpu::util::DeviceExt;
 
@@ -16,8 +17,8 @@ pub struct ColorUniform {
 }
 
 impl ColorUniform {
-    fn create_buffer_content(&self) -> [f32; 10] {
-        [
+    fn create_buffer_content(&self) -> Vec<f32> {
+        vec![
             self.from_color.x,
             self.from_color.y,
             self.from_color.z,

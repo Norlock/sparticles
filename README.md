@@ -3,11 +3,14 @@ Particle system written in rust + WGPU + EGUI
 
 ## Roadmap
 - [ ] Performance test gpu
-- [x] Bigger frame and clip (for post fx)
 - [ ] Export (Post fx / animation settings).
 - [ ] Seperate post fx settings per spawner
 - [ ] Create noise texture for effects
   - [ ] Create these textures in gui
+
+## Gui
+- [ ] Show all possible diffuse textures in map
+- [ ] Preview mode of textures
 
 ## Post fx
 - [ ] Depth of view

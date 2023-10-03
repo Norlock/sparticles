@@ -1,10 +1,10 @@
-@group(1) @binding(0) 
+@group(0) @binding(0) 
 var<uniform> camera: CameraUniform;
 
-@group(2) @binding(0) 
+@group(1) @binding(0) 
 var<storage, read> particles: array<Particle>;
 
-@group(3) @binding(0) 
+@group(2) @binding(0) 
 var<storage, read> light_particles: array<Particle>;
 
 struct VertexOutput {
@@ -46,9 +46,9 @@ fn vs_main(
     return out;
 }
 
-@group(0) @binding(0)
+@group(1) @binding(3)
 var base_texture: texture_2d<f32>;
-@group(0) @binding(1)
+@group(1) @binding(4)
 var base_sampler: sampler;
 
 @fragment

@@ -7,6 +7,7 @@ use super::post_process::FxPersistenceType;
 use super::post_process::FxView;
 use super::Blend;
 use super::FxState;
+use crate::model::GuiState;
 use crate::traits::*;
 use crate::GfxState;
 use egui_wgpu::wgpu;
@@ -55,7 +56,7 @@ impl PostFxChain for Bloom {
     }
 
     fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState) {
-        ui.label("Bloom settings");
+        GuiState::create_title(ui, "Bloom settings");
         ui.add_space(5.0);
 
         self.blur.create_ui(ui, gfx_state);

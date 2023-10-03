@@ -4,6 +4,7 @@ use crate::{
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
+use encase::{private::WriteInto, ShaderType, UniformBuffer};
 use std::{num::NonZeroU64, rc::Rc};
 
 pub trait FromRGB {
@@ -63,11 +64,6 @@ pub trait CalculateBufferSize {
 pub trait HandleAngles {
     fn to_degrees(&self) -> Self;
     fn to_radians(&self) -> Self;
-}
-
-pub trait CreateSpawner {
-    fn create_emitter(&self) -> Emitter;
-    fn create_id(&self) -> String;
 }
 
 pub trait PostFx {

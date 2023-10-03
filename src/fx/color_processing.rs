@@ -3,7 +3,7 @@ use super::{
     FxState,
 };
 use crate::{
-    model::GfxState,
+    model::{GfxState, GuiState},
     traits::{CustomShader, PostFxChain},
 };
 use egui_wgpu::wgpu::{self, util::DeviceExt};
@@ -59,7 +59,7 @@ impl PostFxChain for ColorProcessing {
         let uniform = &mut self.uniform;
         let queue = &gfx_state.queue;
 
-        ui.label("Color correction");
+        GuiState::create_title(ui, "Color correction");
         ui.add(Slider::new(&mut uniform.gamma, 0.1..=4.0).text("Gamma"));
         ui.add(Slider::new(&mut uniform.contrast, 0.1..=4.0).text("Contrast"));
         ui.add(Slider::new(&mut uniform.brightness, 0.01..=1.0).text("Brightness"));
