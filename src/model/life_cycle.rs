@@ -1,6 +1,6 @@
 use super::Clock;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LifeCycle {
     pub from_sec: f32,
     pub until_sec: f32,

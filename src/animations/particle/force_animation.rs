@@ -1,5 +1,5 @@
 use egui_wgpu::wgpu::{self, util::DeviceExt, Device};
-use egui_winit::egui::Ui;
+use egui_winit::egui::{DragValue, Ui};
 use glam::Vec3;
 
 use crate::{
@@ -7,7 +7,7 @@ use crate::{
     traits::{CreateAnimation, CustomShader, ParticleAnimation},
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct ForceUniform {
     pub life_cycle: LifeCycle,
     pub velocity: Vec3,
@@ -40,14 +40,24 @@ pub struct ForceAnimation {
     pipeline: wgpu::ComputePipeline,
     uniform: ForceUniform,
     bind_group: wgpu::BindGroup,
+    buffer: wgpu::Buffer,
+    update_uniform: bool,
     should_animate: bool,
 }
 
 impl ParticleAnimation for ForceAnimation {
-    fn update(&mut self, clock: &Clock, _gfx_state: &GfxState) {
+    fn update(&mut self, clock: &Clock, gfx_state: &GfxState) {
+        let queue = &gfx_state.queue;
         let uniform = &self.uniform;
         let current_sec = uniform.life_cycle.get_current_sec(clock);
         self.should_animate = uniform.life_cycle.shoud_animate(current_sec);
+
+        if self.update_uniform {
+            let buf_content_raw = self.uniform.create_buffer_content();
+            let buf_content = bytemuck::cast_slice(&buf_content_raw);
+            queue.write_buffer(&self.buffer, 0, &buf_content);
+            self.update_uniform = false;
+        }
     }
 
     fn compute<'a>(
@@ -77,7 +87,44 @@ impl ParticleAnimation for ForceAnimation {
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {
+        let mut gui = self.uniform;
+
         GuiState::create_title(ui, "Force animation");
+
+        ui.horizontal(|ui| {
+            ui.label("Animate from sec");
+            ui.add(DragValue::new(&mut gui.life_cycle.from_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Animate until sec");
+            ui.add(DragValue::new(&mut gui.life_cycle.until_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Lifetime sec");
+            ui.add(DragValue::new(&mut gui.life_cycle.lifetime_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Force velocity > ");
+            ui.label("x:");
+            ui.add(DragValue::new(&mut gui.velocity.x).speed(0.1));
+            ui.label("y:");
+            ui.add(DragValue::new(&mut gui.velocity.y).speed(0.1));
+            ui.label("z:");
+            ui.add(DragValue::new(&mut gui.velocity.z).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Mass applied per (1) unit length");
+            ui.add(DragValue::new(&mut gui.mass_per_unit).speed(0.1));
+        });
+
+        if self.uniform != gui {
+            self.update_uniform = true;
+            self.uniform = gui;
+        }
     }
 }
 
@@ -136,6 +183,8 @@ impl ForceAnimation {
             pipeline,
             uniform,
             bind_group,
+            buffer,
+            update_uniform: false,
             should_animate: false,
         }
     }

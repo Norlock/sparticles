@@ -1,5 +1,5 @@
 use egui_wgpu::wgpu;
-use egui_winit::egui::Ui;
+use egui_winit::egui::{DragValue, Ui};
 use glam::Vec3;
 use wgpu::util::DeviceExt;
 
@@ -7,12 +7,12 @@ use crate::model::clock::Clock;
 use crate::model::{EmitterState, GfxState, GuiState, LifeCycle};
 use crate::traits::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GravityUniform {
+    life_cycle: LifeCycle,
     gravitational_force: f32,
     dead_zone: f32,
     mass: f32,
-    life_cycle: LifeCycle,
     should_animate: bool,
     start_pos: Vec3,
     end_pos: Vec3,
@@ -124,7 +124,62 @@ impl ParticleAnimation for GravityAnimation {
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {
+        let mut gui = self.uniform;
         GuiState::create_title(ui, "Gravity animation");
+
+        ui.horizontal(|ui| {
+            ui.label("Animate from sec");
+            ui.add(DragValue::new(&mut gui.life_cycle.from_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Animate until sec");
+            ui.add(DragValue::new(&mut gui.life_cycle.until_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Lifetime sec");
+            ui.add(DragValue::new(&mut gui.life_cycle.lifetime_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Start position > ");
+            ui.label("x:");
+            ui.add(DragValue::new(&mut gui.start_pos.x).speed(0.1));
+            ui.label("y:");
+            ui.add(DragValue::new(&mut gui.start_pos.y).speed(0.1));
+            ui.label("z:");
+            ui.add(DragValue::new(&mut gui.start_pos.z).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("End position > ");
+            ui.label("x:");
+            ui.add(DragValue::new(&mut gui.end_pos.x).speed(0.1));
+            ui.label("y:");
+            ui.add(DragValue::new(&mut gui.end_pos.y).speed(0.1));
+            ui.label("z:");
+            ui.add(DragValue::new(&mut gui.end_pos.z).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Dead zone");
+            ui.add(DragValue::new(&mut gui.dead_zone).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Mass");
+            ui.add(DragValue::new(&mut gui.mass).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Gravitational force");
+            ui.add(DragValue::new(&mut gui.gravitational_force).speed(0.1));
+        });
+
+        if self.uniform != gui {
+            self.uniform = gui;
+        }
     }
 }
 

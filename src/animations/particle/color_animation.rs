@@ -100,28 +100,32 @@ impl ParticleAnimation for ColorAnimation {
             ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
         });
 
+        fn color_drag_value(val: &mut f32) -> DragValue<'_> {
+            DragValue::new(val).clamp_range(0f32..=1f32).speed(0.01)
+        }
+
         ui.horizontal(|ui| {
             ui.label("From color >");
             ui.label("r:");
-            ui.add(DragValue::new(&mut gui.from_color.x).speed(0.1));
+            ui.add(color_drag_value(&mut gui.from_color.x));
             ui.label("g:");
-            ui.add(DragValue::new(&mut gui.from_color.y).speed(0.1));
+            ui.add(color_drag_value(&mut gui.from_color.y));
             ui.label("b:");
-            ui.add(DragValue::new(&mut gui.from_color.z).speed(0.1));
+            ui.add(color_drag_value(&mut gui.from_color.z));
             ui.label("a:");
-            ui.add(DragValue::new(&mut gui.from_color.w).speed(0.1));
+            ui.add(color_drag_value(&mut gui.from_color.w));
         });
 
         ui.horizontal(|ui| {
             ui.label("To color >");
             ui.label("r:");
-            ui.add(DragValue::new(&mut gui.to_color.x).speed(0.1));
+            ui.add(color_drag_value(&mut gui.to_color.x));
             ui.label("g:");
-            ui.add(DragValue::new(&mut gui.to_color.y).speed(0.1));
+            ui.add(color_drag_value(&mut gui.to_color.y));
             ui.label("b:");
-            ui.add(DragValue::new(&mut gui.to_color.z).speed(0.1));
+            ui.add(color_drag_value(&mut gui.to_color.z));
             ui.label("a:");
-            ui.add(DragValue::new(&mut gui.to_color.w).speed(0.1));
+            ui.add(color_drag_value(&mut gui.to_color.w));
         });
 
         if self.uniform != gui {
