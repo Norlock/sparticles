@@ -1,3 +1,5 @@
+use std::{fs, path::PathBuf};
+
 use crate::{
     fx::PostProcessState,
     model::gfx_state::GfxState,
@@ -52,7 +54,6 @@ impl GfxState {
                 },
                 mip_level_count: 1,
                 sample_count: 1,
-                //view_formats: &[wgpu::TextureFormat::Bgra8UnormSrgb],
                 view_formats: &[],
                 dimension: wgpu::TextureDimension::D2,
                 format: config.format,
@@ -83,11 +84,16 @@ impl GfxState {
             .default_view()
     }
 
-    pub fn create_diffuse_texture(&self) -> DiffuseTexture {
+    pub fn create_diffuse_texture(&self, filename: &str) -> DiffuseTexture {
         let device = &self.device;
 
-        let diffuse_bytes = include_bytes!("assets/particle-diffuse.jpg");
-        let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
+        let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        dir.push(format!("src/assets/textures/{}", filename));
+
+        let path = dir.to_str().expect("Texture image doesn't exist");
+
+        let bytes = fs::read(path).expect("Can't read texture image");
+        let diffuse_image = image::load_from_memory(&bytes).unwrap();
         let diffuse_rgba = diffuse_image.to_rgba8();
 
         let dimensions = diffuse_image.dimensions();

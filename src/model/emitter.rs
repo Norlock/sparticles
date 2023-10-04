@@ -23,44 +23,6 @@ impl Range {
 
 impl Default for Emitter {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Emitter {
-    spawn_from: u32,
-    spawn_until: u32,
-    spawn_batches_count: u32,
-    elapsed_sec: f32,
-    delta_sec: f32,
-    iteration: u32,
-
-    pub spawn_count: u32,
-    pub spawn_delay_sec: f32,
-
-    pub box_pos: Vec3,
-    /// width, height, depth
-    pub box_dimensions: Vec3,
-    /// yaw, pitch, roll
-    pub box_rotation: Vec3,
-
-    /// Diffusion emission in radians
-    pub diff_width: f32,
-    /// Diffusion emission in radians
-    pub diff_depth: f32,
-
-    pub particle_color: Vec4,
-    pub particle_friction_coefficient: f32,
-    pub particle_speed: Range,
-    pub particle_size: Range,
-    /// Mass per size 1
-    pub particle_material_mass: f32,
-    pub particle_lifetime_sec: f32,
-}
-
-impl Emitter {
-    pub fn new() -> Self {
         let spawn_count: u32 = 6;
         let particle_lifetime_sec: f32 = 6.;
         let spawn_delay_sec: f32 = 0.5;
@@ -98,9 +60,45 @@ impl Emitter {
             iteration: 1000,
             elapsed_sec: 0.,
             delta_sec: 0.0,
+            texture_image: "1x1.png".to_string(),
         }
     }
+}
 
+#[derive(Debug, Clone)]
+pub struct Emitter {
+    spawn_from: u32,
+    spawn_until: u32,
+    spawn_batches_count: u32,
+    elapsed_sec: f32,
+    delta_sec: f32,
+    iteration: u32,
+
+    pub spawn_count: u32,
+    pub spawn_delay_sec: f32,
+
+    pub box_pos: Vec3,
+    /// width, height, depth
+    pub box_dimensions: Vec3,
+    /// yaw, pitch, roll
+    pub box_rotation: Vec3,
+
+    /// Diffusion emission in radians
+    pub diff_width: f32,
+    /// Diffusion emission in radians
+    pub diff_depth: f32,
+
+    pub particle_color: Vec4,
+    pub particle_friction_coefficient: f32,
+    pub particle_speed: Range,
+    pub particle_size: Range,
+    /// Mass per size 1
+    pub particle_material_mass: f32,
+    pub particle_lifetime_sec: f32,
+    pub texture_image: String,
+}
+
+impl Emitter {
     pub fn handle_gui(&mut self, gui: &SpawnGuiState) {
         self.box_rotation = gui.box_rotation_deg.to_radians();
         self.box_dimensions = gui.box_dimensions;
@@ -171,15 +169,6 @@ impl Emitter {
             spawn_delay_sec: self.spawn_delay_sec,
             particle_lifetime_sec: self.particle_lifetime_sec,
         }
-    }
-
-    pub fn from_spawn_options(&self, options: EmitSpawnOptions) -> Self {
-        let mut new = *self;
-        new.spawn_count = options.spawn_count;
-        new.spawn_delay_sec = options.spawn_delay_sec;
-        new.particle_lifetime_sec = options.particle_lifetime_sec;
-
-        new
     }
 
     pub fn create_buffer_content(&self) -> Vec<f32> {

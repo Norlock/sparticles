@@ -173,7 +173,7 @@ impl<'a> SpawnState {
     ) {
         let mut new_self = gfx_state.create_spawner(SpawnOptions {
             id: self.id.clone(),
-            emitter: self.emitter,
+            emitter: self.emitter.clone(),
             light_layout,
             camera,
         });
@@ -222,7 +222,7 @@ impl GfxState {
         let surface_config = &self.surface_config;
 
         let emitter_buf_content = emitter.create_buffer_content();
-        let diffuse_texture = self.create_diffuse_texture();
+        let diffuse_texture = self.create_diffuse_texture(&emitter.texture_image);
 
         let particle_buffer_size = NonZeroU64::new(emitter.particle_buffer_size());
         let emitter_buffer_size = emitter_buf_content.cal_buffer_size();

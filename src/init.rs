@@ -24,7 +24,7 @@ impl InitApp {
         let mut light_spawner = gfx_state.create_spawner(SpawnOptions {
             camera,
             id: light.id.to_string(),
-            emitter: light.emitter,
+            emitter: light.emitter.clone(),
             light_layout: None,
         });
 
