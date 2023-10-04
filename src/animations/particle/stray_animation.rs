@@ -45,6 +45,7 @@ impl ParticleAnimation for StrayAnimation {
             let buf_content_raw = self.uniform.create_buffer_content();
             let buf_content = bytemuck::cast_slice(&buf_content_raw);
             queue.write_buffer(&self.buffer, 0, buf_content);
+            self.update_uniform = false;
         }
     }
 
@@ -73,27 +74,22 @@ impl ParticleAnimation for StrayAnimation {
     fn create_gui(&mut self, ui: &mut Ui) {
         GuiState::create_title(ui, "Stray animation");
 
-        let mut from_sec = self.uniform.from_sec;
-        let mut until_sec = self.uniform.until_sec;
-        let mut stray_degrees = self.uniform.stray_radians.to_degrees();
+        let mut gui = self.uniform;
+        let mut stray_degrees = gui.stray_radians.to_degrees();
 
         ui.horizontal(|ui| {
             ui.label("Animate from sec");
-            ui.add(DragValue::new(&mut from_sec).speed(0.1));
+            ui.add(DragValue::new(&mut gui.from_sec).speed(0.1));
         });
 
         ui.horizontal(|ui| {
             ui.label("Animate until sec");
-            ui.add(DragValue::new(&mut until_sec).speed(0.1));
+            ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
         });
 
         GuiState::create_degree_slider(ui, &mut stray_degrees, "Stray degrees");
 
-        let gui = StrayUniform {
-            from_sec,
-            until_sec,
-            stray_radians: stray_degrees.to_radians(),
-        };
+        gui.stray_radians = stray_degrees.to_radians();
 
         if self.uniform != gui {
             self.update_uniform = true;

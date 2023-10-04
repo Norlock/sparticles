@@ -1,5 +1,5 @@
 use egui_wgpu::wgpu;
-use egui_winit::egui::Ui;
+use egui_winit::egui::{DragValue, Ui};
 use glam::Vec4;
 use wgpu::util::DeviceExt;
 
@@ -8,7 +8,7 @@ use crate::{
     traits::*,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct ColorUniform {
     pub from_color: Vec4,
     pub to_color: Vec4,
@@ -47,10 +47,21 @@ struct ColorAnimation {
     pipeline: wgpu::ComputePipeline,
     animation_bind_group: wgpu::BindGroup,
     uniform: ColorUniform,
+    buffer: wgpu::Buffer,
+    update_uniform: bool,
 }
 
 impl ParticleAnimation for ColorAnimation {
-    fn update(&mut self, _clock: &Clock, _gfx_state: &GfxState) {}
+    fn update(&mut self, _clock: &Clock, gfx_state: &GfxState) {
+        let queue = &gfx_state.queue;
+
+        if self.update_uniform {
+            let buf_content_raw = self.uniform.create_buffer_content();
+            let buf_content = bytemuck::cast_slice(&buf_content_raw);
+            queue.write_buffer(&self.buffer, 0, buf_content);
+            self.update_uniform = false;
+        }
+    }
 
     fn compute<'a>(
         &'a self,
@@ -76,6 +87,47 @@ impl ParticleAnimation for ColorAnimation {
 
     fn create_gui(&mut self, ui: &mut Ui) {
         GuiState::create_title(ui, "Color animation");
+
+        let mut gui = self.uniform;
+
+        ui.horizontal(|ui| {
+            ui.label("Animate from sec");
+            ui.add(DragValue::new(&mut gui.from_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Animate until sec");
+            ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("From color >");
+            ui.label("r:");
+            ui.add(DragValue::new(&mut gui.from_color.x).speed(0.1));
+            ui.label("g:");
+            ui.add(DragValue::new(&mut gui.from_color.y).speed(0.1));
+            ui.label("b:");
+            ui.add(DragValue::new(&mut gui.from_color.z).speed(0.1));
+            ui.label("a:");
+            ui.add(DragValue::new(&mut gui.from_color.w).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("To color >");
+            ui.label("r:");
+            ui.add(DragValue::new(&mut gui.to_color.x).speed(0.1));
+            ui.label("g:");
+            ui.add(DragValue::new(&mut gui.to_color.y).speed(0.1));
+            ui.label("b:");
+            ui.add(DragValue::new(&mut gui.to_color.z).speed(0.1));
+            ui.label("a:");
+            ui.add(DragValue::new(&mut gui.to_color.w).speed(0.1));
+        });
+
+        if self.uniform != gui {
+            self.update_uniform = true;
+            self.uniform = gui;
+        }
     }
 }
 
@@ -85,7 +137,7 @@ impl ColorAnimation {
 
         let animation_uniform = uniform.create_buffer_content();
 
-        let animation_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Color buffer"),
             contents: bytemuck::cast_slice(&animation_uniform),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -112,7 +164,7 @@ impl ColorAnimation {
             layout: &animation_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: animation_buffer.as_entire_binding(),
+                resource: buffer.as_entire_binding(),
             }],
             label: Some("Color animation"),
         });
@@ -133,7 +185,9 @@ impl ColorAnimation {
         Self {
             pipeline,
             animation_bind_group,
+            buffer,
             uniform,
+            update_uniform: false,
         }
     }
 }
