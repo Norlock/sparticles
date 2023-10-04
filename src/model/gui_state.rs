@@ -1,4 +1,4 @@
-use super::{SpawnGuiState, SpawnState, State};
+use super::{EmitterGuiState, EmitterState, State};
 use crate::{
     fx::{bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, FxPersistenceType},
     util::{persistence::ExportType, Persistence},
@@ -43,15 +43,15 @@ impl GuiState {
         Window::new("Sparticles settings").show(&state.gfx_state.ctx.clone(), |ui| {
             let State {
                 clock,
-                spawners,
-                light_spawner,
+                emitters: spawners,
+                lights,
                 gui,
                 ..
             } = state;
 
             // Update gui info
             if clock.frame() % 20 == 0 {
-                let particle_count: u64 = light_spawner.particle_count()
+                let particle_count: u64 = lights.particle_count()
                     + spawners.iter().map(|s| s.particle_count()).sum::<u64>();
 
                 gui.cpu_time_text = clock.cpu_time_text();
@@ -70,7 +70,7 @@ impl GuiState {
             ui.add_space(5.0);
 
             let mut ids: Vec<&str> = spawners.iter().map(|s| s.id.as_str()).collect();
-            ids.push(&light_spawner.id);
+            ids.push(&lights.id);
 
             egui::ComboBox::from_id_source("sel-spawner")
                 .selected_text(&gui.selected_spawner_id)
@@ -108,8 +108,8 @@ impl GuiState {
                 .iter_mut()
                 .find(|s| s.id == gui.selected_spawner_id)
                 .or_else(|| {
-                    if light_spawner.id == gui.selected_spawner_id {
-                        return Some(light_spawner);
+                    if lights.id == gui.selected_spawner_id {
+                        return Some(lights);
                     } else {
                         return None;
                     }
@@ -122,7 +122,11 @@ impl GuiState {
                     }
                 }
                 Tab::PostFxSettings => GuiState::post_fx_tab(state, ui),
-                Tab::ParticleAnimations => {}
+                Tab::ParticleAnimations => {
+                    if let Some(spawner) = selected_spawner {
+                        spawner.gui_particle_animations(ui);
+                    }
+                }
                 Tab::EmitterAnimations => {
                     if let Some(spawner) = selected_spawner {
                         spawner.gui_emitter_animations(ui);
@@ -132,7 +136,7 @@ impl GuiState {
         });
     }
 
-    pub fn new(spawners: &[SpawnState], show_gui: bool) -> Self {
+    pub fn new(spawners: &[EmitterState], show_gui: bool) -> Self {
         let spawner = spawners.first();
 
         let selected_id = spawner.map_or("".to_owned(), |s| s.id.to_owned());
@@ -153,8 +157,8 @@ impl GuiState {
     pub fn handle_gui(state: &mut State) {
         let State {
             camera,
-            light_spawner,
-            spawners,
+            lights,
+            emitters: spawners,
             gui,
             gfx_state,
             ..
@@ -171,36 +175,37 @@ impl GuiState {
             camera.view_dir = glam::Vec3::new(0., 0., -10.);
         }
 
-        let update_spawner = |spawner: &mut SpawnState, layout: Option<&wgpu::BindGroupLayout>| {
-            spawner.emitter.handle_gui(&spawner.gui);
+        let update_emitter = |spawner: &mut EmitterState,
+                              layout: Option<&wgpu::BindGroupLayout>| {
+            spawner.uniform.handle_gui(&spawner.gui);
 
             if spawner.gui.recreate {
                 spawner.recreate_spawner(&gfx_state, layout, &camera);
             }
         };
 
-        if light_spawner.id == gui.selected_spawner_id {
-            update_spawner(light_spawner, None);
+        if lights.id == gui.selected_spawner_id {
+            update_emitter(lights, None);
         } else {
             let selected = spawners
                 .iter_mut()
                 .find(|spawner| spawner.id == gui.selected_spawner_id);
 
             if let Some(spawner) = selected {
-                update_spawner(spawner, Some(&light_spawner.bind_group_layout));
+                update_emitter(spawner, Some(&lights.bind_group_layout));
             }
         }
     }
 
-    fn create_spawner_menu(&mut self, ui: &mut Ui, spawn_gui: &mut SpawnGuiState) {
+    fn create_spawner_menu(&mut self, ui: &mut Ui, spawn_gui: &mut EmitterGuiState) {
         ui.add_space(5.0);
 
-        create_deg_slider(ui, &mut spawn_gui.box_rotation_deg.x, "Box yaw");
-        create_deg_slider(ui, &mut spawn_gui.box_rotation_deg.y, "Box pitch");
-        create_deg_slider(ui, &mut spawn_gui.box_rotation_deg.z, "Box roll");
+        Self::create_degree_slider(ui, &mut spawn_gui.box_rotation_deg.x, "Box yaw");
+        Self::create_degree_slider(ui, &mut spawn_gui.box_rotation_deg.y, "Box pitch");
+        Self::create_degree_slider(ui, &mut spawn_gui.box_rotation_deg.z, "Box roll");
 
-        create_deg_slider(ui, &mut spawn_gui.diff_width_deg, "Diffusion width");
-        create_deg_slider(ui, &mut spawn_gui.diff_depth_deg, "Diffusion depth");
+        Self::create_degree_slider(ui, &mut spawn_gui.diff_width_deg, "Diffusion width");
+        Self::create_degree_slider(ui, &mut spawn_gui.diff_depth_deg, "Diffusion depth");
 
         ui.add_space(5.0);
         create_label(ui, "Box dimensions (w, h, d)");
@@ -338,10 +343,10 @@ impl GuiState {
         ui.label(RichText::new(str).color(Color32::WHITE).size(16.0));
         ui.add_space(5.0);
     }
-}
 
-fn create_deg_slider(ui: &mut Ui, val: &mut f32, str: &str) {
-    ui.add(Slider::new(val, 0.0..=360.).text(str));
+    pub fn create_degree_slider(ui: &mut Ui, val: &mut f32, str: &str) {
+        ui.add(Slider::new(val, 0.0..=360.).text(str));
+    }
 }
 
 fn create_label(ui: &mut Ui, str: &str) {

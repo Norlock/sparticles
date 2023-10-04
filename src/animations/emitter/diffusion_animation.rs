@@ -2,7 +2,7 @@ use egui_winit::egui::{DragValue, Ui};
 use glam::Vec2;
 
 use crate::{
-    model::{Clock, Emitter, GuiState, LifeCycle},
+    model::{Clock, EmitterUniform, GuiState, LifeCycle},
     traits::{EmitterAnimation, HandleAngles},
 };
 
@@ -35,7 +35,7 @@ impl DiffusionAnimation {
 }
 
 impl EmitterAnimation for DiffusionAnimation {
-    fn animate(&mut self, emitter: &mut Emitter, clock: &Clock) {
+    fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock) {
         let current_sec = self.life_cycle.get_current_sec(clock);
 
         if !self.life_cycle.shoud_animate(current_sec) {

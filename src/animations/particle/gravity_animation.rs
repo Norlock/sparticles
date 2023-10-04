@@ -1,9 +1,10 @@
 use egui_wgpu::wgpu;
+use egui_winit::egui::Ui;
 use glam::Vec3;
 use wgpu::util::DeviceExt;
 
 use crate::model::clock::Clock;
-use crate::model::{GfxState, LifeCycle, SpawnState};
+use crate::model::{EmitterState, GfxState, GuiState, LifeCycle};
 use crate::traits::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -70,8 +71,8 @@ impl CreateAnimation for GravityUniform {
     fn into_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        spawner: &SpawnState,
-    ) -> Box<dyn Animation> {
+        spawner: &EmitterState,
+    ) -> Box<dyn ParticleAnimation> {
         Box::new(GravityAnimation::new(*self, spawner, &gfx_state.device))
     }
 }
@@ -83,10 +84,10 @@ pub struct GravityAnimation {
     bind_group: wgpu::BindGroup,
 }
 
-impl Animation for GravityAnimation {
+impl ParticleAnimation for GravityAnimation {
     fn compute<'a>(
         &'a self,
-        spawner: &'a SpawnState,
+        spawner: &'a EmitterState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
@@ -114,13 +115,21 @@ impl Animation for GravityAnimation {
         }
     }
 
-    fn recreate(&self, gfx_state: &GfxState, spawner: &SpawnState) -> Box<dyn Animation> {
+    fn recreate(
+        self: Box<Self>,
+        gfx_state: &GfxState,
+        spawner: &EmitterState,
+    ) -> Box<dyn ParticleAnimation> {
         Box::new(Self::new(self.uniform, spawner, &gfx_state.device))
+    }
+
+    fn create_gui(&mut self, ui: &mut Ui) {
+        GuiState::create_title(ui, "Gravity animation");
     }
 }
 
 impl GravityAnimation {
-    fn new(uniform: GravityUniform, spawner: &SpawnState, device: &wgpu::Device) -> Self {
+    fn new(uniform: GravityUniform, spawner: &EmitterState, device: &wgpu::Device) -> Self {
         let shader = device.create_shader("gravity_anim.wgsl", "Gravity animation");
 
         let buffer_content = uniform.create_buffer_content();

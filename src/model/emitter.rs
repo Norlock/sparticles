@@ -1,7 +1,7 @@
 use crate::traits::{FromRGB, HandleAngles};
 use glam::{Vec3, Vec4};
 
-use super::{Clock, SpawnGuiState};
+use super::{Clock, EmitterGuiState};
 
 const PARTICLE_BUFFER_SIZE: u64 = 16 * 4;
 
@@ -21,7 +21,7 @@ impl Range {
     }
 }
 
-impl Default for Emitter {
+impl Default for EmitterUniform {
     fn default() -> Self {
         let spawn_count: u32 = 6;
         let particle_lifetime_sec: f32 = 6.;
@@ -66,7 +66,7 @@ impl Default for Emitter {
 }
 
 #[derive(Debug, Clone)]
-pub struct Emitter {
+pub struct EmitterUniform {
     spawn_from: u32,
     spawn_until: u32,
     spawn_batches_count: u32,
@@ -98,8 +98,8 @@ pub struct Emitter {
     pub texture_image: String,
 }
 
-impl Emitter {
-    pub fn handle_gui(&mut self, gui: &SpawnGuiState) {
+impl EmitterUniform {
+    pub fn handle_gui(&mut self, gui: &EmitterGuiState) {
         self.box_rotation = gui.box_rotation_deg.to_radians();
         self.box_dimensions = gui.box_dimensions;
 
@@ -119,8 +119,8 @@ impl Emitter {
         }
     }
 
-    pub fn create_gui(&self) -> SpawnGuiState {
-        SpawnGuiState {
+    pub fn create_gui(&self) -> EmitterGuiState {
+        EmitterGuiState {
             spawn_count: self.spawn_count,
             spawn_delay_sec: self.spawn_delay_sec,
             particle_lifetime_sec: self.particle_lifetime_sec,

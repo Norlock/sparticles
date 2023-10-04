@@ -1,9 +1,10 @@
 use egui_wgpu::wgpu::{self, util::DeviceExt, Device};
+use egui_winit::egui::Ui;
 use glam::Vec3;
 
 use crate::{
-    model::{Clock, GfxState, LifeCycle, SpawnState},
-    traits::{Animation, CreateAnimation, CustomShader},
+    model::{Clock, EmitterState, GfxState, GuiState, LifeCycle},
+    traits::{CreateAnimation, CustomShader, ParticleAnimation},
 };
 
 #[derive(Clone, Copy)]
@@ -29,8 +30,8 @@ impl CreateAnimation for ForceUniform {
     fn into_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        spawner: &SpawnState,
-    ) -> Box<dyn Animation> {
+        spawner: &EmitterState,
+    ) -> Box<dyn ParticleAnimation> {
         Box::new(ForceAnimation::new(*self, spawner, &gfx_state.device))
     }
 }
@@ -42,7 +43,7 @@ pub struct ForceAnimation {
     should_animate: bool,
 }
 
-impl Animation for ForceAnimation {
+impl ParticleAnimation for ForceAnimation {
     fn update(&mut self, clock: &Clock, _gfx_state: &GfxState) {
         let uniform = &self.uniform;
         let current_sec = uniform.life_cycle.get_current_sec(clock);
@@ -51,7 +52,7 @@ impl Animation for ForceAnimation {
 
     fn compute<'a>(
         &'a self,
-        spawner: &'a SpawnState,
+        spawner: &'a EmitterState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
@@ -67,13 +68,21 @@ impl Animation for ForceAnimation {
         compute_pass.dispatch_workgroups(spawner.dispatch_x_count, 1, 1);
     }
 
-    fn recreate(&self, gfx_state: &GfxState, spawner: &SpawnState) -> Box<dyn Animation> {
+    fn recreate(
+        self: Box<Self>,
+        gfx_state: &GfxState,
+        spawner: &EmitterState,
+    ) -> Box<dyn ParticleAnimation> {
         Box::new(Self::new(self.uniform, spawner, &gfx_state.device))
+    }
+
+    fn create_gui(&mut self, ui: &mut Ui) {
+        GuiState::create_title(ui, "Force animation");
     }
 }
 
 impl ForceAnimation {
-    fn new(uniform: ForceUniform, spawner: &SpawnState, device: &Device) -> Self {
+    fn new(uniform: ForceUniform, spawner: &EmitterState, device: &Device) -> Self {
         let shader = device.create_shader("force_anim.wgsl", "Force animation");
 
         let buffer_content = uniform.create_buffer_content();

@@ -1,10 +1,9 @@
 use crate::{
     fx::post_process::{FxPersistenceType, FxState, FxView},
-    model::{Clock, Emitter, GfxState, SpawnState, State},
+    model::{Clock, EmitterState, EmitterUniform, GfxState, State},
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
-use encase::{private::WriteInto, ShaderType, UniformBuffer};
 use std::{num::NonZeroU64, rc::Rc};
 
 pub trait FromRGB {
@@ -35,25 +34,30 @@ pub trait CreateAnimation {
     fn into_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        spawner: &SpawnState,
-    ) -> Box<dyn Animation>;
+        spawner: &EmitterState,
+    ) -> Box<dyn ParticleAnimation>;
 }
 
-pub trait Animation {
+pub trait ParticleAnimation {
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState);
 
     fn compute<'a>(
         &'a self,
-        spawner: &'a SpawnState,
+        spawner: &'a EmitterState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     );
 
-    fn recreate(&self, gfx_state: &GfxState, spawner: &SpawnState) -> Box<dyn Animation>;
+    fn recreate(
+        self: Box<Self>,
+        gfx_state: &GfxState,
+        spawner: &EmitterState,
+    ) -> Box<dyn ParticleAnimation>;
+    fn create_gui(&mut self, ui: &mut Ui);
 }
 
 pub trait EmitterAnimation {
-    fn animate(&mut self, emitter: &mut Emitter, clock: &Clock);
+    fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock);
     fn create_gui(&mut self, ui: &mut Ui);
 }
 

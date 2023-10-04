@@ -10,10 +10,9 @@ pub mod state;
 
 pub use camera::Camera;
 pub use clock::Clock;
-pub use emitter::{Emitter, Range};
+pub use emitter::{EmitterUniform, Range};
 pub use gfx_state::GfxState;
 pub use gui_state::GuiState;
 pub use life_cycle::LifeCycle;
-pub use spawn_state::{SpawnGuiState, SpawnState};
+pub use spawn_state::{EmitterGuiState, EmitterState};
 pub use state::State;
-

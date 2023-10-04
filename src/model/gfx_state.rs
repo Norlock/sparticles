@@ -18,8 +18,8 @@ use winit::window;
 use crate::fx::PostProcessState;
 
 use super::state::State;
+use super::EmitterState;
 use super::GuiState;
-use super::SpawnState;
 
 pub struct GfxState {
     pub device: wgpu::Device,
@@ -214,10 +214,10 @@ impl GfxState {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         // Computing particles
-        SpawnState::compute_particles(state, &mut encoder);
+        EmitterState::compute_particles(state, &mut encoder);
 
         // Rendering particles
-        SpawnState::render_particles(state, &mut encoder);
+        EmitterState::render_particles(state, &mut encoder);
 
         // Post processing compute
         PostProcessState::compute(state, &mut encoder);

@@ -6,7 +6,7 @@ use sparticles::{
         StrayUniform, SwayAnimation,
     },
     init::{InitApp, SpawnInit},
-    model::{Emitter, LifeCycle, Range},
+    model::{EmitterUniform, LifeCycle, Range},
     traits::*,
 };
 
@@ -23,7 +23,7 @@ fn main() {
 }
 
 fn get_light_spawner() -> SpawnInit {
-    let mut emitter = Emitter::default();
+    let mut emitter = EmitterUniform::default();
 
     emitter.box_pos.x = -3.;
     emitter.box_pos.y = -3.;
@@ -100,7 +100,7 @@ fn get_spawner(id: String) -> SpawnInit {
         mass_per_unit: 0.1,
     };
 
-    let mut emitter = Emitter::default();
+    let mut emitter = EmitterUniform::default();
     emitter.spawn_count = 8;
 
     let diff_anim = DiffusionAnimation::new(

@@ -1,11 +1,12 @@
 use crate::{
-    model::{Clock, GfxState, SpawnState},
-    traits::{Animation, CalculateBufferSize, CreateAnimation, CustomShader},
+    model::{Clock, EmitterState, GfxState, GuiState},
+    traits::{CalculateBufferSize, CreateAnimation, CustomShader, ParticleAnimation},
 };
 use egui_wgpu::wgpu;
+use egui_winit::egui::{DragValue, Ui};
 use wgpu::util::DeviceExt;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct StrayUniform {
     pub stray_radians: f32,
     pub from_sec: f32,
@@ -22,8 +23,8 @@ impl CreateAnimation for StrayUniform {
     fn into_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        particle: &SpawnState,
-    ) -> Box<dyn Animation> {
+        particle: &EmitterState,
+    ) -> Box<dyn ParticleAnimation> {
         Box::new(StrayAnimation::new(*self, particle, &gfx_state.device))
     }
 }
@@ -31,15 +32,25 @@ impl CreateAnimation for StrayUniform {
 struct StrayAnimation {
     pipeline: wgpu::ComputePipeline,
     uniform: StrayUniform,
+    buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
+    update_uniform: bool,
 }
 
-impl Animation for StrayAnimation {
-    fn update(&mut self, _clock: &Clock, _gfx_state: &GfxState) {}
+impl ParticleAnimation for StrayAnimation {
+    fn update(&mut self, _: &Clock, gfx_state: &GfxState) {
+        let queue = &gfx_state.queue;
+
+        if self.update_uniform {
+            let buf_content_raw = self.uniform.create_buffer_content();
+            let buf_content = bytemuck::cast_slice(&buf_content_raw);
+            queue.write_buffer(&self.buffer, 0, buf_content);
+        }
+    }
 
     fn compute<'a>(
         &'a self,
-        spawner: &'a SpawnState,
+        spawner: &'a EmitterState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
@@ -51,18 +62,53 @@ impl Animation for StrayAnimation {
         compute_pass.dispatch_workgroups(spawner.dispatch_x_count, 1, 1);
     }
 
-    fn recreate(&self, gfx_state: &GfxState, spawner: &SpawnState) -> Box<dyn Animation> {
+    fn recreate(
+        self: Box<Self>,
+        gfx_state: &GfxState,
+        spawner: &EmitterState,
+    ) -> Box<dyn ParticleAnimation> {
         Box::new(Self::new(self.uniform, spawner, &gfx_state.device))
+    }
+
+    fn create_gui(&mut self, ui: &mut Ui) {
+        GuiState::create_title(ui, "Stray animation");
+
+        let mut from_sec = self.uniform.from_sec;
+        let mut until_sec = self.uniform.until_sec;
+        let mut stray_degrees = self.uniform.stray_radians.to_degrees();
+
+        ui.horizontal(|ui| {
+            ui.label("Animate from sec");
+            ui.add(DragValue::new(&mut from_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Animate until sec");
+            ui.add(DragValue::new(&mut until_sec).speed(0.1));
+        });
+
+        GuiState::create_degree_slider(ui, &mut stray_degrees, "Stray degrees");
+
+        let gui = StrayUniform {
+            from_sec,
+            until_sec,
+            stray_radians: stray_degrees.to_radians(),
+        };
+
+        if self.uniform != gui {
+            self.update_uniform = true;
+            self.uniform = gui;
+        }
     }
 }
 
 impl StrayAnimation {
-    fn new(uniform: StrayUniform, spawner: &SpawnState, device: &wgpu::Device) -> Self {
+    fn new(uniform: StrayUniform, spawner: &EmitterState, device: &wgpu::Device) -> Self {
         let shader = device.create_shader("stray_anim.wgsl", "Stray animation");
 
         let animation_uniform = uniform.create_buffer_content();
 
-        let animation_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Stray buffer"),
             contents: bytemuck::cast_slice(&animation_uniform),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -89,7 +135,7 @@ impl StrayAnimation {
             layout: &animation_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: animation_buffer.as_entire_binding(),
+                resource: buffer.as_entire_binding(),
             }],
             label: Some("Stray animation"),
         });
@@ -111,6 +157,8 @@ impl StrayAnimation {
             pipeline,
             bind_group,
             uniform,
+            buffer,
+            update_uniform: false,
         }
     }
 }

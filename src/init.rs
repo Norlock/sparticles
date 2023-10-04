@@ -1,7 +1,7 @@
 use egui_wgpu::wgpu;
 
 use crate::model::spawn_state::SpawnOptions;
-use crate::model::{Camera, Emitter, GfxState, SpawnState};
+use crate::model::{Camera, EmitterState, EmitterUniform, GfxState};
 use crate::traits::*;
 
 pub struct InitApp {
@@ -12,13 +12,13 @@ pub struct InitApp {
 
 pub struct SpawnInit {
     pub id: String,
-    pub emitter: Emitter,
+    pub emitter: EmitterUniform,
     pub particle_animations: Vec<Box<dyn CreateAnimation>>,
     pub emitter_animations: Vec<Box<dyn EmitterAnimation>>,
 }
 
 impl InitApp {
-    pub fn create_light_spawner(&mut self, gfx_state: &GfxState, camera: &Camera) -> SpawnState {
+    pub fn create_light_spawner(&mut self, gfx_state: &GfxState, camera: &Camera) -> EmitterState {
         let light = &mut self.light;
 
         let mut light_spawner = gfx_state.create_spawner(SpawnOptions {
@@ -44,8 +44,8 @@ impl InitApp {
         gfx_state: &GfxState,
         light_layout: &wgpu::BindGroupLayout,
         camera: &Camera,
-    ) -> Vec<SpawnState> {
-        let mut spawners: Vec<SpawnState> = Vec::new();
+    ) -> Vec<EmitterState> {
+        let mut spawners: Vec<EmitterState> = Vec::new();
 
         for item in self.spawners {
             let mut spawner = gfx_state.create_spawner(SpawnOptions {

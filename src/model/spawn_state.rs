@@ -1,5 +1,5 @@
-use super::{Camera, Emitter, GfxState, State};
-use crate::traits::{Animation, EmitterAnimation};
+use super::{Camera, EmitterUniform, GfxState, State};
+use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::{
     texture::DiffuseTexture,
     traits::{CalculateBufferSize, CustomShader},
@@ -14,25 +14,25 @@ use std::{
 use wgpu::util::DeviceExt;
 
 #[allow(dead_code)]
-pub struct SpawnState {
+pub struct EmitterState {
     pipeline: wgpu::ComputePipeline,
     particle_buffers: Vec<wgpu::Buffer>,
     emitter_buffer: wgpu::Buffer,
     diffuse_texture: DiffuseTexture,
     render_pipeline: wgpu::RenderPipeline,
-    animations: Vec<Box<dyn Animation>>,
+    particle_animations: Vec<Box<dyn ParticleAnimation>>,
     emitter_animations: Vec<Box<dyn EmitterAnimation>>,
-    pub emitter: Emitter,
+
+    pub uniform: EmitterUniform,
     pub id: String,
     pub dispatch_x_count: u32,
     pub bind_groups: Vec<wgpu::BindGroup>,
     pub bind_group_layout: wgpu::BindGroupLayout,
-
     pub is_light: bool,
-    pub gui: SpawnGuiState,
+    pub gui: EmitterGuiState,
 }
 
-pub struct SpawnGuiState {
+pub struct EmitterGuiState {
     pub spawn_count: u32,
     pub spawn_delay_sec: f32,
     pub particle_lifetime_sec: f32,
@@ -53,32 +53,32 @@ pub struct SpawnGuiState {
 
 pub struct SpawnOptions<'a> {
     pub id: String,
-    pub emitter: Emitter,
+    pub emitter: EmitterUniform,
     pub light_layout: Option<&'a wgpu::BindGroupLayout>,
     pub camera: &'a Camera,
 }
 
-impl<'a> SpawnState {
+impl<'a> EmitterState {
     pub fn update_spawners(state: &mut State) {
         state
-            .spawners
+            .emitters
             .iter_mut()
-            .chain(vec![&mut state.light_spawner])
+            .chain(vec![&mut state.lights])
             .for_each(|spawner| {
                 let queue = &state.gfx_state.queue;
 
-                spawner.emitter.update(&state.clock);
+                spawner.uniform.update(&state.clock);
 
                 for anim in spawner.emitter_animations.iter_mut() {
-                    anim.animate(&mut spawner.emitter, &state.clock);
+                    anim.animate(&mut spawner.uniform, &state.clock);
                 }
 
-                let buffer_content_raw = spawner.emitter.create_buffer_content();
+                let buffer_content_raw = spawner.uniform.create_buffer_content();
                 let buffer_content = bytemuck::cast_slice(&buffer_content_raw);
 
                 queue.write_buffer(&spawner.emitter_buffer, 0, buffer_content);
 
-                for anim in spawner.animations.iter_mut() {
+                for anim in spawner.particle_animations.iter_mut() {
                     anim.update(&state.clock, &state.gfx_state);
                 }
             });
@@ -87,30 +87,30 @@ impl<'a> SpawnState {
     pub fn compute_particles(state: &'a State, encoder: &'a mut wgpu::CommandEncoder) {
         let State {
             clock,
-            light_spawner,
-            spawners,
+            lights,
+            emitters,
             ..
         } = state;
+
+        let nr = clock.get_bindgroup_nr();
 
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Compute pipeline"),
         });
 
-        let bind_group_nr = clock.get_bindgroup_nr();
+        let compute = |c_pass: &mut wgpu::ComputePass<'a>, emitter: &'a EmitterState| {
+            c_pass.set_pipeline(&emitter.pipeline);
+            c_pass.set_bind_group(0, &emitter.bind_groups[nr], &[]);
+            c_pass.dispatch_workgroups(emitter.dispatch_x_count, 1, 1);
 
-        let compute = |c_pass: &mut wgpu::ComputePass<'a>, spawner: &'a SpawnState| {
-            c_pass.set_pipeline(&spawner.pipeline);
-            c_pass.set_bind_group(0, &spawner.bind_groups[bind_group_nr], &[]);
-            c_pass.dispatch_workgroups(spawner.dispatch_x_count, 1, 1);
-
-            for anim in spawner.animations.iter() {
-                anim.compute(spawner, clock, c_pass);
+            for anim in emitter.particle_animations.iter() {
+                anim.compute(emitter, clock, c_pass);
             }
         };
 
-        compute(&mut c_pass, light_spawner);
+        compute(&mut c_pass, lights);
 
-        for spawner in spawners.iter() {
+        for spawner in emitters.iter() {
             compute(&mut c_pass, spawner);
         }
     }
@@ -139,28 +139,25 @@ impl<'a> SpawnState {
         let State {
             camera,
             clock,
-            light_spawner,
-            spawners,
+            lights,
+            emitters: spawners,
             ..
         } = state;
 
-        // Light
-        let alt_nr = clock.get_alt_bindgroup_nr();
+        let nr = clock.get_alt_bindgroup_nr();
 
-        r_pass.set_pipeline(&light_spawner.render_pipeline);
+        // Light
+        r_pass.set_pipeline(&lights.render_pipeline);
         r_pass.set_bind_group(0, &camera.bind_group, &[]);
-        r_pass.set_bind_group(1, &light_spawner.bind_groups[alt_nr], &[]);
-        r_pass.draw(0..4, 0..light_spawner.particle_count() as u32);
+        r_pass.set_bind_group(1, &lights.bind_groups[nr], &[]);
+        r_pass.draw(0..4, 0..lights.particle_count() as u32);
 
         // Normal
         for spawner in spawners.iter() {
-            let nr = clock.get_alt_bindgroup_nr();
-
-            // TODO move diffuse texture to particle bind group
             r_pass.set_pipeline(&spawner.render_pipeline);
             r_pass.set_bind_group(0, &camera.bind_group, &[]);
             r_pass.set_bind_group(1, &spawner.bind_groups[nr], &[]);
-            r_pass.set_bind_group(2, &light_spawner.bind_groups[nr], &[]);
+            r_pass.set_bind_group(2, &lights.bind_groups[nr], &[]);
             r_pass.draw(0..4, 0..spawner.particle_count() as u32);
         }
     }
@@ -173,12 +170,12 @@ impl<'a> SpawnState {
     ) {
         let mut new_self = gfx_state.create_spawner(SpawnOptions {
             id: self.id.clone(),
-            emitter: self.emitter.clone(),
+            emitter: self.uniform.clone(),
             light_layout,
             camera,
         });
 
-        while let Some(animation) = self.animations.pop() {
+        while let Some(animation) = self.particle_animations.pop() {
             new_self.push_animation(animation.recreate(gfx_state, &new_self));
         }
 
@@ -189,8 +186,8 @@ impl<'a> SpawnState {
         *self = new_self;
     }
 
-    pub fn push_animation(&mut self, animation: Box<dyn Animation>) {
-        self.animations.push(animation);
+    pub fn push_animation(&mut self, animation: Box<dyn ParticleAnimation>) {
+        self.particle_animations.push(animation);
     }
 
     pub fn push_emitter_animation(&mut self, animation: Box<dyn EmitterAnimation>) {
@@ -204,13 +201,20 @@ impl<'a> SpawnState {
         }
     }
 
+    pub fn gui_particle_animations(&mut self, ui: &mut Ui) {
+        for anim in self.particle_animations.iter_mut() {
+            anim.create_gui(ui);
+            ui.separator();
+        }
+    }
+
     pub fn particle_count(&self) -> u64 {
-        self.emitter.particle_count()
+        self.uniform.particle_count()
     }
 }
 
 impl GfxState {
-    pub fn create_spawner(&self, options: SpawnOptions<'_>) -> SpawnState {
+    pub fn create_spawner(&self, options: SpawnOptions<'_>) -> EmitterState {
         let SpawnOptions {
             id,
             emitter,
@@ -359,7 +363,6 @@ impl GfxState {
         let shader;
         let pipeline_layout;
         let is_light;
-        let blend_state;
 
         if let Some(light_layout) = &light_layout {
             is_light = false;
@@ -369,7 +372,6 @@ impl GfxState {
                 bind_group_layouts: &[&camera.bind_group_layout, &bind_group_layout, light_layout],
                 push_constant_ranges: &[],
             });
-            blend_state = wgpu::BlendState::REPLACE;
         } else {
             is_light = true;
             shader = device.create_shader("light_particle.wgsl", "Light particle render");
@@ -378,7 +380,6 @@ impl GfxState {
                 bind_group_layouts: &[&camera.bind_group_layout, &bind_group_layout],
                 push_constant_ranges: &[],
             });
-            blend_state = wgpu::BlendState::REPLACE;
         }
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -394,7 +395,7 @@ impl GfxState {
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: surface_config.format,
-                    blend: Some(blend_state),
+                    blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
@@ -424,8 +425,8 @@ impl GfxState {
 
         let gui = emitter.create_gui();
 
-        SpawnState {
-            emitter,
+        EmitterState {
+            uniform: emitter,
             pipeline,
             render_pipeline,
             bind_group_layout,
@@ -434,7 +435,7 @@ impl GfxState {
             emitter_buffer,
             dispatch_x_count,
             diffuse_texture,
-            animations: vec![],
+            particle_animations: vec![],
             emitter_animations: vec![],
             id,
             is_light,
@@ -443,10 +444,10 @@ impl GfxState {
     }
 }
 
-impl Debug for SpawnState {
+impl Debug for EmitterState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SpawnState")
-            .field("emitter", &self.emitter)
+            .field("emitter", &self.uniform)
             .finish()
     }
 }

@@ -1,4 +1,4 @@
-use super::{Camera, Clock, GfxState, GuiState, SpawnState};
+use super::{Camera, Clock, EmitterState, GfxState, GuiState};
 use crate::{fx::PostProcessState, util::Persistence, InitApp};
 use egui_wgpu::wgpu;
 use egui_winit::winit::{dpi::PhysicalSize, event::KeyboardInput, window::Window};
@@ -6,11 +6,16 @@ use egui_winit::winit::{dpi::PhysicalSize, event::KeyboardInput, window::Window}
 pub struct State {
     pub camera: Camera,
     pub clock: Clock,
-    pub light_spawner: SpawnState,
-    pub spawners: Vec<SpawnState>,
+    pub lights: EmitterState,
+    pub emitters: Vec<EmitterState>,
     pub gui: GuiState,
     pub post_process: PostProcessState,
     pub gfx_state: GfxState,
+}
+
+pub enum Messages {
+    ResetCamera,
+    RemovePostFx,
 }
 
 impl State {
@@ -18,8 +23,8 @@ impl State {
         self.clock.update();
 
         Camera::update(self);
+        EmitterState::update_spawners(self);
         GuiState::handle_gui(self);
-        SpawnState::update_spawners(self);
     }
 
     pub fn render(&mut self) {
@@ -66,8 +71,8 @@ impl State {
         Self {
             clock,
             camera,
-            spawners,
-            light_spawner,
+            emitters: spawners,
+            lights: light_spawner,
             gui,
             post_process,
             gfx_state,

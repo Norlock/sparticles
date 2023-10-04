@@ -1,10 +1,10 @@
 use egui_wgpu::wgpu;
-use encase::{ShaderType, UniformBuffer};
+use egui_winit::egui::Ui;
 use glam::Vec4;
 use wgpu::util::DeviceExt;
 
 use crate::{
-    model::{Clock, GfxState, SpawnState},
+    model::{Clock, EmitterState, GfxState, GuiState},
     traits::*,
 };
 
@@ -37,8 +37,8 @@ impl CreateAnimation for ColorUniform {
     fn into_animation(
         self: Box<Self>,
         gfx_state: &GfxState,
-        spawner: &SpawnState,
-    ) -> Box<dyn Animation> {
+        spawner: &EmitterState,
+    ) -> Box<dyn ParticleAnimation> {
         Box::new(ColorAnimation::new(*self, spawner, &gfx_state.device))
     }
 }
@@ -49,12 +49,12 @@ struct ColorAnimation {
     uniform: ColorUniform,
 }
 
-impl Animation for ColorAnimation {
+impl ParticleAnimation for ColorAnimation {
     fn update(&mut self, _clock: &Clock, _gfx_state: &GfxState) {}
 
     fn compute<'a>(
         &'a self,
-        spawner: &'a SpawnState,
+        spawner: &'a EmitterState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
@@ -66,13 +66,21 @@ impl Animation for ColorAnimation {
         compute_pass.dispatch_workgroups(spawner.dispatch_x_count, 1, 1);
     }
 
-    fn recreate(&self, gfx_state: &GfxState, spawner: &SpawnState) -> Box<dyn Animation> {
+    fn recreate(
+        self: Box<Self>,
+        gfx_state: &GfxState,
+        spawner: &EmitterState,
+    ) -> Box<dyn ParticleAnimation> {
         Box::new(Self::new(self.uniform, spawner, &gfx_state.device))
+    }
+
+    fn create_gui(&mut self, ui: &mut Ui) {
+        GuiState::create_title(ui, "Color animation");
     }
 }
 
 impl ColorAnimation {
-    fn new(uniform: ColorUniform, spawner: &SpawnState, device: &wgpu::Device) -> Self {
+    fn new(uniform: ColorUniform, spawner: &EmitterState, device: &wgpu::Device) -> Self {
         let shader = device.create_shader("color_anim.wgsl", "Color animation");
 
         let animation_uniform = uniform.create_buffer_content();
