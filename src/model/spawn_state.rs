@@ -24,7 +24,6 @@ pub struct EmitterState {
     emitter_animations: Vec<Box<dyn EmitterAnimation>>,
 
     pub uniform: EmitterUniform,
-    pub id: String,
     pub dispatch_x_count: u32,
     pub bind_groups: Vec<wgpu::BindGroup>,
     pub bind_group_layout: wgpu::BindGroupLayout,
@@ -51,14 +50,17 @@ pub struct EmitterGuiState {
     pub particle_size_max: f32,
 }
 
-pub struct SpawnOptions<'a> {
-    pub id: String,
-    pub emitter: EmitterUniform,
+pub struct CreateEmitterOptions<'a> {
+    pub emitter_uniform: EmitterUniform,
     pub light_layout: Option<&'a wgpu::BindGroupLayout>,
     pub camera: &'a Camera,
 }
 
 impl<'a> EmitterState {
+    pub fn id(&self) -> &str {
+        &self.uniform.id
+    }
+
     pub fn update_spawners(state: &mut State) {
         state
             .emitters
@@ -168,15 +170,14 @@ impl<'a> EmitterState {
         light_layout: Option<&'a wgpu::BindGroupLayout>,
         camera: &Camera,
     ) {
-        let mut new_self = gfx_state.create_spawner(SpawnOptions {
-            id: self.id.clone(),
-            emitter: self.uniform.clone(),
+        let mut new_self = gfx_state.create_emitter_state(CreateEmitterOptions {
+            emitter_uniform: self.uniform.clone(),
             light_layout,
             camera,
         });
 
         while let Some(animation) = self.particle_animations.pop() {
-            new_self.push_animation(animation.recreate(gfx_state, &new_self));
+            new_self.push_particle_animation(animation.recreate(gfx_state, &new_self));
         }
 
         while let Some(animation) = self.emitter_animations.pop() {
@@ -186,7 +187,7 @@ impl<'a> EmitterState {
         *self = new_self;
     }
 
-    pub fn push_animation(&mut self, animation: Box<dyn ParticleAnimation>) {
+    pub fn push_particle_animation(&mut self, animation: Box<dyn ParticleAnimation>) {
         self.particle_animations.push(animation);
     }
 
@@ -214,10 +215,9 @@ impl<'a> EmitterState {
 }
 
 impl GfxState {
-    pub fn create_spawner(&self, options: SpawnOptions<'_>) -> EmitterState {
-        let SpawnOptions {
-            id,
-            emitter,
+    pub fn create_emitter_state(&self, options: CreateEmitterOptions<'_>) -> EmitterState {
+        let CreateEmitterOptions {
+            emitter_uniform: uniform,
             light_layout,
             camera,
         } = options;
@@ -225,10 +225,10 @@ impl GfxState {
         let device = &self.device;
         let surface_config = &self.surface_config;
 
-        let emitter_buf_content = emitter.create_buffer_content();
-        let diffuse_texture = self.create_diffuse_texture(&emitter.texture_image);
+        let emitter_buf_content = uniform.create_buffer_content();
+        let diffuse_texture = self.create_diffuse_texture(&uniform.texture_image);
 
-        let particle_buffer_size = NonZeroU64::new(emitter.particle_buffer_size());
+        let particle_buffer_size = NonZeroU64::new(uniform.particle_buffer_size());
         let emitter_buffer_size = emitter_buf_content.cal_buffer_size();
 
         let visibility = if light_layout.is_none() {
@@ -300,7 +300,7 @@ impl GfxState {
             particle_buffers.push(device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(&format!("Particle Buffer {}", i)),
                 mapped_at_creation: false,
-                size: emitter.particle_buffer_size(),
+                size: uniform.particle_buffer_size(),
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::STORAGE,
             }));
         }
@@ -340,7 +340,7 @@ impl GfxState {
             }));
         }
 
-        let particle_count = emitter.particle_count() as f64;
+        let particle_count = uniform.particle_count() as f64;
         let workgroup_size = 128f64;
         let dispatch_x_count = (particle_count / workgroup_size).ceil() as u32;
 
@@ -423,10 +423,10 @@ impl GfxState {
             multiview: None,
         });
 
-        let gui = emitter.create_gui();
+        let gui = uniform.create_gui();
 
         EmitterState {
-            uniform: emitter,
+            uniform,
             pipeline,
             render_pipeline,
             bind_group_layout,
@@ -437,7 +437,6 @@ impl GfxState {
             diffuse_texture,
             particle_animations: vec![],
             emitter_animations: vec![],
-            id,
             is_light,
             gui,
         }

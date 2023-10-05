@@ -30,11 +30,12 @@ pub trait CreateAspect {
     fn aspect(&self) -> f32;
 }
 
-pub trait CreateAnimation {
-    fn into_animation(
-        self: Box<Self>,
+pub trait RegisterParticleAnimation {
+    fn tag(&self) -> String;
+    fn create_default(
+        &self,
         gfx_state: &GfxState,
-        spawner: &EmitterState,
+        emitter: &EmitterState,
     ) -> Box<dyn ParticleAnimation>;
 }
 
@@ -53,6 +54,7 @@ pub trait ParticleAnimation {
         gfx_state: &GfxState,
         spawner: &EmitterState,
     ) -> Box<dyn ParticleAnimation>;
+
     fn create_gui(&mut self, ui: &mut Ui);
 }
 

@@ -1,5 +1,5 @@
 use egui_winit::winit;
-use init::InitApp;
+use init::AppSettings;
 use model::{GfxState, State};
 use winit::event::Event::*;
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -16,7 +16,7 @@ pub mod texture;
 pub mod traits;
 mod util;
 
-pub fn start(init_app: InitApp) {
+pub fn start(init_app: impl AppSettings) {
     env_logger::init();
 
     let event_loop = EventLoop::new();

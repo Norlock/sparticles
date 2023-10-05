@@ -1,10 +1,10 @@
-use egui_wgpu::wgpu::{self, util::DeviceExt, Device};
+use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::{DragValue, Ui};
 use glam::Vec3;
 
 use crate::{
     model::{Clock, EmitterState, GfxState, GuiState, LifeCycle},
-    traits::{CreateAnimation, CustomShader, ParticleAnimation},
+    traits::{CustomShader, ParticleAnimation, RegisterParticleAnimation},
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -13,6 +13,20 @@ pub struct ForceUniform {
     pub velocity: Vec3,
     /// Applied on a 1.0 particle size unit
     pub mass_per_unit: f32,
+}
+
+impl Default for ForceUniform {
+    fn default() -> Self {
+        Self {
+            life_cycle: LifeCycle {
+                from_sec: 0.,
+                until_sec: 5.,
+                lifetime_sec: 10.,
+            },
+            velocity: Vec3::new(-15., -15., 0.),
+            mass_per_unit: 0.5,
+        }
+    }
 }
 
 impl ForceUniform {
@@ -26,13 +40,32 @@ impl ForceUniform {
     }
 }
 
-impl CreateAnimation for ForceUniform {
-    fn into_animation(
-        self: Box<Self>,
+pub struct RegisterForceAnimation;
+
+impl RegisterForceAnimation {
+    /// Will append animation to emitter
+    pub fn append(uniform: ForceUniform, emitter: &mut EmitterState, gfx_state: &GfxState) {
+        let anim = Box::new(ForceAnimation::new(uniform, &emitter, gfx_state));
+
+        emitter.push_particle_animation(anim);
+    }
+}
+
+impl RegisterParticleAnimation for RegisterForceAnimation {
+    fn tag(&self) -> String {
+        "Force animation".to_string()
+    }
+
+    fn create_default(
+        &self,
         gfx_state: &GfxState,
-        spawner: &EmitterState,
+        emitter: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(ForceAnimation::new(*self, spawner, &gfx_state.device))
+        Box::new(ForceAnimation::new(
+            ForceUniform::default(),
+            emitter,
+            &gfx_state,
+        ))
     }
 }
 
@@ -83,7 +116,7 @@ impl ParticleAnimation for ForceAnimation {
         gfx_state: &GfxState,
         spawner: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(Self::new(self.uniform, spawner, &gfx_state.device))
+        Box::new(Self::new(self.uniform, spawner, &gfx_state))
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {
@@ -129,7 +162,8 @@ impl ParticleAnimation for ForceAnimation {
 }
 
 impl ForceAnimation {
-    fn new(uniform: ForceUniform, spawner: &EmitterState, device: &Device) -> Self {
+    fn new(uniform: ForceUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
+        let device = &gfx_state.device;
         let shader = device.create_shader("force_anim.wgsl", "Force animation");
 
         let buffer_content = uniform.create_buffer_content();
@@ -168,7 +202,7 @@ impl ForceAnimation {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Force animation layout"),
-            bind_group_layouts: &[&spawner.bind_group_layout, &animation_layout],
+            bind_group_layouts: &[&emitter.bind_group_layout, &animation_layout],
             push_constant_ranges: &[],
         });
 

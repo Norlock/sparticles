@@ -19,6 +19,25 @@ pub struct GravityUniform {
     current_pos: Vec3,
 }
 
+impl Default for GravityUniform {
+    fn default() -> Self {
+        Self {
+            life_cycle: LifeCycle {
+                from_sec: 0.,
+                until_sec: 6.,
+                lifetime_sec: 12.,
+            },
+            gravitational_force: 0.001,
+            dead_zone: 4.,
+            mass: 1_000_000.,
+            start_pos: Vec3::new(-25., 8., 0.),
+            current_pos: Vec3::new(-25., 8., 0.),
+            end_pos: Vec3::new(25., 8., 0.),
+            should_animate: false,
+        }
+    }
+}
+
 pub struct GravityUniformOptions {
     /// In newton
     pub gravitational_force: f32,
@@ -54,26 +73,37 @@ impl GravityUniform {
             self.current_pos.z,
         ]
     }
+}
 
-    fn update(&mut self, clock: &Clock) {
-        let current_sec = self.life_cycle.get_current_sec(clock);
+pub struct RegisterGravityAnimation;
 
-        self.should_animate = self.life_cycle.shoud_animate(current_sec);
+impl RegisterGravityAnimation {
+    /// Will append animation to emitter
+    pub fn append(uniform: GravityUniform, emitter: &mut EmitterState, gfx_state: &GfxState) {
+        let anim = Box::new(GravityAnimation::new(uniform, &emitter, gfx_state));
 
-        if self.should_animate {
-            let fraction = self.life_cycle.get_fraction(current_sec);
-            self.current_pos = self.start_pos.lerp(self.end_pos, fraction);
-        }
+        emitter.push_particle_animation(anim);
     }
 }
 
-impl CreateAnimation for GravityUniform {
-    fn into_animation(
-        self: Box<Self>,
+impl RegisterParticleAnimation for RegisterGravityAnimation {
+    fn create_default(
+        &self,
         gfx_state: &GfxState,
-        spawner: &EmitterState,
+        emitter: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(GravityAnimation::new(*self, spawner, &gfx_state.device))
+        Box::new(GravityAnimation::new(
+            GravityUniform::default(),
+            emitter,
+            &gfx_state,
+        ))
+    }
+
+    fn tag(&self) -> String
+    where
+        Self: Sized,
+    {
+        "Gravity animation".to_string()
     }
 }
 
@@ -104,9 +134,15 @@ impl ParticleAnimation for GravityAnimation {
     }
 
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState) {
-        self.uniform.update(clock);
+        let uniform = &mut self.uniform;
+        let life_cycle = &mut uniform.life_cycle;
+        let current_sec = life_cycle.get_current_sec(clock);
 
-        if self.uniform.should_animate {
+        uniform.should_animate = life_cycle.shoud_animate(current_sec);
+
+        if uniform.should_animate {
+            let fraction = life_cycle.get_fraction(current_sec);
+            uniform.current_pos = uniform.start_pos.lerp(uniform.end_pos, fraction);
             let buffer_content = self.uniform.create_buffer_content();
 
             gfx_state
@@ -120,7 +156,7 @@ impl ParticleAnimation for GravityAnimation {
         gfx_state: &GfxState,
         spawner: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(Self::new(self.uniform, spawner, &gfx_state.device))
+        Box::new(Self::new(self.uniform, spawner, &gfx_state))
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {
@@ -184,7 +220,8 @@ impl ParticleAnimation for GravityAnimation {
 }
 
 impl GravityAnimation {
-    fn new(uniform: GravityUniform, spawner: &EmitterState, device: &wgpu::Device) -> Self {
+    fn new(uniform: GravityUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
+        let device = &gfx_state.device;
         let shader = device.create_shader("gravity_anim.wgsl", "Gravity animation");
 
         let buffer_content = uniform.create_buffer_content();
@@ -223,7 +260,7 @@ impl GravityAnimation {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Gravity animation layout"),
-            bind_group_layouts: &[&spawner.bind_group_layout, &animation_layout],
+            bind_group_layouts: &[&emitter.bind_group_layout, &animation_layout],
             push_constant_ranges: &[],
         });
 

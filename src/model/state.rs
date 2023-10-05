@@ -1,5 +1,7 @@
 use super::{Camera, Clock, EmitterState, GfxState, GuiState};
-use crate::{fx::PostProcessState, util::Persistence, InitApp};
+use crate::init::InitSettings;
+use crate::traits::*;
+use crate::{fx::PostProcessState, util::Persistence, AppSettings};
 use egui_wgpu::wgpu;
 use egui_winit::winit::{dpi::PhysicalSize, event::KeyboardInput, window::Window};
 
@@ -11,6 +13,7 @@ pub struct State {
     pub gui: GuiState,
     pub post_process: PostProcessState,
     pub gfx_state: GfxState,
+    pub registered_particle_animations: Vec<Box<dyn RegisterParticleAnimation>>,
 }
 
 pub enum Messages {
@@ -49,14 +52,21 @@ impl State {
         &self.post_process.frame_state.depth_view
     }
 
-    pub fn new(mut init_app: InitApp, window: Window) -> Self {
+    pub fn new(app_settings: impl AppSettings, window: Window) -> Self {
+        let mut registered_particle_animations = app_settings.register_custom_particle_animations();
+        InitSettings::add_builtin_particle_animations(&mut registered_particle_animations);
+
         let gfx_state = pollster::block_on(GfxState::new(window));
-        let show_gui = init_app.show_gui;
+
         let clock = Clock::new();
         let camera = Camera::new(&gfx_state);
-        let light_spawner = init_app.create_light_spawner(&gfx_state, &camera);
-        let spawners =
-            init_app.create_spawners(&gfx_state, &light_spawner.bind_group_layout, &camera);
+        let lights = InitSettings::create_light_spawner(&app_settings, &gfx_state, &camera);
+        let emitters = InitSettings::create_spawners(
+            &app_settings,
+            &gfx_state,
+            &lights.bind_group_layout,
+            &camera,
+        );
 
         let mut post_process = PostProcessState::new(&gfx_state);
 
@@ -66,16 +76,21 @@ impl State {
             post_process.add_default_fx(&gfx_state);
         }
 
-        let gui = GuiState::new(&spawners, show_gui);
+        let gui = GuiState::new(
+            &emitters,
+            &registered_particle_animations,
+            app_settings.show_gui(),
+        );
 
         Self {
             clock,
             camera,
-            emitters: spawners,
-            lights: light_spawner,
+            emitters,
+            lights,
             gui,
             post_process,
             gfx_state,
+            registered_particle_animations,
         }
     }
 }

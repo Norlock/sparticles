@@ -16,6 +16,17 @@ pub struct ColorUniform {
     pub until_sec: f32,
 }
 
+impl Default for ColorUniform {
+    fn default() -> Self {
+        Self {
+            from_sec: 0.,
+            until_sec: 0.5,
+            from_color: Vec4::from_rgb(0, 255, 0),
+            to_color: Vec4::from_rgb(0, 0, 255),
+        }
+    }
+}
+
 impl ColorUniform {
     fn create_buffer_content(&self) -> Vec<f32> {
         vec![
@@ -33,13 +44,32 @@ impl ColorUniform {
     }
 }
 
-impl CreateAnimation for ColorUniform {
-    fn into_animation(
-        self: Box<Self>,
+pub struct RegisterColorAnimation;
+
+impl RegisterColorAnimation {
+    /// Will append animation to emitter
+    pub fn append(uniform: ColorUniform, emitter: &mut EmitterState, gfx_state: &GfxState) {
+        let anim = Box::new(ColorAnimation::new(uniform, emitter, &gfx_state));
+
+        emitter.push_particle_animation(anim);
+    }
+}
+
+impl RegisterParticleAnimation for RegisterColorAnimation {
+    fn tag(&self) -> String {
+        "Color animation".to_string()
+    }
+
+    fn create_default(
+        &self,
         gfx_state: &GfxState,
-        spawner: &EmitterState,
+        emitter: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(ColorAnimation::new(*self, spawner, &gfx_state.device))
+        Box::new(ColorAnimation::new(
+            ColorUniform::default(),
+            emitter,
+            &gfx_state,
+        ))
     }
 }
 
@@ -82,7 +112,7 @@ impl ParticleAnimation for ColorAnimation {
         gfx_state: &GfxState,
         spawner: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(Self::new(self.uniform, spawner, &gfx_state.device))
+        Box::new(Self::new(self.uniform, spawner, &gfx_state))
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {
@@ -136,7 +166,8 @@ impl ParticleAnimation for ColorAnimation {
 }
 
 impl ColorAnimation {
-    fn new(uniform: ColorUniform, spawner: &EmitterState, device: &wgpu::Device) -> Self {
+    fn new(uniform: ColorUniform, spawner: &EmitterState, gfx_state: &GfxState) -> Self {
+        let device = &gfx_state.device;
         let shader = device.create_shader("color_anim.wgsl", "Color animation");
 
         let animation_uniform = uniform.create_buffer_content();

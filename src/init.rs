@@ -1,76 +1,77 @@
-use egui_wgpu::wgpu;
-
-use crate::model::spawn_state::SpawnOptions;
+use crate::animations::color_animation::RegisterColorAnimation;
+use crate::animations::{RegisterForceAnimation, RegisterGravityAnimation, RegisterStrayAnimation};
+use crate::model::spawn_state::CreateEmitterOptions;
 use crate::model::{Camera, EmitterState, EmitterUniform, GfxState};
 use crate::traits::*;
+use egui_wgpu::wgpu;
 
-pub struct InitApp {
-    pub show_gui: bool,
-    pub light: SpawnInit,
-    pub spawners: Vec<SpawnInit>,
+pub trait AppSettings {
+    fn show_gui(&self) -> bool;
+    fn light(&self) -> EmitterUniform;
+    fn emitters(&self) -> Vec<EmitterUniform>;
+    fn add_particle_anim(&self, emitter: &mut EmitterState, gfx_state: &GfxState);
+    fn add_emitter_anim(&self, emitter: &mut EmitterState);
+
+    fn register_custom_particle_animations(&self) -> Vec<Box<dyn RegisterParticleAnimation>> {
+        vec![]
+    }
 }
 
-pub struct SpawnInit {
-    pub id: String,
-    pub emitter: EmitterUniform,
-    pub particle_animations: Vec<Box<dyn CreateAnimation>>,
-    pub emitter_animations: Vec<Box<dyn EmitterAnimation>>,
-}
+pub struct InitSettings;
 
-impl InitApp {
-    pub fn create_light_spawner(&mut self, gfx_state: &GfxState, camera: &Camera) -> EmitterState {
-        let light = &mut self.light;
+impl InitSettings {
+    pub fn add_builtin_particle_animations(vector: &mut Vec<Box<dyn RegisterParticleAnimation>>) {
+        vector.push(Box::new(RegisterColorAnimation));
+        vector.push(Box::new(RegisterForceAnimation));
+        vector.push(Box::new(RegisterGravityAnimation));
+        vector.push(Box::new(RegisterStrayAnimation));
+    }
 
-        let mut light_spawner = gfx_state.create_spawner(SpawnOptions {
+    pub fn create_light_spawner(
+        app_settings: &impl AppSettings,
+        gfx_state: &GfxState,
+        camera: &Camera,
+    ) -> EmitterState {
+        let mut lights = gfx_state.create_emitter_state(CreateEmitterOptions {
             camera,
-            id: light.id.to_string(),
-            emitter: light.emitter.clone(),
+            emitter_uniform: app_settings.light(),
             light_layout: None,
         });
 
-        while let Some(anim) = light.particle_animations.pop() {
-            light_spawner.push_animation(anim.into_animation(gfx_state, &light_spawner));
-        }
+        app_settings.add_particle_anim(&mut lights, gfx_state);
+        app_settings.add_emitter_anim(&mut lights);
 
-        while let Some(anim) = light.emitter_animations.pop() {
-            light_spawner.push_emitter_animation(anim);
-        }
-
-        light_spawner
+        lights
     }
 
     pub fn create_spawners(
-        self,
+        app_settings: &impl AppSettings,
         gfx_state: &GfxState,
         light_layout: &wgpu::BindGroupLayout,
         camera: &Camera,
     ) -> Vec<EmitterState> {
-        let mut spawners: Vec<EmitterState> = Vec::new();
+        let mut emitters: Vec<EmitterState> = Vec::new();
 
-        for item in self.spawners {
-            let mut spawner = gfx_state.create_spawner(SpawnOptions {
+        for emitter_uniform in app_settings.emitters() {
+            let is_unique = emitters
+                .iter()
+                .all(|emitter| emitter.uniform.id != emitter_uniform.id);
+
+            assert!(!emitter_uniform.id.is_empty(), "Id can not be empty");
+            assert!(is_unique, "Emitters require an unique ID");
+
+            let mut emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
                 camera,
-                id: item.id,
-                emitter: item.emitter,
+                emitter_uniform,
                 light_layout: Some(light_layout),
             });
 
-            for anim in item.particle_animations {
-                spawner.push_animation(anim.into_animation(gfx_state, &spawner));
-            }
+            app_settings.add_particle_anim(&mut emitter, gfx_state);
+            app_settings.add_emitter_anim(&mut emitter);
 
-            for anim in item.emitter_animations {
-                spawner.push_emitter_animation(anim);
-            }
-
-            let is_unique = spawners.iter().all(|s| spawner.id != s.id);
-
-            assert!(!spawner.id.is_empty(), "Id can not be empty");
-            assert!(is_unique, "Spawners requires an unique ID");
-
-            spawners.push(spawner);
+            emitters.push(emitter);
         }
 
-        spawners
+        emitters
     }
 }

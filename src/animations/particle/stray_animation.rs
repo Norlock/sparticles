@@ -1,6 +1,6 @@
 use crate::{
     model::{Clock, EmitterState, GfxState, GuiState},
-    traits::{CalculateBufferSize, CreateAnimation, CustomShader, ParticleAnimation},
+    traits::{CalculateBufferSize, CustomShader, ParticleAnimation, RegisterParticleAnimation},
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::{DragValue, Ui};
@@ -13,19 +13,48 @@ pub struct StrayUniform {
     pub until_sec: f32,
 }
 
+impl Default for StrayUniform {
+    fn default() -> Self {
+        Self {
+            stray_radians: 5f32.to_radians(),
+            from_sec: 1.,
+            until_sec: 3.,
+        }
+    }
+}
+
 impl StrayUniform {
     fn create_buffer_content(&self) -> [f32; 4] {
         [self.stray_radians, self.from_sec, self.until_sec, 0.]
     }
 }
 
-impl CreateAnimation for StrayUniform {
-    fn into_animation(
-        self: Box<Self>,
+pub struct RegisterStrayAnimation;
+
+impl RegisterStrayAnimation {
+    /// Will append animation to emitter
+    pub fn append(uniform: StrayUniform, emitter: &mut EmitterState, gfx_state: &GfxState) {
+        let anim = Box::new(StrayAnimation::new(uniform, emitter, &gfx_state));
+
+        emitter.push_particle_animation(anim);
+    }
+}
+
+impl RegisterParticleAnimation for RegisterStrayAnimation {
+    fn create_default(
+        &self,
         gfx_state: &GfxState,
-        particle: &EmitterState,
+        emitter: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(StrayAnimation::new(*self, particle, &gfx_state.device))
+        Box::new(StrayAnimation::new(
+            StrayUniform::default(),
+            emitter,
+            &gfx_state,
+        ))
+    }
+
+    fn tag(&self) -> String {
+        "StrayAnimation".to_string()
     }
 }
 
@@ -68,7 +97,7 @@ impl ParticleAnimation for StrayAnimation {
         gfx_state: &GfxState,
         spawner: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(Self::new(self.uniform, spawner, &gfx_state.device))
+        Box::new(Self::new(self.uniform, spawner, &gfx_state))
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {
@@ -99,7 +128,8 @@ impl ParticleAnimation for StrayAnimation {
 }
 
 impl StrayAnimation {
-    fn new(uniform: StrayUniform, spawner: &EmitterState, device: &wgpu::Device) -> Self {
+    fn new(uniform: StrayUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
+        let device = &gfx_state.device;
         let shader = device.create_shader("stray_anim.wgsl", "Stray animation");
 
         let animation_uniform = uniform.create_buffer_content();
@@ -138,7 +168,7 @@ impl StrayAnimation {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Stray layout"),
-            bind_group_layouts: &[&spawner.bind_group_layout, &animation_layout],
+            bind_group_layouts: &[&emitter.bind_group_layout, &animation_layout],
             push_constant_ranges: &[],
         });
 

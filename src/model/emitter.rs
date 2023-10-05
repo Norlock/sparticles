@@ -1,7 +1,6 @@
+use super::{Clock, EmitterGuiState, EmitterState, GfxState};
 use crate::traits::{FromRGB, HandleAngles};
 use glam::{Vec3, Vec4};
-
-use super::{Clock, EmitterGuiState};
 
 const PARTICLE_BUFFER_SIZE: u64 = 16 * 4;
 
@@ -21,52 +20,9 @@ impl Range {
     }
 }
 
-impl Default for EmitterUniform {
-    fn default() -> Self {
-        let spawn_count: u32 = 6;
-        let particle_lifetime_sec: f32 = 6.;
-        let spawn_delay_sec: f32 = 0.5;
-
-        let spawn_batches_count = (particle_lifetime_sec / spawn_delay_sec).ceil() as u32;
-
-        let box_pos = Vec3::ZERO;
-        let box_dimensions = Vec3::new(1., 0.5, 1.);
-        let box_rotation = Vec3::new(45f32.to_radians(), 0., 0.);
-
-        let diffusion_width_rad = 15f32.to_radians();
-        let diffusion_depth_rad = 15f32.to_radians();
-
-        Self {
-            spawn_delay_sec: 0.5,
-            spawn_from: 0,
-            spawn_until: 0,
-            spawn_count,
-            spawn_batches_count,
-
-            box_pos,
-            box_dimensions,
-            box_rotation,
-
-            diff_width: diffusion_width_rad,
-            diff_depth: diffusion_depth_rad,
-
-            particle_material_mass: 5.,
-            particle_lifetime_sec,
-            particle_speed: Range(10., 15.),
-            particle_size: Range(0.1, 0.15),
-            particle_friction_coefficient: 0.99,
-            particle_color: Vec4::from_rgb(0, 255, 0),
-
-            iteration: 1000,
-            elapsed_sec: 0.,
-            delta_sec: 0.0,
-            texture_image: "1x1.png".to_string(),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct EmitterUniform {
+    pub id: String,
     spawn_from: u32,
     spawn_until: u32,
     spawn_batches_count: u32,
@@ -99,6 +55,49 @@ pub struct EmitterUniform {
 }
 
 impl EmitterUniform {
+    pub fn new(id: String) -> Self {
+        let spawn_count: u32 = 6;
+        let particle_lifetime_sec: f32 = 6.;
+        let spawn_delay_sec: f32 = 0.5;
+
+        let spawn_batches_count = (particle_lifetime_sec / spawn_delay_sec).ceil() as u32;
+
+        let box_pos = Vec3::ZERO;
+        let box_dimensions = Vec3::new(1., 0.5, 1.);
+        let box_rotation = Vec3::new(45f32.to_radians(), 0., 0.);
+
+        let diffusion_width_rad = 15f32.to_radians();
+        let diffusion_depth_rad = 15f32.to_radians();
+
+        Self {
+            id,
+            spawn_delay_sec: 0.5,
+            spawn_from: 0,
+            spawn_until: 0,
+            spawn_count,
+            spawn_batches_count,
+
+            box_pos,
+            box_dimensions,
+            box_rotation,
+
+            diff_width: diffusion_width_rad,
+            diff_depth: diffusion_depth_rad,
+
+            particle_material_mass: 5.,
+            particle_lifetime_sec,
+            particle_speed: Range(10., 15.),
+            particle_size: Range(0.1, 0.15),
+            particle_friction_coefficient: 0.99,
+            particle_color: Vec4::from_rgb(0, 255, 0),
+
+            iteration: 1000,
+            elapsed_sec: 0.,
+            delta_sec: 0.0,
+            texture_image: "1x1.png".to_string(),
+        }
+    }
+
     pub fn handle_gui(&mut self, gui: &EmitterGuiState) {
         self.box_rotation = gui.box_rotation_deg.to_radians();
         self.box_dimensions = gui.box_dimensions;
