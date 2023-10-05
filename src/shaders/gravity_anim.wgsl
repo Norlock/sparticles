@@ -16,7 +16,6 @@ struct GravitationalForce {
 @workgroup_size(128)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let particle_len = arrayLength(&particles);
-
     let index = global_invocation_id.x;
 
     if (particle_len <= index) {
@@ -29,41 +28,38 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    let position = particle.position;
-    let particle_radius = particle.size / 2.;
+    let position = particle.pos_size.xyz;
+    let size = particle.pos_size.w;
+    let mass = particle.vel_mass.w;
+    let particle_radius = size / 2.;
 
     let particle_center = position + particle_radius;
     let current_pos = vec3<f32>(force.current_pos_x, force.current_pos_y, force.current_pos_z);
     let distance = current_pos - particle_center;
 
-    if abs(distance.x) < force.dead_zone && 
-        abs(distance.y) < force.dead_zone &&
-        abs(distance.z) < force.dead_zone
-    {
+    if all(abs(distance) < force.dead_zone) {
         return;
     }
 
-    let distance_pow_x = pow(distance.x, 2.);
-    let distance_pow_y = pow(distance.y, 2.);
-    let distance_pow_z = pow(distance.z, 2.);
+    let distance_pow_x = distance.x * distance.x;
+    let distance_pow_y = distance.y * distance.y;
+    let distance_pow_z = distance.z * distance.z;
+    let len_pow = distance_pow_x + distance_pow_y + distance_pow_z;
+    let top_formula = force.gravitational_force * force.mass * mass;
+    let force = top_formula / len_pow;
 
-    let distance_pow = distance_pow_x + distance_pow_y + distance_pow_z;
+    let percentage_x = distance_pow_x / len_pow;
+    let percentage_y = distance_pow_y / len_pow;
+    let percentage_z = distance_pow_z / len_pow;
 
-    let top_formula = force.gravitational_force * force.mass * particle.mass;
-    let force = top_formula / distance_pow;
+    let vx = force * percentage_x;
+    particle.vel_mass.x += vx * sign(distance.x) * em.delta_sec;
 
-    let percentage_x = distance_pow_x / distance_pow;
-    let percentage_y = distance_pow_y / distance_pow;
-    let percentage_z = distance_pow_z / distance_pow;
+    let vy = force * percentage_y;
+    particle.vel_mass.y += vy * sign(distance.y) * em.delta_sec;
 
-    let vx = force * percentage_x / particle.mass;
-    particle.velocity.x += vx * sign(distance.x) * em.delta_sec;
-
-    let vy = force * percentage_y / particle.mass;
-    particle.velocity.y += vy * sign(distance.y) * em.delta_sec;
-
-    let vz = force * percentage_z / particle.mass;
-    particle.velocity.z += vz * sign(distance.z) * em.delta_sec;
+    let vz = force * percentage_z;
+    particle.vel_mass.z += vz * sign(distance.z) * em.delta_sec;
 
     particles[index] = particle;
 }

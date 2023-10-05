@@ -35,7 +35,7 @@ fn vs_main(
     }
     
     let world_space: vec4<f32> = 
-        vec4<f32>(p.position + camera.rotated_vertices[vert_idx].xyz * p.size * 2.0, 1.0);
+        vec4<f32>(p.pos_size.xyz + camera.rotated_vertices[vert_idx].xyz * p.pos_size.w, 1.0);
 
     let v_pos = camera.vertex_positions[vert_idx];
 

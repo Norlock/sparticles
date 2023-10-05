@@ -35,7 +35,11 @@ fn vs_main(
     }
     
     let world_space: vec4<f32> = 
-        vec4<f32>(p.position + camera.rotated_vertices[vert_idx].xyz * p.size, 1.0);
+        vec4<f32>(
+            p.pos_size.xyz + 
+            camera.rotated_vertices[vert_idx].xyz * 
+            p.pos_size.w, 1.0
+    );
 
     var out: VertexOutput;
     out.pos_uv = vec4<f32>(camera.vertex_positions[vert_idx], uvs[vert_idx]);
@@ -69,9 +73,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     var result = vec3<f32>(0.0);
 
+
     for (var i = 0u; i < arrayLength(&light_particles); i++) { 
         let light = light_particles[i];
-        let light_pos = light.position;
+        let light_pos = light.pos_size.xyz;
 
         let distance = length(light_pos - in.world_space.xyz);
         let strength = 1.0 - distance * 0.04;

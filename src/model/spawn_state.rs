@@ -142,7 +142,7 @@ impl<'a> EmitterState {
             camera,
             clock,
             lights,
-            emitters: spawners,
+            emitters,
             ..
         } = state;
 
@@ -155,7 +155,7 @@ impl<'a> EmitterState {
         r_pass.draw(0..4, 0..lights.particle_count() as u32);
 
         // Normal
-        for spawner in spawners.iter() {
+        for spawner in emitters.iter() {
             r_pass.set_pipeline(&spawner.render_pipeline);
             r_pass.set_bind_group(0, &camera.bind_group, &[]);
             r_pass.set_bind_group(1, &spawner.bind_groups[nr], &[]);

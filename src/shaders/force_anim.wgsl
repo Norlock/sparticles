@@ -68,20 +68,21 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    var particle_vel = particle.velocity;
+    var particle_vel = particle.vel_mass.xyz;
+    let mass = particle.vel_mass.w;
+    let size = particle.pos_size.w;
 
     let force_vel = vec3<f32>(force.vel_x, force.vel_y, force.vel_z);
-    let surface_particle = pi() * pow(particle.size, 2.0);
+    let surface_particle = pi() * pow(size, 2.0);
     let surface_sample = pi();
     let surface_scale = surface_particle / surface_sample;
 
     let applied_mass = force.mass * surface_scale;
     
-    particle_vel.x = get_velocity(particle_vel.x, particle.mass, force.vel_x, applied_mass);
-    particle_vel.y = get_velocity(particle_vel.y, particle.mass, force.vel_y, applied_mass);
-    particle_vel.z = get_velocity(particle_vel.z, particle.mass, force.vel_z, applied_mass);
+    particle_vel.x = get_velocity(particle_vel.x, mass, force.vel_x, applied_mass);
+    particle_vel.y = get_velocity(particle_vel.y, mass, force.vel_y, applied_mass);
+    particle_vel.z = get_velocity(particle_vel.z, mass, force.vel_z, applied_mass);
 
-    particle.velocity = particle_vel;
-
+    particle.vel_mass = vec4<f32>(particle_vel, mass);
     particles[index] = particle;
 }

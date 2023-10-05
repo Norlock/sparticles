@@ -27,7 +27,7 @@ impl Default for GravityUniform {
                 until_sec: 6.,
                 lifetime_sec: 12.,
             },
-            gravitational_force: 0.001,
+            gravitational_force: 0.01,
             dead_zone: 4.,
             mass: 1_000_000.,
             start_pos: Vec3::new(-25., 8., 0.),
@@ -134,6 +134,7 @@ impl ParticleAnimation for GravityAnimation {
     }
 
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState) {
+        let queue = &gfx_state.queue;
         let uniform = &mut self.uniform;
         let life_cycle = &mut uniform.life_cycle;
         let current_sec = life_cycle.get_current_sec(clock);
@@ -143,11 +144,9 @@ impl ParticleAnimation for GravityAnimation {
         if uniform.should_animate {
             let fraction = life_cycle.get_fraction(current_sec);
             uniform.current_pos = uniform.start_pos.lerp(uniform.end_pos, fraction);
-            let buffer_content = self.uniform.create_buffer_content();
+            let buffer_content = uniform.create_buffer_content();
 
-            gfx_state
-                .queue
-                .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&buffer_content));
+            queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&buffer_content));
         }
     }
 

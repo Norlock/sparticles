@@ -93,52 +93,52 @@ impl AppSettings for CustomSettings {
                 emitter,
                 gfx_state,
             );
-        }
 
-        //RegisterGravityAnimation::append(
-        //GravityUniform::new(GravityUniformOptions {
-        //life_cycle: LifeCycle {
-        //from_sec: 0.,
-        //until_sec: 6.,
-        //lifetime_sec: 12.,
-        //},
-        //gravitational_force: 0.001,
-        //dead_zone: 4.,
-        //mass: 1_000_000.,
-        //start_pos: Vec3::new(-25., 8., 0.),
-        //end_pos: Vec3::new(25., 8., 0.),
-        //}),
-        //emitter,
-        //gfx_state,
-        //);
-
-        RegisterForceAnimation::append(
-            ForceUniform {
-                life_cycle: LifeCycle {
-                    from_sec: 0.,
-                    until_sec: 5.,
-                    lifetime_sec: 10.,
+            RegisterForceAnimation::append(
+                ForceUniform {
+                    life_cycle: LifeCycle {
+                        from_sec: 0.,
+                        until_sec: 5.,
+                        lifetime_sec: 10.,
+                    },
+                    velocity: Vec3::new(-15., -15., 0.),
+                    mass_per_unit: 8.5,
                 },
-                velocity: Vec3::new(-15., -15., 0.),
-                mass_per_unit: 0.5,
-            },
-            emitter,
-            gfx_state,
-        );
+                emitter,
+                gfx_state,
+            );
 
-        //RegisterForceAnimation::append(
-        //ForceUniform {
-        //life_cycle: LifeCycle {
-        //from_sec: 5.,
-        //until_sec: 10.,
-        //lifetime_sec: 10.,
-        //},
-        //velocity: Vec3::new(15., 0., 0.),
-        //mass_per_unit: 0.1,
-        //},
-        //emitter,
-        //gfx_state,
-        //);
+            RegisterForceAnimation::append(
+                ForceUniform {
+                    life_cycle: LifeCycle {
+                        from_sec: 5.,
+                        until_sec: 10.,
+                        lifetime_sec: 10.,
+                    },
+                    velocity: Vec3::new(15., 0., 0.),
+                    mass_per_unit: 3.5,
+                },
+                emitter,
+                gfx_state,
+            );
+        } else if emitter.id() == LIGHT_ID {
+            RegisterGravityAnimation::append(
+                GravityUniform::new(GravityUniformOptions {
+                    life_cycle: LifeCycle {
+                        from_sec: 1.,
+                        until_sec: 6.,
+                        lifetime_sec: 12.,
+                    },
+                    gravitational_force: 0.0015,
+                    dead_zone: 4.,
+                    mass: 100_000.,
+                    start_pos: Vec3::new(-25., 8., 0.),
+                    end_pos: Vec3::new(25., 8., 0.),
+                }),
+                emitter,
+                gfx_state,
+            );
+        }
     }
 }
 

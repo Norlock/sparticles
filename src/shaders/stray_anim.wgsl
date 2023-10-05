@@ -42,7 +42,10 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     
     let input_random = em.elapsed_sec + f32(index);
 
-    particle.velocity = create_stray(input_random, particle.velocity);
+    let vel = create_stray(input_random, particle.vel_mass.xyz);
+    particle.vel_mass.x = vel.x;
+    particle.vel_mass.y = vel.y;
+    particle.vel_mass.z = vel.z;
 
     particles[index] = particle;
 }

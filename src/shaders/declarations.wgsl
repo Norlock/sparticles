@@ -1,10 +1,9 @@
 struct Particle {
-    position: vec3<f32>,
-    size: f32,
+    pos_size: vec4<f32>,
     color: vec4<f32>,
-    velocity: vec3<f32>, 
+    vel_mass: vec4<f32>, 
     lifetime: f32, // lifetime == -1. is decayed
-    mass: f32,
+    padding: f32,
 };
 
 struct Emitter {
@@ -32,7 +31,7 @@ struct Emitter {
     particle_size_min: f32,
     particle_size_max: f32,
     particle_friction_coefficient: f32,
-    particle_mass: f32,
+    material_mass: f32,
     particle_lifetime: f32,
 };
 

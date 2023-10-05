@@ -58,18 +58,13 @@ fn spawn_particle(index: u32, particle: Particle) {
     let speed_delta = em.particle_speed_max - em.particle_speed_min;
     let speed_random = gen_abs_range(input_random + 40., speed_delta, em.elapsed_sec);
     let particle_speed = em.particle_speed_min + speed_random;
+    let position = create_particle_position(input_random);
+    let velocity = create_velocity(input_random, particle_speed);
 
-    particle.position = create_particle_position(input_random);
-    particle.velocity = create_velocity(input_random, particle_speed);
+    particle.pos_size = vec4<f32>(position, size);
     particle.color = particle_color;
-    particle.size = size;
+    particle.vel_mass = vec4<f32>(velocity, em.material_mass * size);
     particle.lifetime = 0.;
-
-    let volume_sample = 4. / 3. * pi() * pow(0.5, 3.0);
-    let volume_particle = 4. / 3. * pi() * pow(particle.size / 2., 3.);
-    let mass_scale = volume_particle / volume_sample;
-
-    particle.mass = em.particle_mass * mass_scale;
 
     particles_dst[index] = particle;
 }
@@ -101,8 +96,11 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    particle.velocity *= em.particle_friction_coefficient;
-    particle.position += particle.velocity * em.delta_sec;
+    let new_vel = particle.vel_mass.xyz * em.particle_friction_coefficient;
+    particle.vel_mass = vec4<f32>(new_vel, particle.vel_mass.w);
+
+    let new_pos = particle.pos_size.xyz + new_vel * em.delta_sec;
+    particle.pos_size = vec4<f32>(new_pos, particle.pos_size.w);
 
     particles_dst[index] = particle;
 }

@@ -1,8 +1,8 @@
-use super::{Clock, EmitterGuiState, EmitterState, GfxState};
+use super::{Clock, EmitterGuiState};
 use crate::traits::{FromRGB, HandleAngles};
 use glam::{Vec3, Vec4};
 
-const PARTICLE_BUFFER_SIZE: u64 = 16 * 4;
+const PARTICLE_BUFFER_SIZE: u64 = 14 * 4;
 
 pub struct EmitSpawnOptions {
     pub spawn_count: u32,
