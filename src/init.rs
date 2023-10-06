@@ -2,7 +2,16 @@ use crate::animations::color_animation::RegisterColorAnimation;
 use crate::animations::{RegisterForceAnimation, RegisterGravityAnimation, RegisterStrayAnimation};
 use crate::model::{Camera, CreateEmitterOptions, EmitterState, EmitterUniform, GfxState};
 use crate::traits::*;
+use crate::util::persistence::ExportEmitter;
+use crate::util::Persistence;
 use egui_wgpu::wgpu;
+
+pub enum JsonImportMode {
+    /// (Default) Will replace existing emitters with files
+    Replace,
+    /// Will ignore json file and use code only
+    Ignore,
+}
 
 pub trait AppSettings {
     fn show_gui(&self) -> bool;
@@ -10,6 +19,10 @@ pub trait AppSettings {
     fn emitters(&self) -> Vec<EmitterUniform>;
     fn add_particle_anim(&self, emitter: &mut EmitterState, gfx_state: &GfxState);
     fn add_emitter_anim(&self, emitter: &mut EmitterState);
+
+    fn import_mode(&self) -> JsonImportMode {
+        JsonImportMode::Replace
+    }
 
     fn register_custom_particle_animations(&self) -> Vec<Box<dyn RegisterParticleAnimation>> {
         vec![]
@@ -26,7 +39,7 @@ impl InitSettings {
         vector.push(Box::new(RegisterStrayAnimation));
     }
 
-    pub fn create_light_spawner(
+    fn create_light_spawner(
         app_settings: &impl AppSettings,
         gfx_state: &GfxState,
         camera: &Camera,
@@ -43,7 +56,7 @@ impl InitSettings {
         lights
     }
 
-    pub fn create_spawners(
+    fn create_spawners(
         app_settings: &impl AppSettings,
         gfx_state: &GfxState,
         light_layout: &wgpu::BindGroupLayout,
@@ -72,5 +85,71 @@ impl InitSettings {
         }
 
         emitters
+    }
+
+    pub fn create_emitters(
+        app_settings: &impl AppSettings,
+        gfx_state: &GfxState,
+        camera: &Camera,
+    ) -> (Vec<EmitterState>, EmitterState) {
+        match app_settings.import_mode() {
+            JsonImportMode::Ignore => {
+                let lights = InitSettings::create_light_spawner(app_settings, gfx_state, camera);
+
+                let emitters = InitSettings::create_spawners(
+                    app_settings,
+                    gfx_state,
+                    &lights.bind_group_layout,
+                    camera,
+                );
+
+                (emitters, lights)
+            }
+            JsonImportMode::Replace => match Persistence::import_emitter_states() {
+                Ok(val) => Self::import(val, gfx_state, camera),
+                Err(err) => panic!("{:?}", err.msg),
+            },
+        }
+    }
+
+    fn import(
+        mut import_emitters: Vec<ExportEmitter>,
+        gfx_state: &GfxState,
+        camera: &Camera,
+    ) -> (Vec<EmitterState>, EmitterState) {
+        let mut emitters = Vec::new();
+        let mut lights_export: Option<ExportEmitter> = None;
+
+        for i in 0..import_emitters.len() {
+            if import_emitters[i].is_light {
+                lights_export = Some(import_emitters.remove(i));
+                break;
+            }
+        }
+
+        assert!(
+            lights_export.is_some(),
+            "Lights is not in JSON export please remove exports file"
+        );
+
+        let lights_export = lights_export.unwrap();
+
+        let lights = gfx_state.create_emitter_state(CreateEmitterOptions {
+            emitter_uniform: lights_export.emitter,
+            light_layout: None,
+            camera,
+        });
+
+        for item in import_emitters {
+            if !item.is_light {
+                emitters.push(gfx_state.create_emitter_state(CreateEmitterOptions {
+                    emitter_uniform: item.emitter,
+                    light_layout: Some(&lights.bind_group_layout),
+                    camera,
+                }));
+            }
+        }
+
+        (emitters, lights)
     }
 }

@@ -1,5 +1,5 @@
 use super::{Camera, Clock, EmitterState, GfxState, GuiState};
-use crate::init::InitSettings;
+use crate::init::{InitSettings, JsonImportMode};
 use crate::traits::*;
 use crate::{fx::PostProcessState, util::Persistence, AppSettings};
 use egui_wgpu::wgpu;
@@ -54,31 +54,20 @@ impl State {
 
     pub fn new(app_settings: impl AppSettings, window: Window) -> Self {
         let mut registered_particle_animations = app_settings.register_custom_particle_animations();
-        InitSettings::add_builtin_particle_animations(&mut registered_particle_animations);
 
         let gfx_state = pollster::block_on(GfxState::new(window));
 
         let clock = Clock::new();
         let camera = Camera::new(&gfx_state);
-        let lights = InitSettings::create_light_spawner(&app_settings, &gfx_state, &camera);
-        let emitters = InitSettings::create_spawners(
-            &app_settings,
-            &gfx_state,
-            &lights.bind_group_layout,
-            &camera,
-        );
 
+        InitSettings::add_builtin_particle_animations(&mut registered_particle_animations);
+        let (emitters, lights) = InitSettings::create_emitters(&app_settings, &gfx_state, &camera);
         let mut post_process = PostProcessState::new(&gfx_state);
 
         if let Ok(fx_types) = Persistence::import_post_fx() {
             post_process.import_fx(&gfx_state, fx_types);
         } else {
             post_process.add_default_fx(&gfx_state);
-        }
-
-        match Persistence::import_emitter_states() {
-            Ok(val) => {}
-            Err(err) => println!("{:?}", err.msg),
         }
 
         let gui = GuiState::new(
