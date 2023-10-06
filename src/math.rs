@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt::Formatter;
 use std::ops::DerefMut;
 use std::{num::NonZeroU64, ops::Deref};
@@ -5,7 +6,7 @@ use std::{num::NonZeroU64, ops::Deref};
 use crate::traits::{CalculateBufferSize, HandleAngles};
 use egui_wgpu::wgpu;
 use glam::{Vec2, Vec3, Vec4};
-use serde::de::{Deserialize, Deserializer, Visitor};
+use serde::de::{self, Deserialize, Deserializer, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 
 impl HandleAngles for Vec3 {
@@ -129,7 +130,7 @@ impl<'de> Deserialize<'de> for SparVec3 {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_any(Spar3Visitor)
+        deserializer.deserialize_seq(Spar3Visitor)
     }
 }
 
@@ -138,7 +139,7 @@ impl<'de> Deserialize<'de> for SparVec4 {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_any(Spar4Visitor)
+        deserializer.deserialize_seq(Spar4Visitor)
     }
 }
 
@@ -162,23 +163,27 @@ impl<'de> Visitor<'de> for Spar3Visitor {
     type Value = SparVec3;
 
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-        formatter.write_str("Not a vec3")
+        formatter.write_str("Not a vector 3")
     }
 
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
-        E: serde::de::Error,
+        A: de::SeqAccess<'de>,
     {
-        let arr: Result<[f32; 3], _> = serde_json::from_str(v);
+        let mut arr = [0.; 3];
+        let mut idx = 0;
 
-        if let Ok(arr) = arr {
-            Ok(arr.into())
-        } else {
-            Err(serde::de::Error::invalid_type(
-                serde::de::Unexpected::Seq,
-                &self,
-            ))
+        while let Ok(res) = seq.next_element::<f32>() {
+            match res {
+                Some(val) => {
+                    arr[idx] = val;
+                    idx += 1;
+                }
+                None => break,
+            }
         }
+
+        Ok(arr.into())
     }
 }
 
@@ -187,22 +192,26 @@ impl<'de> Visitor<'de> for Spar4Visitor {
     type Value = SparVec4;
 
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-        formatter.write_str("Not a vec3")
+        formatter.write_str("Not a vector 4")
     }
 
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
-        E: serde::de::Error,
+        A: de::SeqAccess<'de>,
     {
-        let arr: Result<[f32; 4], _> = serde_json::from_str(v);
+        let mut arr = [0.; 4];
+        let mut idx = 0;
 
-        if let Ok(arr) = arr {
-            Ok(arr.into())
-        } else {
-            Err(serde::de::Error::invalid_type(
-                serde::de::Unexpected::Seq,
-                &self,
-            ))
+        while let Ok(res) = seq.next_element::<f32>() {
+            match res {
+                Some(val) => {
+                    arr[idx] = val;
+                    idx += 1;
+                }
+                None => break,
+            }
         }
+
+        Ok(arr.into())
     }
 }

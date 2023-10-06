@@ -70,10 +70,15 @@ impl State {
 
         let mut post_process = PostProcessState::new(&gfx_state);
 
-        if let Ok(fx_types) = Persistence::fetch_post_fx() {
+        if let Ok(fx_types) = Persistence::import_post_fx() {
             post_process.import_fx(&gfx_state, fx_types);
         } else {
             post_process.add_default_fx(&gfx_state);
+        }
+
+        match Persistence::import_emitter_states() {
+            Ok(val) => {}
+            Err(err) => println!("{:?}", err.msg),
         }
 
         let gui = GuiState::new(

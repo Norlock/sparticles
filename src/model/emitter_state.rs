@@ -1,7 +1,7 @@
 use super::{Camera, EmitterUniform, GfxState, State};
 use crate::traits::{CalculateBufferSize, CustomShader};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
-use crate::util::persistence::{ExportAnimation, ExportType};
+use crate::util::persistence::{ExportAnimation, ExportEmitter, ExportType};
 use crate::util::Persistence;
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
@@ -12,14 +12,6 @@ use std::{
     num::NonZeroU64,
 };
 use wgpu::util::DeviceExt;
-
-#[derive(Serialize, Deserialize)]
-pub struct ExportEmitter {
-    emitter: EmitterUniform,
-    is_light: bool,
-    particle_animations: Vec<ExportAnimation>,
-    emitter_animations: Vec<serde_json::Value>,
-}
 
 #[allow(unused)]
 pub struct EmitterState {
@@ -236,28 +228,24 @@ impl<'a> EmitterState {
     pub fn export(emitters: &Vec<EmitterState>, lights: &EmitterState) {
         let mut to_export = Vec::new();
 
-        {
-            let mut particle_animations = Vec::new();
-            for animation in lights.particle_animations.iter() {
-                particle_animations.push(animation.export());
-            }
-
-            to_export.push(ExportEmitter {
-                particle_animations,
-                emitter: lights.uniform.clone(),
-                is_light: true,
-                emitter_animations: vec![],
-            });
-        }
+        to_export.push(ExportEmitter {
+            particle_animations: lights
+                .particle_animations
+                .iter()
+                .map(|anim| anim.export())
+                .collect(),
+            emitter: lights.uniform.clone(),
+            is_light: true,
+            emitter_animations: vec![],
+        });
 
         for emitter in emitters.iter() {
-            let mut particle_animations = Vec::new();
-            for animation in emitter.particle_animations.iter() {
-                particle_animations.push(animation.export());
-            }
-
             to_export.push(ExportEmitter {
-                particle_animations,
+                particle_animations: emitter
+                    .particle_animations
+                    .iter()
+                    .map(|anim| anim.export())
+                    .collect(),
                 emitter: emitter.uniform.clone(),
                 is_light: false,
                 emitter_animations: vec![],
@@ -265,7 +253,6 @@ impl<'a> EmitterState {
         }
 
         Persistence::write_to_file(to_export, ExportType::EmitterStates);
-        //let to_export =
     }
 }
 

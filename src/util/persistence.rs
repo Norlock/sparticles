@@ -1,4 +1,4 @@
-use crate::fx::post_process::FxPersistenceType;
+use crate::{fx::post_process::FxPersistenceType, model::EmitterUniform};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
@@ -13,7 +13,15 @@ pub struct ImportError {
     pub msg: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExportEmitter {
+    pub emitter: EmitterUniform,
+    pub is_light: bool,
+    pub particle_animations: Vec<ExportAnimation>,
+    pub emitter_animations: Vec<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ExportAnimation {
     #[serde(rename = "type")]
     pub animation_type: String,
@@ -46,7 +54,7 @@ impl Persistence {
         serde_json::to_writer(&mut writer, &to_export).expect("Can't write export");
     }
 
-    pub fn fetch_post_fx() -> Result<Vec<FxPersistenceType>, ImportError> {
+    pub fn import_post_fx() -> Result<Vec<FxPersistenceType>, ImportError> {
         let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         dir.push(format!("export/{}", ExportType::PostFx));
 
@@ -71,5 +79,34 @@ impl Persistence {
         }
 
         Err(ImportError { msg: error_msg })
+    }
+
+    pub fn import_emitter_states() -> Result<Vec<ExportEmitter>, ImportError> {
+        let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        dir.push(format!("export/{}", ExportType::EmitterStates));
+
+        let path = dir.to_str().expect("Path is not correct");
+        let file_str = fs::read_to_string(path);
+
+        match file_str {
+            Err(err) => println!("{}", err),
+            Ok(file_str) => {
+                match serde_json::from_str::<Vec<ExportEmitter>>(&file_str) {
+                    Ok(val) => {
+                        println!("Import {:?}", &val);
+                        return Ok(val);
+                    }
+                    Err(err) => {
+                        return Err(ImportError {
+                            msg: format!("Wrong syntaxed JSON: {}", err),
+                        })
+                    }
+                };
+            }
+        }
+
+        Err(ImportError {
+            msg: "jammer lul".to_owned(),
+        })
     }
 }
