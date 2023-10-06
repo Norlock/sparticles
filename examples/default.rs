@@ -7,6 +7,7 @@ use sparticles::{
         RegisterStrayAnimation, StrayUniform, SwayAnimation,
     },
     init::AppSettings,
+    math::{SparVec3, SparVec4},
     model::{EmitterState, EmitterUniform, GfxState, LifeCycle, Range},
     traits::*,
 };
@@ -22,7 +23,7 @@ impl AppSettings for CustomSettings {
 
         emitter.box_pos.x = -3.;
         emitter.box_pos.y = -3.;
-        emitter.particle_color = Vec4::from_rgb(175, 175, 255);
+        emitter.particle_color = SparVec4::from_rgb(175, 175, 255);
         emitter.particle_size = Range::new(0.25, 0.25);
         emitter.particle_speed = Range::new(5., 7.);
         emitter.spawn_count = 1;
@@ -87,8 +88,8 @@ impl AppSettings for CustomSettings {
                 ColorUniform {
                     from_sec: 0.,
                     until_sec: 0.5,
-                    from_color: Vec4::from_rgb(0, 255, 0),
-                    to_color: Vec4::from_rgb(0, 0, 255),
+                    from_color: SparVec4::from_rgb(0, 255, 0),
+                    to_color: SparVec4::from_rgb(0, 0, 255),
                 },
                 emitter,
                 gfx_state,
@@ -101,7 +102,7 @@ impl AppSettings for CustomSettings {
                         until_sec: 5.,
                         lifetime_sec: 10.,
                     },
-                    velocity: Vec3::new(-15., -15., 0.),
+                    velocity: [-15., -15., 0.].into(),
                     mass_per_unit: 8.5,
                 },
                 emitter,
@@ -115,7 +116,7 @@ impl AppSettings for CustomSettings {
                         until_sec: 10.,
                         lifetime_sec: 10.,
                     },
-                    velocity: Vec3::new(15., 0., 0.),
+                    velocity: [15., 0., 0.].into(),
                     mass_per_unit: 3.5,
                 },
                 emitter,
@@ -132,8 +133,8 @@ impl AppSettings for CustomSettings {
                     gravitational_force: 0.0015,
                     dead_zone: 4.,
                     mass: 100_000.,
-                    start_pos: Vec3::new(-25., 8., 0.),
-                    end_pos: Vec3::new(25., 8., 0.),
+                    start_pos: [-25., 8., 0.].into(),
+                    end_pos: [25., 8., 0.].into(),
                 }),
                 emitter,
                 gfx_state,

@@ -1,7 +1,6 @@
 use crate::animations::color_animation::RegisterColorAnimation;
 use crate::animations::{RegisterForceAnimation, RegisterGravityAnimation, RegisterStrayAnimation};
-use crate::model::spawn_state::CreateEmitterOptions;
-use crate::model::{Camera, EmitterState, EmitterUniform, GfxState};
+use crate::model::{Camera, CreateEmitterOptions, EmitterState, EmitterUniform, GfxState};
 use crate::traits::*;
 use egui_wgpu::wgpu;
 

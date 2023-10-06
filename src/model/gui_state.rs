@@ -1,6 +1,9 @@
 use super::{EmitterState, State};
 use crate::{
-    fx::{bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, FxPersistenceType},
+    fx::{
+        bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, FxPersistenceType,
+        PostProcessState,
+    },
     traits::RegisterParticleAnimation,
     util::{persistence::ExportType, Persistence},
 };
@@ -48,6 +51,7 @@ impl GuiState {
                 emitters,
                 lights,
                 gui,
+                post_process,
                 ..
             } = state;
 
@@ -90,6 +94,14 @@ impl GuiState {
                 });
 
             ui.add_space(5.0);
+
+            ui.separator();
+
+            if ui.button("Export settings").clicked() {
+                EmitterState::export(emitters, lights);
+                PostProcessState::export(post_process);
+            }
+
             ui.separator();
 
             ui.horizontal(|ui| {
@@ -196,7 +208,7 @@ impl GuiState {
         }
     }
 
-    pub fn handle_gui(state: &mut State) {
+    pub fn process_gui(state: &mut State) {
         let State {
             camera,
             lights,
@@ -217,22 +229,13 @@ impl GuiState {
             camera.view_dir = glam::Vec3::new(0., 0., -10.);
         }
 
-        let update_emitter = |emitter: &mut EmitterState,
-                              layout: Option<&wgpu::BindGroupLayout>| {
-            emitter.uniform.handle_gui(&emitter.gui);
-
-            if emitter.gui.recreate {
-                emitter.recreate_spawner(gfx_state, layout, camera);
-            }
-        };
-
         if lights.id() == gui.selected_spawner_id {
-            update_emitter(lights, None);
+            lights.process_gui(None, gfx_state, camera);
         } else if let Some(emitter) = emitters
             .iter_mut()
             .find(|emitter| emitter.id() == gui.selected_spawner_id)
         {
-            update_emitter(emitter, Some(&lights.bind_group_layout));
+            emitter.process_gui(Some(&lights.bind_group_layout), gfx_state, camera);
         }
     }
 
@@ -377,16 +380,6 @@ impl GuiState {
                 };
             }
         });
-
-        ui.separator();
-
-        if ui.button("Export").clicked() {
-            let to_export: Vec<FxPersistenceType> =
-                post_process.post_fx.iter().map(|fx| fx.export()).collect();
-
-            Persistence::write_to_file(to_export, ExportType::PostFx);
-            // TODO feedback that export has been successful
-        }
     }
 
     pub fn create_title(ui: &mut Ui, str: &str) {

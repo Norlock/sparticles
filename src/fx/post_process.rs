@@ -1,6 +1,8 @@
 use super::{bloom::BloomExport, color_processing::ColorProcessingUniform, Bloom, ColorProcessing};
 use crate::model::{GfxState, State};
 use crate::traits::*;
+use crate::util::persistence::ExportType;
+use crate::util::Persistence;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::ClippedPrimitive;
 use encase::{ShaderType, UniformBuffer};
@@ -220,6 +222,11 @@ impl PostProcessState {
                 },
             ],
         })
+    }
+
+    pub fn export(pp: &PostProcessState) {
+        let to_export: Vec<FxPersistenceType> = pp.post_fx.iter().map(|fx| fx.export()).collect();
+        Persistence::write_to_file(to_export, ExportType::PostFx);
     }
 
     pub fn new(gfx_state: &GfxState) -> Self {

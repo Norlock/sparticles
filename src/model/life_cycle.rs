@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use super::Clock;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct LifeCycle {
     pub from_sec: f32,
     pub until_sec: f32,

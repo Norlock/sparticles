@@ -1,5 +1,5 @@
 use crate::fx::post_process::FxPersistenceType;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     fs::{self, File},
@@ -13,14 +13,23 @@ pub struct ImportError {
     pub msg: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ExportAnimation {
+    #[serde(rename = "type")]
+    pub animation_type: String,
+    pub animation: serde_json::Value,
+}
+
 pub enum ExportType {
     PostFx,
+    EmitterStates,
 }
 
 impl Display for ExportType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ExportType::PostFx => f.write_str("post_fx.json"),
+            ExportType::EmitterStates => f.write_str("emitters.json"),
         }
     }
 }

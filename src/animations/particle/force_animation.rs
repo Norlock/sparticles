@@ -1,16 +1,18 @@
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::{DragValue, Ui};
-use glam::Vec3;
+use serde::{Deserialize, Serialize};
 
 use crate::{
+    math::SparVec3,
     model::{Clock, EmitterState, GfxState, GuiState, LifeCycle},
     traits::{CustomShader, ParticleAnimation, RegisterParticleAnimation},
+    util::persistence::ExportAnimation,
 };
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ForceUniform {
     pub life_cycle: LifeCycle,
-    pub velocity: Vec3,
+    pub velocity: SparVec3,
     /// Applied on a 1.0 particle size unit
     pub mass_per_unit: f32,
 }
@@ -23,7 +25,7 @@ impl Default for ForceUniform {
                 until_sec: 5.,
                 lifetime_sec: 10.,
             },
-            velocity: Vec3::new(-15., -15., 0.),
+            velocity: [-15., -15., 0.].into(),
             mass_per_unit: 0.5,
         }
     }
@@ -122,6 +124,16 @@ impl ParticleAnimation for ForceAnimation {
         spawner: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
         Box::new(Self::new(self.uniform, spawner, gfx_state))
+    }
+
+    fn export(&self) -> ExportAnimation {
+        let animation = serde_json::to_value(self.uniform).unwrap();
+        let animation_type = RegisterForceAnimation.tag().to_owned();
+
+        ExportAnimation {
+            animation_type,
+            animation,
+        }
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {

@@ -27,7 +27,7 @@ impl State {
 
         Camera::update(self);
         EmitterState::update_spawners(self);
-        GuiState::handle_gui(self);
+        GuiState::process_gui(self);
     }
 
     pub fn render(&mut self) {

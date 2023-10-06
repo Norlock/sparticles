@@ -1,9 +1,11 @@
 use crate::{
     fx::post_process::{FxPersistenceType, FxState, FxView},
     model::{Clock, EmitterState, EmitterUniform, GfxState, State},
+    util::persistence::ExportAnimation,
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
+use serde::Serialize;
 use std::{num::NonZeroU64, rc::Rc};
 
 pub trait FromRGB {
@@ -65,6 +67,8 @@ pub trait ParticleAnimation {
     ) -> Box<dyn ParticleAnimation>;
 
     fn create_gui(&mut self, ui: &mut Ui);
+
+    fn export(&self) -> ExportAnimation;
 }
 
 pub trait EmitterAnimation {

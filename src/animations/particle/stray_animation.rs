@@ -1,12 +1,14 @@
 use crate::{
     model::{Clock, EmitterState, GfxState, GuiState},
     traits::{CalculateBufferSize, CustomShader, ParticleAnimation, RegisterParticleAnimation},
+    util::persistence::ExportAnimation,
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::{DragValue, Ui};
+use serde::{Deserialize, Serialize};
 use wgpu::util::DeviceExt;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct StrayUniform {
     pub stray_radians: f32,
     pub from_sec: f32,
@@ -103,6 +105,16 @@ impl ParticleAnimation for StrayAnimation {
         emitter: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
+    }
+
+    fn export(&self) -> ExportAnimation {
+        let animation = serde_json::to_value(self.uniform).unwrap();
+        let animation_type = RegisterStrayAnimation.tag().to_owned();
+
+        ExportAnimation {
+            animation_type,
+            animation,
+        }
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {

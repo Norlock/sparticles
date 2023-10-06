@@ -1,17 +1,20 @@
 use egui_wgpu::wgpu;
 use egui_winit::egui::{DragValue, Ui};
 use glam::Vec4;
+use serde::{Deserialize, Serialize};
 use wgpu::util::DeviceExt;
 
 use crate::{
+    math::SparVec4,
     model::{Clock, EmitterState, GfxState, GuiState},
     traits::*,
+    util::persistence::ExportAnimation,
 };
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ColorUniform {
-    pub from_color: Vec4,
-    pub to_color: Vec4,
+    pub from_color: SparVec4,
+    pub to_color: SparVec4,
     pub from_sec: f32,
     pub until_sec: f32,
 }
@@ -21,8 +24,8 @@ impl Default for ColorUniform {
         Self {
             from_sec: 0.,
             until_sec: 0.5,
-            from_color: Vec4::from_rgb(0, 255, 0),
-            to_color: Vec4::from_rgb(0, 0, 255),
+            from_color: Vec4::from_rgb(0, 255, 0).into(),
+            to_color: Vec4::from_rgb(0, 0, 255).into(),
         }
     }
 }
@@ -87,6 +90,16 @@ struct ColorAnimation {
 }
 
 impl ParticleAnimation for ColorAnimation {
+    fn export(&self) -> ExportAnimation {
+        let animation = serde_json::to_value(self.uniform).unwrap();
+        let animation_type = RegisterColorAnimation.tag().to_owned();
+
+        ExportAnimation {
+            animation_type,
+            animation,
+        }
+    }
+
     fn update(&mut self, _clock: &Clock, gfx_state: &GfxState) {
         let queue = &gfx_state.queue;
 

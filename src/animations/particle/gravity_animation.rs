@@ -1,22 +1,25 @@
 use egui_wgpu::wgpu;
 use egui_winit::egui::{DragValue, Ui};
 use glam::Vec3;
+use serde::{Deserialize, Serialize};
 use wgpu::util::DeviceExt;
 
+use crate::math::SparVec3;
 use crate::model::clock::Clock;
 use crate::model::{EmitterState, GfxState, GuiState, LifeCycle};
 use crate::traits::*;
+use crate::util::persistence::ExportAnimation;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct GravityUniform {
     life_cycle: LifeCycle,
     gravitational_force: f32,
     dead_zone: f32,
     mass: f32,
     should_animate: bool,
-    start_pos: Vec3,
-    end_pos: Vec3,
-    current_pos: Vec3,
+    start_pos: SparVec3,
+    end_pos: SparVec3,
+    current_pos: SparVec3,
 }
 
 impl Default for GravityUniform {
@@ -30,9 +33,9 @@ impl Default for GravityUniform {
             gravitational_force: 0.01,
             dead_zone: 4.,
             mass: 1_000_000.,
-            start_pos: Vec3::new(-25., 8., 0.),
-            current_pos: Vec3::new(-25., 8., 0.),
-            end_pos: Vec3::new(25., 8., 0.),
+            start_pos: [-25., 8., 0.].into(),
+            current_pos: [-25., 8., 0.].into(),
+            end_pos: [25., 8., 0.].into(),
             should_animate: false,
         }
     }
@@ -56,9 +59,9 @@ impl GravityUniform {
             dead_zone: props.dead_zone,
             mass: props.mass,
             life_cycle: props.life_cycle,
-            start_pos: props.start_pos,
-            end_pos: props.end_pos,
-            current_pos: props.start_pos,
+            start_pos: props.start_pos.into(),
+            end_pos: props.end_pos.into(),
+            current_pos: props.start_pos.into(),
             should_animate: false,
         }
     }
@@ -145,7 +148,7 @@ impl ParticleAnimation for GravityAnimation {
 
         if uniform.should_animate {
             let fraction = life_cycle.get_fraction(current_sec);
-            uniform.current_pos = uniform.start_pos.lerp(uniform.end_pos, fraction);
+            *uniform.current_pos = uniform.start_pos.lerp(*uniform.end_pos, fraction);
             let buffer_content = uniform.create_buffer_content();
 
             queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&buffer_content));
@@ -158,6 +161,16 @@ impl ParticleAnimation for GravityAnimation {
         spawner: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
         Box::new(Self::new(self.uniform, spawner, gfx_state))
+    }
+
+    fn export(&self) -> ExportAnimation {
+        let animation = serde_json::to_value(self.uniform).unwrap();
+        let animation_type = RegisterGravityAnimation.tag().to_owned();
+
+        ExportAnimation {
+            animation_type,
+            animation,
+        }
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {

@@ -18,4 +18,4 @@ Particle system written in rust + WGPU + EGUI
 - [ ] Being able to extend Fx State bind groups as long as the order is preserved so you have more
 flexibility 
 
-
+TODO write serialize + deserialize for cgmath vec3 + vec4

@@ -1,24 +1,31 @@
 use super::{Camera, EmitterUniform, GfxState, State};
+use crate::traits::{CalculateBufferSize, CustomShader};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
-use crate::{
-    texture::DiffuseTexture,
-    traits::{CalculateBufferSize, CustomShader},
-};
+use crate::util::persistence::{ExportAnimation, ExportType};
+use crate::util::Persistence;
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
 use glam::Vec3;
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Formatter},
     num::NonZeroU64,
 };
 use wgpu::util::DeviceExt;
 
-#[allow(dead_code)]
+#[derive(Serialize, Deserialize)]
+pub struct ExportEmitter {
+    emitter: EmitterUniform,
+    is_light: bool,
+    particle_animations: Vec<ExportAnimation>,
+    emitter_animations: Vec<serde_json::Value>,
+}
+
+#[allow(unused)]
 pub struct EmitterState {
     pipeline: wgpu::ComputePipeline,
     particle_buffers: Vec<wgpu::Buffer>,
     emitter_buffer: wgpu::Buffer,
-    diffuse_texture: DiffuseTexture,
     render_pipeline: wgpu::RenderPipeline,
     particle_animations: Vec<Box<dyn ParticleAnimation>>,
     emitter_animations: Vec<Box<dyn EmitterAnimation>>,
@@ -167,7 +174,7 @@ impl<'a> EmitterState {
     pub fn recreate_spawner(
         &mut self,
         gfx_state: &GfxState,
-        light_layout: Option<&'a wgpu::BindGroupLayout>,
+        light_layout: Option<&wgpu::BindGroupLayout>,
         camera: &Camera,
     ) {
         let mut new_self = gfx_state.create_emitter_state(CreateEmitterOptions {
@@ -195,6 +202,19 @@ impl<'a> EmitterState {
         self.emitter_animations.push(animation);
     }
 
+    pub fn process_gui(
+        &mut self,
+        layout: Option<&wgpu::BindGroupLayout>,
+        gfx_state: &GfxState,
+        camera: &Camera,
+    ) {
+        self.uniform.process_gui(&self.gui);
+
+        if self.gui.recreate {
+            self.recreate_spawner(gfx_state, layout, camera);
+        }
+    }
+
     pub fn gui_emitter_animations(&mut self, ui: &mut Ui) {
         for anim in self.emitter_animations.iter_mut() {
             anim.create_gui(ui);
@@ -211,6 +231,41 @@ impl<'a> EmitterState {
 
     pub fn particle_count(&self) -> u64 {
         self.uniform.particle_count()
+    }
+
+    pub fn export(emitters: &Vec<EmitterState>, lights: &EmitterState) {
+        let mut to_export = Vec::new();
+
+        {
+            let mut particle_animations = Vec::new();
+            for animation in lights.particle_animations.iter() {
+                particle_animations.push(animation.export());
+            }
+
+            to_export.push(ExportEmitter {
+                particle_animations,
+                emitter: lights.uniform.clone(),
+                is_light: true,
+                emitter_animations: vec![],
+            });
+        }
+
+        for emitter in emitters.iter() {
+            let mut particle_animations = Vec::new();
+            for animation in emitter.particle_animations.iter() {
+                particle_animations.push(animation.export());
+            }
+
+            to_export.push(ExportEmitter {
+                particle_animations,
+                emitter: emitter.uniform.clone(),
+                is_light: false,
+                emitter_animations: vec![],
+            });
+        }
+
+        Persistence::write_to_file(to_export, ExportType::EmitterStates);
+        //let to_export =
     }
 }
 
@@ -434,7 +489,6 @@ impl GfxState {
             particle_buffers,
             emitter_buffer,
             dispatch_x_count,
-            diffuse_texture,
             particle_animations: vec![],
             emitter_animations: vec![],
             is_light,
