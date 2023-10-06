@@ -81,7 +81,7 @@ pub struct RegisterGravityAnimation;
 impl RegisterGravityAnimation {
     /// Will append animation to emitter
     pub fn append(uniform: GravityUniform, emitter: &mut EmitterState, gfx_state: &GfxState) {
-        let anim = Box::new(GravityAnimation::new(uniform, &emitter, gfx_state));
+        let anim = Box::new(GravityAnimation::new(uniform, emitter, gfx_state));
 
         emitter.push_particle_animation(anim);
     }
@@ -96,7 +96,7 @@ impl RegisterParticleAnimation for RegisterGravityAnimation {
         Box::new(GravityAnimation::new(
             GravityUniform::default(),
             emitter,
-            &gfx_state,
+            gfx_state,
         ))
     }
 
@@ -157,7 +157,7 @@ impl ParticleAnimation for GravityAnimation {
         gfx_state: &GfxState,
         spawner: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(Self::new(self.uniform, spawner, &gfx_state))
+        Box::new(Self::new(self.uniform, spawner, gfx_state))
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {

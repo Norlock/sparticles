@@ -50,7 +50,7 @@ pub struct RegisterColorAnimation;
 impl RegisterColorAnimation {
     /// Will append animation to emitter
     pub fn append(uniform: ColorUniform, emitter: &mut EmitterState, gfx_state: &GfxState) {
-        let anim = Box::new(ColorAnimation::new(uniform, emitter, &gfx_state));
+        let anim = Box::new(ColorAnimation::new(uniform, emitter, gfx_state));
 
         emitter.push_particle_animation(anim);
     }
@@ -69,7 +69,7 @@ impl RegisterParticleAnimation for RegisterColorAnimation {
         Box::new(ColorAnimation::new(
             ColorUniform::default(),
             emitter,
-            &gfx_state,
+            gfx_state,
         ))
     }
 
@@ -117,7 +117,7 @@ impl ParticleAnimation for ColorAnimation {
         gfx_state: &GfxState,
         spawner: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(Self::new(self.uniform, spawner, &gfx_state))
+        Box::new(Self::new(self.uniform, spawner, gfx_state))
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {

@@ -46,7 +46,7 @@ pub struct RegisterForceAnimation;
 impl RegisterForceAnimation {
     /// Will append animation to emitter
     pub fn append(uniform: ForceUniform, emitter: &mut EmitterState, gfx_state: &GfxState) {
-        let anim = Box::new(ForceAnimation::new(uniform, &emitter, gfx_state));
+        let anim = Box::new(ForceAnimation::new(uniform, emitter, gfx_state));
 
         emitter.push_particle_animation(anim);
     }
@@ -65,7 +65,7 @@ impl RegisterParticleAnimation for RegisterForceAnimation {
         Box::new(ForceAnimation::new(
             ForceUniform::default(),
             emitter,
-            &gfx_state,
+            gfx_state,
         ))
     }
 
@@ -93,7 +93,7 @@ impl ParticleAnimation for ForceAnimation {
         if self.update_uniform {
             let buf_content_raw = self.uniform.create_buffer_content();
             let buf_content = bytemuck::cast_slice(&buf_content_raw);
-            queue.write_buffer(&self.buffer, 0, &buf_content);
+            queue.write_buffer(&self.buffer, 0, buf_content);
             self.update_uniform = false;
         }
     }
@@ -121,7 +121,7 @@ impl ParticleAnimation for ForceAnimation {
         gfx_state: &GfxState,
         spawner: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(Self::new(self.uniform, spawner, &gfx_state))
+        Box::new(Self::new(self.uniform, spawner, gfx_state))
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {

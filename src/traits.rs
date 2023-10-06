@@ -4,11 +4,7 @@ use crate::{
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
-use std::{
-    num::NonZeroU64,
-    ops::{Deref, DerefMut},
-    rc::Rc,
-};
+use std::{num::NonZeroU64, rc::Rc};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use egui_wgpu::wgpu;
 
 pub struct Performance {

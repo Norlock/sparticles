@@ -35,7 +35,7 @@ pub struct RegisterStrayAnimation;
 impl RegisterStrayAnimation {
     /// Will append animation to emitter
     pub fn append(uniform: StrayUniform, emitter: &mut EmitterState, gfx_state: &GfxState) {
-        let anim = Box::new(StrayAnimation::new(uniform, emitter, &gfx_state));
+        let anim = Box::new(StrayAnimation::new(uniform, emitter, gfx_state));
 
         emitter.push_particle_animation(anim);
     }
@@ -50,7 +50,7 @@ impl RegisterParticleAnimation for RegisterStrayAnimation {
         Box::new(StrayAnimation::new(
             StrayUniform::default(),
             emitter,
-            &gfx_state,
+            gfx_state,
         ))
     }
 
@@ -100,9 +100,9 @@ impl ParticleAnimation for StrayAnimation {
     fn recreate(
         self: Box<Self>,
         gfx_state: &GfxState,
-        spawner: &EmitterState,
+        emitter: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(Self::new(self.uniform, spawner, &gfx_state))
+        Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
 
     fn create_gui(&mut self, ui: &mut Ui) {
