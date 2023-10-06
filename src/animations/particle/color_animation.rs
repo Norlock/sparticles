@@ -79,6 +79,16 @@ impl RegisterParticleAnimation for RegisterColorAnimation {
     fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation> {
         Box::new(*self)
     }
+
+    fn import(
+        &self,
+        gfx_state: &GfxState,
+        emitter: &EmitterState,
+        value: serde_json::Value,
+    ) -> Box<dyn ParticleAnimation> {
+        let uniform = serde_json::from_value(value).unwrap();
+        Box::new(ColorAnimation::new(uniform, emitter, gfx_state))
+    }
 }
 
 struct ColorAnimation {
@@ -95,7 +105,7 @@ impl ParticleAnimation for ColorAnimation {
         let animation_type = RegisterColorAnimation.tag().to_owned();
 
         ExportAnimation {
-            animation_type,
+            animation_tag: animation_type,
             animation,
         }
     }

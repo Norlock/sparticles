@@ -1,12 +1,11 @@
 use super::{Camera, EmitterUniform, GfxState, State};
 use crate::traits::{CalculateBufferSize, CustomShader};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
-use crate::util::persistence::{ExportAnimation, ExportEmitter, ExportType};
+use crate::util::persistence::{ExportEmitter, ExportType};
 use crate::util::Persistence;
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
 use glam::Vec3;
-use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Formatter},
     num::NonZeroU64,

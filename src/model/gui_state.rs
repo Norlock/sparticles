@@ -1,14 +1,9 @@
 use super::{EmitterState, State};
 use crate::{
-    fx::{
-        bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, FxPersistenceType,
-        PostProcessState,
-    },
+    fx::{bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, PostProcessState},
     traits::RegisterParticleAnimation,
-    util::{persistence::ExportType, Persistence},
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
-use egui_wgpu::wgpu;
 use egui_winit::egui::{self, ComboBox};
 
 pub struct GuiState {
@@ -156,7 +151,7 @@ impl GuiState {
             emitters: e,
             lights: l,
             gui,
-            registered_particle_animations,
+            registered_par_anims: registered_particle_animations,
             ..
         } = state;
 

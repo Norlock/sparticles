@@ -29,14 +29,20 @@ pub trait AppSettings {
     }
 }
 
+pub struct InitEmitters {
+    pub lights: EmitterState,
+    pub emitters: Vec<EmitterState>,
+    pub registered_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
+}
+
 pub struct InitSettings;
 
 impl InitSettings {
-    pub fn add_builtin_particle_animations(vector: &mut Vec<Box<dyn RegisterParticleAnimation>>) {
-        vector.push(Box::new(RegisterColorAnimation));
-        vector.push(Box::new(RegisterForceAnimation));
-        vector.push(Box::new(RegisterGravityAnimation));
-        vector.push(Box::new(RegisterStrayAnimation));
+    pub fn add_builtin_particle_animations(anims: &mut Vec<Box<dyn RegisterParticleAnimation>>) {
+        anims.push(Box::new(RegisterColorAnimation));
+        anims.push(Box::new(RegisterForceAnimation));
+        anims.push(Box::new(RegisterGravityAnimation));
+        anims.push(Box::new(RegisterStrayAnimation));
     }
 
     fn create_light_spawner(
@@ -91,7 +97,10 @@ impl InitSettings {
         app_settings: &impl AppSettings,
         gfx_state: &GfxState,
         camera: &Camera,
-    ) -> (Vec<EmitterState>, EmitterState) {
+    ) -> InitEmitters {
+        let mut registered_par_anims = app_settings.register_custom_particle_animations();
+        InitSettings::add_builtin_particle_animations(&mut registered_par_anims);
+
         match app_settings.import_mode() {
             JsonImportMode::Ignore => {
                 let lights = InitSettings::create_light_spawner(app_settings, gfx_state, camera);
@@ -103,10 +112,14 @@ impl InitSettings {
                     camera,
                 );
 
-                (emitters, lights)
+                InitEmitters {
+                    registered_par_anims,
+                    lights,
+                    emitters,
+                }
             }
             JsonImportMode::Replace => match Persistence::import_emitter_states() {
-                Ok(val) => Self::import(val, gfx_state, camera),
+                Ok(val) => Self::import(val, gfx_state, camera, registered_par_anims),
                 Err(err) => panic!("{:?}", err.msg),
             },
         }
@@ -116,7 +129,8 @@ impl InitSettings {
         mut import_emitters: Vec<ExportEmitter>,
         gfx_state: &GfxState,
         camera: &Camera,
-    ) -> (Vec<EmitterState>, EmitterState) {
+        registered_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
+    ) -> InitEmitters {
         let mut emitters = Vec::new();
         let mut lights_export: Option<ExportEmitter> = None;
 
@@ -134,22 +148,47 @@ impl InitSettings {
 
         let lights_export = lights_export.unwrap();
 
-        let lights = gfx_state.create_emitter_state(CreateEmitterOptions {
+        let mut lights = gfx_state.create_emitter_state(CreateEmitterOptions {
             emitter_uniform: lights_export.emitter,
             light_layout: None,
             camera,
         });
 
-        for item in import_emitters {
-            if !item.is_light {
-                emitters.push(gfx_state.create_emitter_state(CreateEmitterOptions {
-                    emitter_uniform: item.emitter,
-                    light_layout: Some(&lights.bind_group_layout),
-                    camera,
-                }));
+        // Import animations
+        for export_animation in lights_export.particle_animations {
+            for reg in registered_par_anims.iter() {
+                if export_animation.animation_tag == reg.tag() {
+                    let anim = reg.import(gfx_state, &lights, export_animation.animation);
+                    lights.push_particle_animation(anim);
+                    break;
+                }
             }
         }
 
-        (emitters, lights)
+        for emitter_export in import_emitters {
+            let mut emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
+                emitter_uniform: emitter_export.emitter,
+                light_layout: Some(&lights.bind_group_layout),
+                camera,
+            });
+
+            for export_animation in emitter_export.particle_animations {
+                for reg in registered_par_anims.iter() {
+                    if export_animation.animation_tag == reg.tag() {
+                        let anim = reg.import(gfx_state, &emitter, export_animation.animation);
+                        emitter.push_particle_animation(anim);
+                        break;
+                    }
+                }
+            }
+
+            emitters.push(emitter);
+        }
+
+        InitEmitters {
+            registered_par_anims,
+            lights,
+            emitters,
+        }
     }
 }

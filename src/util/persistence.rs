@@ -18,13 +18,13 @@ pub struct ExportEmitter {
     pub emitter: EmitterUniform,
     pub is_light: bool,
     pub particle_animations: Vec<ExportAnimation>,
-    pub emitter_animations: Vec<serde_json::Value>,
+    pub emitter_animations: Vec<ExportAnimation>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ExportAnimation {
     #[serde(rename = "type")]
-    pub animation_type: String,
+    pub animation_tag: String,
     pub animation: serde_json::Value,
 }
 
@@ -65,10 +65,7 @@ impl Persistence {
 
         match file_res {
             Ok(val) => match serde_json::from_str::<Vec<FxPersistenceType>>(&val) {
-                Ok(val) => {
-                    println!("Import {:?}", &val);
-                    return Ok(val);
-                }
+                Ok(val) => return Ok(val),
                 Err(err) => {
                     error_msg = format!("Wrong syntaxed JSON: {}", err);
                 }
@@ -92,10 +89,7 @@ impl Persistence {
             Err(err) => println!("{}", err),
             Ok(file_str) => {
                 match serde_json::from_str::<Vec<ExportEmitter>>(&file_str) {
-                    Ok(val) => {
-                        println!("Import {:?}", &val);
-                        return Ok(val);
-                    }
+                    Ok(val) => return Ok(val),
                     Err(err) => {
                         return Err(ImportError {
                             msg: format!("Wrong syntaxed JSON: {}", err),
@@ -106,7 +100,7 @@ impl Persistence {
         }
 
         Err(ImportError {
-            msg: "jammer lul".to_owned(),
+            msg: "file cannot be read".to_owned(),
         })
     }
 }

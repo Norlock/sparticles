@@ -110,6 +110,16 @@ impl RegisterParticleAnimation for RegisterGravityAnimation {
     fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation> {
         Box::new(*self)
     }
+
+    fn import(
+        &self,
+        gfx_state: &GfxState,
+        emitter: &EmitterState,
+        value: serde_json::Value,
+    ) -> Box<dyn ParticleAnimation> {
+        let uniform = serde_json::from_value(value).unwrap();
+        Box::new(GravityAnimation::new(uniform, emitter, gfx_state))
+    }
 }
 
 pub struct GravityAnimation {
@@ -168,7 +178,7 @@ impl ParticleAnimation for GravityAnimation {
         let animation_type = RegisterGravityAnimation.tag().to_owned();
 
         ExportAnimation {
-            animation_type,
+            animation_tag: animation_type,
             animation,
         }
     }

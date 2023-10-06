@@ -63,6 +63,16 @@ impl RegisterParticleAnimation for RegisterStrayAnimation {
     fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation> {
         Box::new(*self)
     }
+
+    fn import(
+        &self,
+        gfx_state: &GfxState,
+        emitter: &EmitterState,
+        value: serde_json::Value,
+    ) -> Box<dyn ParticleAnimation> {
+        let uniform = serde_json::from_value(value).unwrap();
+        Box::new(StrayAnimation::new(uniform, emitter, gfx_state))
+    }
 }
 
 struct StrayAnimation {
@@ -112,7 +122,7 @@ impl ParticleAnimation for StrayAnimation {
         let animation_type = RegisterStrayAnimation.tag().to_owned();
 
         ExportAnimation {
-            animation_type,
+            animation_tag: animation_type,
             animation,
         }
     }

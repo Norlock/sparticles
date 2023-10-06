@@ -74,6 +74,16 @@ impl RegisterParticleAnimation for RegisterForceAnimation {
     fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation> {
         Box::new(*self)
     }
+
+    fn import(
+        &self,
+        gfx_state: &GfxState,
+        emitter: &EmitterState,
+        value: serde_json::Value,
+    ) -> Box<dyn ParticleAnimation> {
+        let uniform = serde_json::from_value(value).unwrap();
+        Box::new(ForceAnimation::new(uniform, emitter, gfx_state))
+    }
 }
 
 pub struct ForceAnimation {
@@ -131,7 +141,7 @@ impl ParticleAnimation for ForceAnimation {
         let animation_type = RegisterForceAnimation.tag().to_owned();
 
         ExportAnimation {
-            animation_type,
+            animation_tag: animation_type,
             animation,
         }
     }

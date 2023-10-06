@@ -5,7 +5,6 @@ use crate::{
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
-use serde::Serialize;
 use std::{num::NonZeroU64, rc::Rc};
 
 pub trait FromRGB {
@@ -39,6 +38,13 @@ pub trait RegisterParticleAnimation {
         &self,
         gfx_state: &GfxState,
         emitter: &EmitterState,
+    ) -> Box<dyn ParticleAnimation>;
+
+    fn import(
+        &self,
+        gfx_state: &GfxState,
+        emitter: &EmitterState,
+        value: serde_json::Value,
     ) -> Box<dyn ParticleAnimation>;
 
     fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation>;
