@@ -42,6 +42,22 @@ impl HandleAngles for Vec2 {
     }
 }
 
+impl HandleAngles for SparVec2 {
+    fn to_degrees(&self) -> Self {
+        let x = self.x.to_degrees();
+        let y = self.y.to_degrees();
+
+        [x, y].into()
+    }
+
+    fn to_radians(&self) -> Self {
+        let x = self.x.to_radians();
+        let y = self.y.to_radians();
+
+        [x, y].into()
+    }
+}
+
 impl CalculateBufferSize for Vec<f32> {
     fn cal_buffer_size(&self) -> Option<NonZeroU64> {
         wgpu::BufferSize::new(self.len() as u64 * 4)
@@ -55,9 +71,20 @@ impl CalculateBufferSize for [f32] {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
+pub struct SparVec2(pub Vec2);
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct SparVec3(pub Vec3);
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct SparVec4(pub Vec4);
+
+// -------- Deref / DerefMut --------------
+impl Deref for SparVec2 {
+    type Target = Vec2;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl Deref for SparVec3 {
     type Target = Vec3;
@@ -75,6 +102,12 @@ impl Deref for SparVec4 {
     }
 }
 
+impl DerefMut for SparVec2 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl DerefMut for SparVec3 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
@@ -84,6 +117,19 @@ impl DerefMut for SparVec3 {
 impl DerefMut for SparVec4 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+// -------- Serialize --------------
+impl Serialize for SparVec2 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(2))?;
+        let _ = seq.serialize_element(&self.0.x);
+        let _ = seq.serialize_element(&self.0.y);
+        seq.end()
     }
 }
 
@@ -97,6 +143,33 @@ impl Serialize for SparVec3 {
         let _ = seq.serialize_element(&self.0.y);
         let _ = seq.serialize_element(&self.0.z);
         seq.end()
+    }
+}
+
+impl Serialize for SparVec4 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(4))?;
+        let _ = seq.serialize_element(&self.0.x);
+        let _ = seq.serialize_element(&self.0.y);
+        let _ = seq.serialize_element(&self.0.z);
+        let _ = seq.serialize_element(&self.0.w);
+        seq.end()
+    }
+}
+
+// ------ From --------
+impl From<Vec2> for SparVec2 {
+    fn from(value: Vec2) -> Self {
+        Self(value)
+    }
+}
+
+impl From<[f32; 2]> for SparVec2 {
+    fn from(value: [f32; 2]) -> Self {
+        Self(value.into())
     }
 }
 
@@ -124,6 +197,15 @@ impl From<[f32; 4]> for SparVec4 {
     }
 }
 
+impl<'de> Deserialize<'de> for SparVec2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(Spar2Visitor)
+    }
+}
+
 impl<'de> Deserialize<'de> for SparVec3 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -142,21 +224,36 @@ impl<'de> Deserialize<'de> for SparVec4 {
     }
 }
 
-impl Serialize for SparVec4 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+// Visitors
+pub struct Spar2Visitor;
+impl<'de> Visitor<'de> for Spar2Visitor {
+    type Value = SparVec2;
+
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str("Not a vector 2")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
-        S: Serializer,
+        A: de::SeqAccess<'de>,
     {
-        let mut seq = serializer.serialize_seq(Some(4))?;
-        let _ = seq.serialize_element(&self.0.x);
-        let _ = seq.serialize_element(&self.0.y);
-        let _ = seq.serialize_element(&self.0.z);
-        let _ = seq.serialize_element(&self.0.w);
-        seq.end()
+        let mut arr = [0.; 2];
+        let mut idx = 0;
+
+        while let Ok(res) = seq.next_element::<f32>() {
+            match res {
+                Some(val) => {
+                    arr[idx] = val;
+                    idx += 1;
+                }
+                None => break,
+            }
+        }
+
+        Ok(arr.into())
     }
 }
 
-// Visitors
 pub struct Spar3Visitor;
 impl<'de> Visitor<'de> for Spar3Visitor {
     type Value = SparVec3;

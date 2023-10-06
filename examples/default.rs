@@ -6,7 +6,7 @@ use sparticles::{
         RegisterColorAnimation, RegisterForceAnimation, RegisterGravityAnimation,
         RegisterStrayAnimation, StrayUniform, SwayAnimation,
     },
-    init::AppSettings,
+    init::{AppSettings, JsonImportMode},
     math::{SparVec3, SparVec4},
     model::{EmitterState, EmitterUniform, GfxState, LifeCycle, Range},
     traits::*,
@@ -43,6 +43,10 @@ impl AppSettings for CustomSettings {
         true
     }
 
+    fn import_mode(&self) -> JsonImportMode {
+        JsonImportMode::Replace
+    }
+
     fn add_emitter_anim(&self, emitter: &mut EmitterState) {
         if &emitter.id() == &LIGHT_ID {
             let sway_animation = SwayAnimation::new(
@@ -64,8 +68,8 @@ impl AppSettings for CustomSettings {
                     until_sec: 5.,
                     lifetime_sec: 5.,
                 },
-                Vec2::new(0., 45.),
-                Vec2::new(0., 15.),
+                [0., 45.].into(),
+                [0., 15.].into(),
             );
 
             emitter.push_emitter_animation(Box::new(diff_anim));

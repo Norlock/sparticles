@@ -1,44 +1,85 @@
 use egui_winit::egui::{DragValue, Ui};
 use glam::Vec2;
+use serde::{Deserialize, Serialize};
 
 use crate::{
+    math::SparVec2,
     model::{Clock, EmitterUniform, GuiState, LifeCycle},
-    traits::{EmitterAnimation, HandleAngles},
+    traits::{EmitterAnimation, HandleAngles, RegisterEmitterAnimation},
+    util::persistence::ExportAnimation,
 };
 
+#[derive(Serialize, Deserialize)]
 struct Gui {
-    yaw: Vec2,
-    pitch: Vec2,
-    roll: Vec2,
+    yaw: SparVec2,
+    pitch: SparVec2,
+    roll: SparVec2,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct SwayAnimation {
     life_cycle: LifeCycle,
-    yaw: Vec2,
-    pitch: Vec2,
-    roll: Vec2,
+    yaw: SparVec2,
+    pitch: SparVec2,
+    roll: SparVec2,
     gui: Gui,
+}
+
+#[derive(Clone, Copy)]
+pub struct RegisterSwayAnimation;
+
+impl RegisterEmitterAnimation for RegisterSwayAnimation {
+    fn tag(&self) -> &str {
+        "sway-animation"
+    }
+
+    fn import(&self, value: serde_json::Value) -> Box<dyn EmitterAnimation> {
+        let anim: SwayAnimation = serde_json::from_value(value).unwrap();
+        Box::new(anim)
+    }
+
+    fn create_default(&self) -> Box<dyn EmitterAnimation> {
+        let sway_animation = SwayAnimation::new(
+            LifeCycle {
+                from_sec: 0.,
+                until_sec: 4.,
+                lifetime_sec: 4.,
+            },
+            glam::Vec2::ZERO,
+            Vec2::new(30., 120.),
+            glam::Vec2::ZERO,
+        );
+
+        Box::new(sway_animation)
+    }
 }
 
 impl SwayAnimation {
     pub fn new(life_cycle: LifeCycle, yaw_deg: Vec2, pitch_deg: Vec2, roll_deg: Vec2) -> Self {
         let gui = Gui {
-            yaw: yaw_deg,
-            pitch: pitch_deg,
-            roll: roll_deg,
+            yaw: yaw_deg.into(),
+            pitch: pitch_deg.into(),
+            roll: roll_deg.into(),
         };
 
         Self {
             life_cycle,
-            yaw: yaw_deg.to_radians(),
-            pitch: pitch_deg.to_radians(),
-            roll: roll_deg.to_radians(),
+            yaw: yaw_deg.to_radians().into(),
+            pitch: pitch_deg.to_radians().into(),
+            roll: roll_deg.to_radians().into(),
             gui,
         }
     }
 }
 
 impl EmitterAnimation for SwayAnimation {
+    fn export(&self) -> ExportAnimation {
+        ExportAnimation {
+            animation_tag: RegisterSwayAnimation.tag().to_string(),
+            animation: serde_json::to_value(self).unwrap(),
+        }
+    }
+
     fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock) {
         let current_sec = self.life_cycle.get_current_sec(clock);
 
@@ -100,11 +141,4 @@ impl EmitterAnimation for SwayAnimation {
         self.pitch = gui.pitch.to_radians();
         self.roll = gui.pitch.to_radians();
     }
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn it_works() {}
 }

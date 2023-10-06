@@ -1,5 +1,5 @@
 use super::{Camera, Clock, EmitterState, GfxState, GuiState};
-use crate::init::{InitEmitters, InitSettings, JsonImportMode};
+use crate::init::{InitEmitters, InitSettings};
 use crate::traits::*;
 use crate::{fx::PostProcessState, util::Persistence, AppSettings};
 use egui_wgpu::wgpu;
@@ -14,6 +14,7 @@ pub struct State {
     pub post_process: PostProcessState,
     pub gfx_state: GfxState,
     pub registered_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
+    pub registered_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
 }
 
 pub enum Messages {
@@ -59,9 +60,10 @@ impl State {
         let camera = Camera::new(&gfx_state);
 
         let InitEmitters {
-            registered_par_anims,
             lights,
             emitters,
+            registered_em_anims,
+            registered_par_anims,
         } = InitSettings::create_emitters(&app_settings, &gfx_state, &camera);
 
         let mut post_process = PostProcessState::new(&gfx_state);
@@ -73,7 +75,7 @@ impl State {
             post_process.add_default_fx(&gfx_state);
         }
 
-        let gui = GuiState::new(&emitters, &registered_par_anims, app_settings.show_gui());
+        let gui = GuiState::new(app_settings.show_gui());
 
         Self {
             clock,
@@ -84,6 +86,7 @@ impl State {
             post_process,
             gfx_state,
             registered_par_anims,
+            registered_em_anims,
         }
     }
 }

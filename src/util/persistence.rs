@@ -1,9 +1,10 @@
 use crate::{fx::post_process::FxPersistenceType, model::EmitterUniform};
+use egui_wgpu::wgpu;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     fs::{self, File},
-    io::BufWriter,
+    io::{self, BufWriter},
     path::PathBuf,
 };
 
@@ -102,5 +103,19 @@ impl Persistence {
         Err(ImportError {
             msg: "file cannot be read".to_owned(),
         })
+    }
+
+    pub fn import_textures() -> Result<Vec<PathBuf>, io::Error> {
+        let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        dir.push("src/assets/textures");
+
+        Ok(fs::read_dir(dir)?
+            .map(|res| {
+                res.map(|e| {
+                    println!("{:?}", e.path());
+                    e.path()
+                })
+            })
+            .collect::<Result<Vec<_>, io::Error>>()?)
     }
 }

@@ -31,6 +31,15 @@ pub trait CreateAspect {
     fn aspect(&self) -> f32;
 }
 
+// --------------------------- Animations ------------------------------
+pub trait RegisterEmitterAnimation {
+    fn tag(&self) -> &str;
+
+    fn create_default(&self) -> Box<dyn EmitterAnimation>;
+
+    fn import(&self, value: serde_json::Value) -> Box<dyn EmitterAnimation>;
+}
+
 pub trait RegisterParticleAnimation {
     fn tag(&self) -> &str;
 
@@ -57,8 +66,6 @@ impl PartialEq for dyn RegisterParticleAnimation {
 }
 
 pub trait ParticleAnimation {
-    fn update(&mut self, clock: &Clock, gfx_state: &GfxState);
-
     fn compute<'a>(
         &'a self,
         spawner: &'a EmitterState,
@@ -72,14 +79,15 @@ pub trait ParticleAnimation {
         spawner: &EmitterState,
     ) -> Box<dyn ParticleAnimation>;
 
+    fn update(&mut self, clock: &Clock, gfx_state: &GfxState);
     fn create_gui(&mut self, ui: &mut Ui);
-
     fn export(&self) -> ExportAnimation;
 }
 
 pub trait EmitterAnimation {
     fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock);
     fn create_gui(&mut self, ui: &mut Ui);
+    fn export(&self) -> ExportAnimation;
 }
 
 pub trait CalculateBufferSize {

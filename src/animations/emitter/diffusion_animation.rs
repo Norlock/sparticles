@@ -1,25 +1,57 @@
 use egui_winit::egui::{DragValue, Ui};
-use glam::Vec2;
+use serde::{Deserialize, Serialize};
 
 use crate::{
+    math::SparVec2,
     model::{Clock, EmitterUniform, GuiState, LifeCycle},
-    traits::{EmitterAnimation, HandleAngles},
+    traits::{EmitterAnimation, HandleAngles, RegisterEmitterAnimation},
+    util::persistence::ExportAnimation,
 };
 
+#[derive(Serialize, Deserialize)]
 struct Gui {
-    diff_width: Vec2,
-    diff_depth: Vec2,
+    diff_width: SparVec2,
+    diff_depth: SparVec2,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct DiffusionAnimation {
     life_cycle: LifeCycle,
-    diff_width: Vec2,
-    diff_depth: Vec2,
+    diff_width: SparVec2,
+    diff_depth: SparVec2,
     gui: Gui,
 }
 
+#[derive(Clone, Copy)]
+pub struct RegisterDiffusionAnimation;
+
+impl RegisterEmitterAnimation for RegisterDiffusionAnimation {
+    fn tag(&self) -> &str {
+        "diffusion"
+    }
+
+    fn import(&self, value: serde_json::Value) -> Box<dyn EmitterAnimation> {
+        let anim: DiffusionAnimation = serde_json::from_value(value).unwrap();
+        Box::new(anim)
+    }
+
+    fn create_default(&self) -> Box<dyn EmitterAnimation> {
+        let diff_anim = DiffusionAnimation::new(
+            LifeCycle {
+                from_sec: 0.,
+                until_sec: 5.,
+                lifetime_sec: 5.,
+            },
+            [0., 45.].into(),
+            [0., 15.].into(),
+        );
+
+        Box::new(diff_anim)
+    }
+}
+
 impl DiffusionAnimation {
-    pub fn new(life_cycle: LifeCycle, diff_width_deg: Vec2, diff_depth_deg: Vec2) -> Self {
+    pub fn new(life_cycle: LifeCycle, diff_width_deg: SparVec2, diff_depth_deg: SparVec2) -> Self {
         let gui = Gui {
             diff_width: diff_width_deg,
             diff_depth: diff_depth_deg,
@@ -35,6 +67,13 @@ impl DiffusionAnimation {
 }
 
 impl EmitterAnimation for DiffusionAnimation {
+    fn export(&self) -> ExportAnimation {
+        ExportAnimation {
+            animation_tag: RegisterDiffusionAnimation.tag().to_string(),
+            animation: serde_json::to_value(self).unwrap(),
+        }
+    }
+
     fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock) {
         let current_sec = self.life_cycle.get_current_sec(clock);
 

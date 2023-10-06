@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use super::{Clock, EmitterGuiState};
 use crate::{
     math::{SparVec3, SparVec4},
@@ -55,7 +57,7 @@ pub struct EmitterUniform {
     /// Mass per size 1
     pub particle_material_mass: f32,
     pub particle_lifetime_sec: f32,
-    pub texture_image: String,
+    pub texture_image: PathBuf,
 }
 
 impl EmitterUniform {
@@ -72,6 +74,9 @@ impl EmitterUniform {
 
         let diffusion_width_rad = 15f32.to_radians();
         let diffusion_depth_rad = 15f32.to_radians();
+
+        let mut texture_image = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        texture_image.push("src/assets/textures/1x1.png");
 
         Self {
             id,
@@ -98,7 +103,7 @@ impl EmitterUniform {
             iteration: 1000,
             elapsed_sec: 0.,
             delta_sec: 0.0,
-            texture_image: "1x1.png".to_string(),
+            texture_image,
         }
     }
 

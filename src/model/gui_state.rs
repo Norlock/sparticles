@@ -1,23 +1,26 @@
 use super::{EmitterState, State};
 use crate::{
     fx::{bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, PostProcessState},
-    traits::RegisterParticleAnimation,
+    util::Persistence,
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
 use egui_winit::egui::{self, ComboBox};
+use std::path::PathBuf;
 
 pub struct GuiState {
     pub enabled: bool,
     pub reset_camera: bool,
-    pub selected_spawner_id: String,
 
     fps_text: String,
     cpu_time_text: String,
     elapsed_text: String,
     particle_count_text: String,
+    texture_paths: Vec<PathBuf>,
     selected_tab: Tab,
     selected_post_fx: PostFx,
-    selected_new_particle_animation: Box<dyn RegisterParticleAnimation>,
+    selected_texture: usize,
+    selected_new_particle_animation: usize,
+    selected_emitter_id: usize,
 }
 
 #[derive(PartialEq)]
@@ -70,23 +73,18 @@ impl GuiState {
             gui.reset_camera = ui.button("Reset camera").clicked();
             ui.add_space(5.0);
 
-            let ids: Vec<&str> = emitters
+            let emitter_txts: Vec<&str> = emitters
                 .iter()
                 .map(|em| em.id())
-                .chain(vec![lights.id()])
+                .chain([lights.id()])
                 .collect();
 
-            ComboBox::from_id_source("sel-spawner")
-                .selected_text(&gui.selected_spawner_id)
-                .show_ui(ui, |ui| {
-                    for id in ids.into_iter() {
-                        ui.selectable_value(
-                            &mut gui.selected_spawner_id,
-                            id.to_owned(),
-                            id.to_owned(),
-                        );
-                    }
-                });
+            ComboBox::from_id_source("sel-spawner").show_index(
+                ui,
+                &mut gui.selected_emitter_id,
+                emitters.len() + 1,
+                |i| emitter_txts[i],
+            );
 
             ui.add_space(5.0);
 
@@ -128,19 +126,21 @@ impl GuiState {
     pub fn selected_emitter<'a>(
         emitters: &'a mut [EmitterState],
         lights: &'a mut EmitterState,
-        id: &'a str,
+        idx: usize,
     ) -> Option<&'a mut EmitterState> {
         emitters
             .iter_mut()
-            .find(|emitter| emitter.id() == id)
-            .or_else(|| (lights.id() == id).then_some(lights))
+            .chain([lights])
+            .enumerate()
+            .find(|(e_idx, _)| *e_idx == idx)
+            .map(|(_, em)| em)
     }
 
     fn emitter_animations_tab(state: &mut State, ui: &mut Ui) {
         if let Some(emitter) = GuiState::selected_emitter(
             &mut state.emitters,
             &mut state.lights,
-            &state.gui.selected_spawner_id,
+            state.gui.selected_emitter_id,
         ) {
             emitter.gui_emitter_animations(ui);
         }
@@ -151,43 +151,37 @@ impl GuiState {
             emitters: e,
             lights: l,
             gui,
-            registered_par_anims: registered_particle_animations,
+            registered_par_anims,
             ..
         } = state;
 
-        if let Some(emitter) = GuiState::selected_emitter(e, l, &gui.selected_spawner_id) {
+        if let Some(emitter) = GuiState::selected_emitter(e, l, gui.selected_emitter_id) {
             emitter.gui_particle_animations(ui);
-
-            let sel_animation = &mut gui.selected_new_particle_animation;
 
             ui.separator();
 
             ui.horizontal(|ui| {
-                ComboBox::from_id_source("new-particle-animation")
-                    .selected_text(sel_animation.tag())
-                    .show_ui(ui, |ui| {
-                        for anim in registered_particle_animations.iter_mut() {
-                            ui.selectable_value(sel_animation, anim.dyn_clone(), anim.tag());
-                        }
-                    });
+                let sel_animation = &mut gui.selected_new_particle_animation;
+
+                ComboBox::from_id_source("new-particle-animation").show_index(
+                    ui,
+                    sel_animation,
+                    registered_par_anims.len(),
+                    |i| registered_par_anims[i].tag(),
+                );
 
                 if ui.button("Add animation").clicked() {
-                    let anim = sel_animation.create_default(&state.gfx_state, emitter);
-                    emitter.push_particle_animation(anim);
+                    emitter.push_particle_animation(
+                        registered_par_anims[*sel_animation]
+                            .create_default(&state.gfx_state, emitter),
+                    );
                 }
             });
         }
     }
 
-    pub fn new(
-        spawners: &[EmitterState],
-        all_animations: &[Box<dyn RegisterParticleAnimation>],
-        show_gui: bool,
-    ) -> Self {
-        let spawner = spawners.first();
-
-        let selected_id = spawner.map_or("".to_owned(), |s| s.id().to_owned());
-        let selected_new_particle_animation = all_animations[0].dyn_clone();
+    pub fn new(show_gui: bool) -> Self {
+        let texture_paths = Persistence::import_textures().unwrap();
 
         Self {
             enabled: show_gui,
@@ -196,10 +190,12 @@ impl GuiState {
             fps_text: "".to_string(),
             elapsed_text: "".to_string(),
             particle_count_text: "".to_string(),
-            selected_spawner_id: selected_id,
             selected_tab: Tab::SpawnSettings,
             selected_post_fx: PostFx::Bloom,
-            selected_new_particle_animation,
+            texture_paths,
+            selected_emitter_id: 0,
+            selected_new_particle_animation: 0,
+            selected_texture: 0,
         }
     }
 
@@ -224,21 +220,19 @@ impl GuiState {
             camera.view_dir = glam::Vec3::new(0., 0., -10.);
         }
 
-        if lights.id() == gui.selected_spawner_id {
+        if emitters.len() == gui.selected_emitter_id {
             lights.process_gui(None, gfx_state, camera);
-        } else if let Some(emitter) = emitters
-            .iter_mut()
-            .find(|emitter| emitter.id() == gui.selected_spawner_id)
-        {
+        } else if let Some(emitter) = emitters.get_mut(gui.selected_emitter_id) {
             emitter.process_gui(Some(&lights.bind_group_layout), gfx_state, camera);
         }
     }
 
     fn emitter_settings_tab(state: &mut State, ui: &mut Ui) {
+        let gui = &mut state.gui;
         if let Some(emitter) = GuiState::selected_emitter(
             &mut state.emitters,
             &mut state.lights,
-            &state.gui.selected_spawner_id,
+            gui.selected_emitter_id,
         ) {
             let emitter_gui = &mut emitter.gui;
 
@@ -313,6 +307,13 @@ impl GuiState {
                     emitter_gui.particle_size_min..=2.0,
                 )
                 .text("Particle size max"),
+            );
+
+            ComboBox::from_label("select-texture").show_index(
+                ui,
+                &mut gui.selected_texture,
+                gui.texture_paths.len(),
+                |i| gui.texture_paths[i].rich_text(),
             );
         }
     }
@@ -398,4 +399,14 @@ fn create_drag_value(ui: &mut Ui, val: &mut f32) {
             .clamp_range(0f64..=f64::MAX)
             .speed(0.1),
     );
+}
+
+pub trait IntoRichText {
+    fn rich_text(&self) -> RichText;
+}
+
+impl IntoRichText for PathBuf {
+    fn rich_text(&self) -> RichText {
+        RichText::new(self.file_name().unwrap().to_str().unwrap())
+    }
 }

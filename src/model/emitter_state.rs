@@ -235,7 +235,11 @@ impl<'a> EmitterState {
                 .collect(),
             emitter: lights.uniform.clone(),
             is_light: true,
-            emitter_animations: vec![],
+            emitter_animations: lights
+                .emitter_animations
+                .iter()
+                .map(|anim| anim.export())
+                .collect(),
         });
 
         for emitter in emitters.iter() {
@@ -247,7 +251,11 @@ impl<'a> EmitterState {
                     .collect(),
                 emitter: emitter.uniform.clone(),
                 is_light: false,
-                emitter_animations: vec![],
+                emitter_animations: emitter
+                    .emitter_animations
+                    .iter()
+                    .map(|anim| anim.export())
+                    .collect(),
             });
         }
 
@@ -267,7 +275,7 @@ impl GfxState {
         let surface_config = &self.surface_config;
 
         let emitter_buf_content = uniform.create_buffer_content();
-        let diffuse_texture = self.create_diffuse_texture(&uniform.texture_image);
+        let diffuse_texture = self.create_diffuse_texture(uniform.texture_image.to_str().unwrap());
 
         let particle_buffer_size = NonZeroU64::new(uniform.particle_buffer_size());
         let emitter_buffer_size = emitter_buf_content.cal_buffer_size();
