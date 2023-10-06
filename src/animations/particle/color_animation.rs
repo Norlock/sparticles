@@ -44,6 +44,7 @@ impl ColorUniform {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct RegisterColorAnimation;
 
 impl RegisterColorAnimation {
@@ -56,8 +57,8 @@ impl RegisterColorAnimation {
 }
 
 impl RegisterParticleAnimation for RegisterColorAnimation {
-    fn tag(&self) -> String {
-        "Color animation".to_string()
+    fn tag(&self) -> &str {
+        "Color animation"
     }
 
     fn create_default(
@@ -70,6 +71,10 @@ impl RegisterParticleAnimation for RegisterColorAnimation {
             emitter,
             &gfx_state,
         ))
+    }
+
+    fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation> {
+        Box::new(*self)
     }
 }
 

@@ -19,7 +19,7 @@ pub struct GuiState {
     particle_count_text: String,
     selected_tab: Tab,
     selected_post_fx: PostFx,
-    //selected_new_particle_animation: String,
+    selected_new_particle_animation: Box<dyn RegisterParticleAnimation>,
 }
 
 #[derive(PartialEq)]
@@ -119,19 +119,26 @@ impl GuiState {
     }
 
     pub fn get_selected_emitter<'a>(
+        emitters: &'a mut Vec<EmitterState>,
         lights: &'a mut EmitterState,
-        emitters: &'a mut [EmitterState],
-        gui: &'a GuiState,
+        id: &'a str,
     ) -> Option<&'a mut EmitterState> {
         emitters
             .iter_mut()
-            .find(|emitter| emitter.id() == &gui.selected_spawner_id)
-            .or_else(|| (lights.id() == &gui.selected_spawner_id).then(|| lights))
+            .find(|emitter| emitter.id() == id)
+            .or_else(|| (lights.id() == id).then(|| lights))
     }
 
     fn emitter_animations_tab(state: &mut State, ui: &mut Ui) {
+        let State {
+            lights,
+            emitters,
+            gui,
+            ..
+        } = state;
+
         if let Some(emitter) =
-            GuiState::get_selected_emitter(&mut state.lights, &mut state.emitters, &state.gui)
+            GuiState::get_selected_emitter(emitters, lights, &gui.selected_spawner_id)
         {
             emitter.gui_emitter_animations(ui);
         }
@@ -142,35 +149,33 @@ impl GuiState {
             lights,
             emitters,
             gui,
-            registered_particle_animations: register_particle_animations,
-            gfx_state,
+            registered_particle_animations,
             ..
         } = state;
 
-        if let Some(emitter) = GuiState::get_selected_emitter(lights, emitters, gui) {
+        if let Some(emitter) =
+            GuiState::get_selected_emitter(emitters, lights, &gui.selected_spawner_id)
+        {
             emitter.gui_particle_animations(ui);
+
+            let sel_animation = &mut gui.selected_new_particle_animation;
 
             ui.separator();
 
-            //ui.horizontal(|ui| {
-            //ComboBox::from_label(&gui.selected_new_particle_animation.tag).show_ui(ui, |ui| {
-            //for anim in register_particle_animations.into_iter() {
-            //ui.selectable_value(
-            //&mut gui.selected_new_particle_animation,
-            //anim.clone(),
-            //anim.tag.clone(),
-            //);
-            //}
-            //});
+            ui.horizontal(|ui| {
+                ComboBox::from_id_source("new-particle-animation")
+                    .selected_text(sel_animation.tag())
+                    .show_ui(ui, |ui| {
+                        for anim in registered_particle_animations.into_iter() {
+                            ui.selectable_value(sel_animation, anim.dyn_clone(), anim.tag());
+                        }
+                    });
 
-            //if ui.button("Add animation").clicked() {
-            //emitter.push_particle_animation((gui
-            //.selected_new_particle_animation
-            //.create_default)(
-            //gfx_state, emitter
-            //));
-            //}
-            //});
+                if ui.button("Add animation").clicked() {
+                    let anim = sel_animation.create_default(&state.gfx_state, emitter);
+                    emitter.push_particle_animation(anim);
+                }
+            });
         }
     }
 
@@ -182,6 +187,7 @@ impl GuiState {
         let spawner = spawners.first();
 
         let selected_id = spawner.map_or("".to_owned(), |s| s.id().to_owned());
+        let selected_new_particle_animation = reg_anim[0].dyn_clone();
 
         Self {
             enabled: show_gui,
@@ -193,7 +199,7 @@ impl GuiState {
             selected_spawner_id: selected_id,
             selected_tab: Tab::SpawnSettings,
             selected_post_fx: PostFx::Bloom,
-            //selected_new_particle_animation: reg_anim[0],
+            selected_new_particle_animation,
         }
     }
 
@@ -241,8 +247,15 @@ impl GuiState {
     }
 
     fn emitter_settings_tab(state: &mut State, ui: &mut Ui) {
+        let State {
+            lights,
+            emitters,
+            gui,
+            ..
+        } = state;
+
         if let Some(emitter) =
-            GuiState::get_selected_emitter(&mut state.lights, &mut state.emitters, &state.gui)
+            GuiState::get_selected_emitter(emitters, lights, &gui.selected_spawner_id)
         {
             let emitter_gui = &mut emitter.gui;
 

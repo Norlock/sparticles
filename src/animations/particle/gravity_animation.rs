@@ -75,6 +75,7 @@ impl GravityUniform {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct RegisterGravityAnimation;
 
 impl RegisterGravityAnimation {
@@ -99,11 +100,12 @@ impl RegisterParticleAnimation for RegisterGravityAnimation {
         ))
     }
 
-    fn tag(&self) -> String
-    where
-        Self: Sized,
-    {
-        "Gravity animation".to_string()
+    fn tag(&self) -> &str {
+        "Gravity animation"
+    }
+
+    fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation> {
+        Box::new(*self)
     }
 }
 

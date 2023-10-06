@@ -29,6 +29,7 @@ impl StrayUniform {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct RegisterStrayAnimation;
 
 impl RegisterStrayAnimation {
@@ -53,8 +54,12 @@ impl RegisterParticleAnimation for RegisterStrayAnimation {
         ))
     }
 
-    fn tag(&self) -> String {
-        "StrayAnimation".to_string()
+    fn tag(&self) -> &str {
+        "StrayAnimation"
+    }
+
+    fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation> {
+        Box::new(*self)
     }
 }
 

@@ -40,6 +40,7 @@ impl ForceUniform {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct RegisterForceAnimation;
 
 impl RegisterForceAnimation {
@@ -52,8 +53,8 @@ impl RegisterForceAnimation {
 }
 
 impl RegisterParticleAnimation for RegisterForceAnimation {
-    fn tag(&self) -> String {
-        "Force animation".to_string()
+    fn tag(&self) -> &str {
+        "Force animation"
     }
 
     fn create_default(
@@ -66,6 +67,10 @@ impl RegisterParticleAnimation for RegisterForceAnimation {
             emitter,
             &gfx_state,
         ))
+    }
+
+    fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation> {
+        Box::new(*self)
     }
 }
 

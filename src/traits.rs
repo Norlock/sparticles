@@ -4,7 +4,11 @@ use crate::{
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
-use std::{num::NonZeroU64, rc::Rc};
+use std::{
+    num::NonZeroU64,
+    ops::{Deref, DerefMut},
+    rc::Rc,
+};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -31,12 +35,21 @@ pub trait CreateAspect {
 }
 
 pub trait RegisterParticleAnimation {
-    fn tag(&self) -> String;
+    fn tag(&self) -> &str;
+
     fn create_default(
         &self,
         gfx_state: &GfxState,
         emitter: &EmitterState,
     ) -> Box<dyn ParticleAnimation>;
+
+    fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation>;
+}
+
+impl PartialEq for dyn RegisterParticleAnimation {
+    fn eq(&self, other: &Self) -> bool {
+        self.tag() == other.tag()
+    }
 }
 
 pub trait ParticleAnimation {
