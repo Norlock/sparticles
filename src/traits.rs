@@ -55,8 +55,6 @@ pub trait RegisterParticleAnimation {
         emitter: &EmitterState,
         value: serde_json::Value,
     ) -> Box<dyn ParticleAnimation>;
-
-    fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation>;
 }
 
 impl PartialEq for dyn RegisterParticleAnimation {

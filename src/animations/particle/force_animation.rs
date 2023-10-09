@@ -71,10 +71,6 @@ impl RegisterParticleAnimation for RegisterForceAnimation {
         ))
     }
 
-    fn dyn_clone(&self) -> Box<dyn RegisterParticleAnimation> {
-        Box::new(*self)
-    }
-
     fn import(
         &self,
         gfx_state: &GfxState,
