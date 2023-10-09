@@ -87,10 +87,10 @@ pub trait ParticleAnimation {
 
 pub trait EmitterAnimation {
     fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock);
-    fn create_gui(&mut self, ui: &mut Ui);
+    fn create_gui(&mut self, ui: &mut Ui, gui: &GuiState);
     fn export(&self) -> ExportAnimation;
-    //fn selected_action(&mut self) -> &mut ItemAction;
-    //fn reset_action(&mut self);
+    fn selected_action(&mut self) -> &mut ItemAction;
+    fn reset_action(&mut self);
 }
 
 pub trait CalculateBufferSize {

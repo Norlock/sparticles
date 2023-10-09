@@ -1,8 +1,9 @@
 use egui_winit::egui::{DragValue, Ui};
 use glam::Vec2;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{
+    animations::ItemAction,
     math::SparVec2,
     model::{Clock, EmitterUniform, GuiState, LifeCycle},
     traits::{EmitterAnimation, HandleAngles, RegisterEmitterAnimation},
@@ -23,6 +24,9 @@ pub struct SwayAnimation {
     pitch: SparVec2,
     roll: SparVec2,
     gui: Gui,
+
+    #[serde(skip_serializing, skip_deserializing)]
+    selected_action: ItemAction,
 }
 
 #[derive(Clone, Copy)]
@@ -67,6 +71,7 @@ impl SwayAnimation {
             yaw: yaw_deg.to_radians().into(),
             pitch: pitch_deg.to_radians().into(),
             roll: roll_deg.to_radians().into(),
+            selected_action: ItemAction::None,
             gui,
         }
     }
@@ -94,11 +99,19 @@ impl EmitterAnimation for SwayAnimation {
         emitter.box_rotation.z = self.roll.x + fraction * (self.roll.y - self.roll.x);
     }
 
-    fn create_gui(&mut self, ui: &mut Ui) {
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn create_gui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         let life_cycle = &mut self.life_cycle;
         let gui = &mut self.gui;
 
-        GuiState::create_title(ui, "Sway animation");
+        gui_state.create_anim_header(ui, &mut self.selected_action, "Sway animation");
 
         ui.horizontal(|ui| {
             ui.label("Animate from sec");

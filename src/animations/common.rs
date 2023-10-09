@@ -1,14 +1,16 @@
 use std::fmt::{Display, Formatter, Result};
 
 use encase::{private::WriteInto, ShaderType, UniformBuffer};
+use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Serialize, Deserialize, Default)]
 pub enum ItemAction {
+    #[default]
+    None,
     Delete,
     MoveUp,
     MoveDown,
     Disable,
-    None,
 }
 
 impl Display for ItemAction {

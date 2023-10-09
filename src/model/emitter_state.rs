@@ -82,8 +82,26 @@ impl<'a> EmitterState {
 
             emitter.uniform.update(clock);
 
-            for idx in 0..emitter.emitter_animations.len() {
-                let anim = &mut emitter.emitter_animations[idx];
+            let mut i = 0;
+
+            while i < emitter.emitter_animations.len() {
+                let anims = &mut emitter.emitter_animations;
+
+                if anims[i].selected_action() == &mut ItemAction::Delete {
+                    anims.remove(i);
+                    continue;
+                } else if 0 < i && anims[i].selected_action() == &mut ItemAction::MoveUp {
+                    anims[i].reset_action();
+                    anims.swap(i, i - 1);
+                } else if 0 < i && anims[i - 1].selected_action() == &mut ItemAction::MoveDown {
+                    anims[i - 1].reset_action();
+                    anims.swap(i, i - 1);
+                }
+
+                i += 1;
+            }
+
+            for anim in emitter.emitter_animations.iter_mut() {
                 anim.animate(&mut emitter.uniform, clock);
             }
 
@@ -91,8 +109,6 @@ impl<'a> EmitterState {
             let buffer_content = bytemuck::cast_slice(&buffer_content_raw);
 
             queue.write_buffer(&emitter.emitter_buffer, 0, buffer_content);
-
-            let mut i = 0;
 
             while i < emitter.particle_animations.len() {
                 let anims = &mut emitter.particle_animations;
@@ -239,7 +255,7 @@ impl<'a> EmitterState {
         }
     }
 
-    pub fn gui_emitter_animations(&mut self, ui: &mut Ui) {
+    pub fn gui_emitter_animations(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         ScrollArea::vertical()
             .auto_shrink([true; 2])
             .vscroll(true)
@@ -247,7 +263,7 @@ impl<'a> EmitterState {
             .show(ui, |ui| {
                 for anim in self.emitter_animations.iter_mut() {
                     ui.group(|ui| {
-                        anim.create_gui(ui);
+                        anim.create_gui(ui, gui_state);
                     });
                 }
             });

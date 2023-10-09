@@ -2,6 +2,7 @@ use egui_winit::egui::{DragValue, Ui};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    animations::ItemAction,
     math::SparVec2,
     model::{Clock, EmitterUniform, GuiState, LifeCycle},
     traits::{EmitterAnimation, HandleAngles, RegisterEmitterAnimation},
@@ -20,6 +21,9 @@ pub struct DiffusionAnimation {
     diff_width: SparVec2,
     diff_depth: SparVec2,
     gui: Gui,
+
+    #[serde(skip_serializing, skip_deserializing)]
+    selected_action: ItemAction,
 }
 
 #[derive(Clone, Copy)]
@@ -61,6 +65,7 @@ impl DiffusionAnimation {
             life_cycle,
             diff_width: diff_width_deg.to_radians(),
             diff_depth: diff_depth_deg.to_radians(),
+            selected_action: ItemAction::None,
             gui,
         }
     }
@@ -87,11 +92,19 @@ impl EmitterAnimation for DiffusionAnimation {
         emitter.diff_depth = self.diff_depth.x + fraction * (self.diff_depth.y - self.diff_depth.x);
     }
 
-    fn create_gui(&mut self, ui: &mut Ui) {
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn create_gui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         let life_cycle = &mut self.life_cycle;
         let gui = &mut self.gui;
 
-        GuiState::create_title(ui, "Diffusion animation");
+        gui_state.create_anim_header(ui, &mut self.selected_action, "Diffusion animation");
 
         ui.horizontal(|ui| {
             ui.label("Animate from sec");

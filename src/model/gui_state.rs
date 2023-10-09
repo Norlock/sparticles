@@ -162,7 +162,7 @@ impl GuiState {
             let registered_em_anims = &state.registered_em_anims;
             let gui = &mut state.gui;
 
-            emitter.gui_emitter_animations(ui);
+            emitter.gui_emitter_animations(ui, gui);
 
             ui.separator();
 
