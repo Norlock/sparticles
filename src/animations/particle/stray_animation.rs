@@ -5,7 +5,7 @@ use crate::{
     util::persistence::ExportAnimation,
 };
 use egui_wgpu::wgpu;
-use egui_winit::egui::{DragValue, Ui};
+use egui_winit::egui::{DragValue, Slider, Ui};
 use serde::{Deserialize, Serialize};
 use wgpu::util::DeviceExt;
 
@@ -149,7 +149,13 @@ impl ParticleAnimation for StrayAnimation {
             ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
         });
 
-        GuiState::create_degree_slider(ui, &mut stray_degrees, "Stray degrees");
+        ui.spacing_mut().slider_width = 200.0;
+
+        ui.add(
+            Slider::new(&mut stray_degrees, 0.0..=45.)
+                .step_by(0.1)
+                .text("Stray degrees"),
+        );
 
         gui.stray_radians = stray_degrees.to_radians();
 

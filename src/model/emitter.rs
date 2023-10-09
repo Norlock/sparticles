@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{Clock, EmitterGuiState};
+use super::Clock;
 use crate::{
     math::{SparVec3, SparVec4},
     traits::{FromRGB, HandleAngles},
@@ -58,6 +58,25 @@ pub struct EmitterUniform {
     pub particle_material_mass: f32,
     pub particle_lifetime_sec: f32,
     pub texture_image: PathBuf,
+}
+
+pub struct EmitterGuiState {
+    pub spawn_count: u32,
+    pub spawn_delay_sec: f32,
+    pub particle_lifetime_sec: f32,
+    pub recreate: bool,
+
+    pub box_position: Vec3,
+    pub box_dimensions: Vec3,
+    pub box_rotation_deg: Vec3,
+
+    pub diff_width_deg: f32,
+    pub diff_depth_deg: f32,
+
+    pub particle_speed_min: f32,
+    pub particle_speed_max: f32,
+    pub particle_size_min: f32,
+    pub particle_size_max: f32,
 }
 
 impl EmitterUniform {
@@ -169,14 +188,6 @@ impl EmitterUniform {
 
     pub fn particle_buffer_size(&self) -> u64 {
         self.particle_count() * PARTICLE_BUFFER_SIZE
-    }
-
-    pub fn get_spawn_options(&self) -> EmitSpawnOptions {
-        EmitSpawnOptions {
-            spawn_count: self.spawn_count,
-            spawn_delay_sec: self.spawn_delay_sec,
-            particle_lifetime_sec: self.particle_lifetime_sec,
-        }
     }
 
     pub fn create_buffer_content(&self) -> Vec<f32> {

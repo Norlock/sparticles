@@ -234,13 +234,12 @@ impl ParticleAnimation for GravityAnimation {
         });
 
         ui.horizontal(|ui| {
-            ui.label("Mass");
-            ui.add(DragValue::new(&mut gui.mass).speed(0.1));
-        });
-
-        ui.horizontal(|ui| {
             ui.label("Gravitational force");
-            ui.add(DragValue::new(&mut gui.gravitational_force).speed(0.1));
+            ui.add(
+                DragValue::new(&mut gui.gravitational_force)
+                    .speed(0.001)
+                    .clamp_range(-0.02..=0.02),
+            );
         });
 
         if self.uniform != gui {

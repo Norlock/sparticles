@@ -1,4 +1,4 @@
-use super::{Camera, EmitterUniform, GfxState, GuiState, State};
+use super::{Camera, EmitterGuiState, EmitterUniform, GfxState, GuiState, State};
 use crate::animations::ItemAction;
 use crate::traits::{CalculateBufferSize, CustomShader};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
@@ -6,7 +6,6 @@ use crate::util::persistence::{ExportEmitter, ExportType};
 use crate::util::Persistence;
 use egui_wgpu::wgpu;
 use egui_winit::egui::{ScrollArea, Ui};
-use glam::Vec3;
 use std::{
     fmt::{Debug, Formatter},
     num::NonZeroU64,
@@ -28,25 +27,6 @@ pub struct EmitterState {
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub is_light: bool,
     pub gui: EmitterGuiState,
-}
-
-pub struct EmitterGuiState {
-    pub spawn_count: u32,
-    pub spawn_delay_sec: f32,
-    pub particle_lifetime_sec: f32,
-    pub recreate: bool,
-
-    pub box_position: Vec3,
-    pub box_dimensions: Vec3,
-    pub box_rotation_deg: Vec3,
-
-    pub diff_width_deg: f32,
-    pub diff_depth_deg: f32,
-
-    pub particle_speed_min: f32,
-    pub particle_speed_max: f32,
-    pub particle_size_min: f32,
-    pub particle_size_max: f32,
 }
 
 pub struct CreateEmitterOptions<'a> {
