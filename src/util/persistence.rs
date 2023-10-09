@@ -1,5 +1,4 @@
 use crate::{fx::post_process::FxPersistenceType, model::EmitterUniform};
-use egui_wgpu::wgpu;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
@@ -109,13 +108,13 @@ impl Persistence {
         let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         dir.push("src/assets/textures");
 
-        Ok(fs::read_dir(dir)?
+        fs::read_dir(dir)?
             .map(|res| {
                 res.map(|e| {
                     println!("{:?}", e.path());
                     e.path()
                 })
             })
-            .collect::<Result<Vec<_>, io::Error>>()?)
+            .collect::<Result<Vec<_>, io::Error>>()
     }
 }

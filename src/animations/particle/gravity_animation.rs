@@ -4,6 +4,7 @@ use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use wgpu::util::DeviceExt;
 
+use crate::animations::ItemAction;
 use crate::math::SparVec3;
 use crate::model::clock::Clock;
 use crate::model::{EmitterState, GfxState, GuiState, LifeCycle};
@@ -104,7 +105,7 @@ impl RegisterParticleAnimation for RegisterGravityAnimation {
     }
 
     fn tag(&self) -> &str {
-        "Gravity animation"
+        "gravity"
     }
 
     fn import(
@@ -123,6 +124,7 @@ pub struct GravityAnimation {
     uniform: GravityUniform,
     buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
+    selected_action: ItemAction,
 }
 
 impl ParticleAnimation for GravityAnimation {
@@ -169,19 +171,27 @@ impl ParticleAnimation for GravityAnimation {
         Box::new(Self::new(self.uniform, spawner, gfx_state))
     }
 
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
     fn export(&self) -> ExportAnimation {
         let animation = serde_json::to_value(self.uniform).unwrap();
-        let animation_type = RegisterGravityAnimation.tag().to_owned();
 
         ExportAnimation {
-            animation_tag: animation_type,
+            animation_tag: RegisterGravityAnimation.tag().to_owned(),
             animation,
         }
     }
 
-    fn create_gui(&mut self, ui: &mut Ui) {
+    fn create_gui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         let mut gui = self.uniform;
-        GuiState::create_title(ui, "Gravity animation");
+
+        gui_state.create_anim_header(ui, &mut self.selected_action, "Gravity animation");
 
         ui.horizontal(|ui| {
             ui.label("Animate from sec");
@@ -296,6 +306,7 @@ impl GravityAnimation {
             uniform,
             buffer,
             bind_group,
+            selected_action: ItemAction::None,
         }
     }
 }

@@ -3,6 +3,7 @@ use egui_winit::egui::{DragValue, Ui};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    animations::ItemAction,
     math::SparVec3,
     model::{Clock, EmitterState, GfxState, GuiState, LifeCycle},
     traits::{CustomShader, ParticleAnimation, RegisterParticleAnimation},
@@ -56,7 +57,7 @@ impl RegisterForceAnimation {
 
 impl RegisterParticleAnimation for RegisterForceAnimation {
     fn tag(&self) -> &str {
-        "Force animation"
+        "force"
     }
 
     fn create_default(
@@ -89,6 +90,7 @@ pub struct ForceAnimation {
     buffer: wgpu::Buffer,
     update_uniform: bool,
     should_animate: bool,
+    selected_action: ItemAction,
 }
 
 impl ParticleAnimation for ForceAnimation {
@@ -134,18 +136,25 @@ impl ParticleAnimation for ForceAnimation {
 
     fn export(&self) -> ExportAnimation {
         let animation = serde_json::to_value(self.uniform).unwrap();
-        let animation_type = RegisterForceAnimation.tag().to_owned();
 
         ExportAnimation {
-            animation_tag: animation_type,
+            animation_tag: RegisterForceAnimation.tag().to_owned(),
             animation,
         }
     }
 
-    fn create_gui(&mut self, ui: &mut Ui) {
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
+    fn create_gui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         let mut gui = self.uniform;
 
-        GuiState::create_title(ui, "Force animation");
+        gui_state.create_anim_header(ui, &mut self.selected_action, "Force animation");
 
         ui.horizontal(|ui| {
             ui.label("Animate from sec");
@@ -243,6 +252,7 @@ impl ForceAnimation {
             buffer,
             update_uniform: false,
             should_animate: false,
+            selected_action: ItemAction::None,
         }
     }
 }

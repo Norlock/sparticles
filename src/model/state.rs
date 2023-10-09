@@ -27,7 +27,7 @@ impl State {
         self.clock.update();
 
         Camera::update(self);
-        EmitterState::update_spawners(self);
+        EmitterState::update_emitters(self);
         GuiState::process_gui(self);
     }
 
@@ -54,7 +54,7 @@ impl State {
     }
 
     pub fn new(app_settings: impl AppSettings, window: Window) -> Self {
-        let gfx_state = pollster::block_on(GfxState::new(window));
+        let mut gfx_state = pollster::block_on(GfxState::new(window));
 
         let clock = Clock::new();
         let camera = Camera::new(&gfx_state);
@@ -75,7 +75,7 @@ impl State {
             post_process.add_default_fx(&gfx_state);
         }
 
-        let gui = GuiState::new(app_settings.show_gui());
+        let gui = GuiState::new(app_settings.show_gui(), &mut gfx_state);
 
         Self {
             clock,

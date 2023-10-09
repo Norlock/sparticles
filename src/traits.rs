@@ -1,6 +1,7 @@
 use crate::{
+    animations::ItemAction,
     fx::post_process::{FxPersistenceType, FxState, FxView},
-    model::{Clock, EmitterState, EmitterUniform, GfxState, State},
+    model::{Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
     util::persistence::ExportAnimation,
 };
 use egui_wgpu::wgpu;
@@ -78,8 +79,10 @@ pub trait ParticleAnimation {
     ) -> Box<dyn ParticleAnimation>;
 
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState);
-    fn create_gui(&mut self, ui: &mut Ui);
+    fn create_gui(&mut self, ui: &mut Ui, gui: &GuiState);
     fn export(&self) -> ExportAnimation;
+    fn selected_action(&mut self) -> &mut ItemAction;
+    fn reset_action(&mut self);
 }
 
 pub trait EmitterAnimation {

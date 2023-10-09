@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use wgpu::util::DeviceExt;
 
 use crate::{
+    animations::ItemAction,
     math::SparVec4,
     model::{Clock, EmitterState, GfxState, GuiState},
     traits::*,
@@ -61,7 +62,7 @@ impl RegisterColorAnimation {
 
 impl RegisterParticleAnimation for RegisterColorAnimation {
     fn tag(&self) -> &str {
-        "Color animation"
+        "color"
     }
 
     fn create_default(
@@ -93,6 +94,7 @@ struct ColorAnimation {
     uniform: ColorUniform,
     buffer: wgpu::Buffer,
     update_uniform: bool,
+    selected_action: ItemAction,
 }
 
 impl ParticleAnimation for ColorAnimation {
@@ -107,12 +109,10 @@ impl ParticleAnimation for ColorAnimation {
     }
 
     fn update(&mut self, _clock: &Clock, gfx_state: &GfxState) {
-        let queue = &gfx_state.queue;
-
         if self.update_uniform {
             let buf_content_raw = self.uniform.create_buffer_content();
             let buf_content = bytemuck::cast_slice(&buf_content_raw);
-            queue.write_buffer(&self.buffer, 0, buf_content);
+            gfx_state.queue.write_buffer(&self.buffer, 0, buf_content);
             self.update_uniform = false;
         }
     }
@@ -139,8 +139,16 @@ impl ParticleAnimation for ColorAnimation {
         Box::new(Self::new(self.uniform, spawner, gfx_state))
     }
 
-    fn create_gui(&mut self, ui: &mut Ui) {
-        GuiState::create_title(ui, "Color animation");
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
+    fn create_gui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
+        gui_state.create_anim_header(ui, &mut self.selected_action, "Color animation");
 
         let mut gui = self.uniform;
 
@@ -247,6 +255,7 @@ impl ColorAnimation {
             buffer,
             uniform,
             update_uniform: false,
+            selected_action: ItemAction::None,
         }
     }
 }

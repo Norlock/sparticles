@@ -1,4 +1,5 @@
-use super::{Camera, EmitterUniform, GfxState, State};
+use super::{Camera, EmitterUniform, GfxState, GuiState, State};
+use crate::animations::ItemAction;
 use crate::traits::{CalculateBufferSize, CustomShader};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
@@ -59,29 +60,61 @@ impl<'a> EmitterState {
         &self.uniform.id
     }
 
-    pub fn update_spawners(state: &mut State) {
-        state
-            .emitters
-            .iter_mut()
-            .chain(vec![&mut state.lights])
-            .for_each(|spawner| {
-                let queue = &state.gfx_state.queue;
+    pub fn update_emitters(state: &mut State) {
+        let State {
+            clock,
+            lights,
+            emitters,
+            gfx_state,
+            ..
+        } = state;
 
-                spawner.uniform.update(&state.clock);
+        let mut all_emitters: Vec<&mut EmitterState> = vec![lights];
+        all_emitters.append(
+            &mut emitters
+                .iter_mut()
+                .map(|em| em)
+                .collect::<Vec<&mut EmitterState>>(),
+        );
 
-                for anim in spawner.emitter_animations.iter_mut() {
-                    anim.animate(&mut spawner.uniform, &state.clock);
+        for emitter in all_emitters.iter_mut() {
+            let queue = &mut gfx_state.queue;
+
+            emitter.uniform.update(clock);
+
+            for idx in 0..emitter.emitter_animations.len() {
+                let anim = &mut emitter.emitter_animations[idx];
+                anim.animate(&mut emitter.uniform, clock);
+            }
+
+            let buffer_content_raw = emitter.uniform.create_buffer_content();
+            let buffer_content = bytemuck::cast_slice(&buffer_content_raw);
+
+            queue.write_buffer(&emitter.emitter_buffer, 0, buffer_content);
+
+            let mut i = 0;
+
+            while i < emitter.particle_animations.len() {
+                let anims = &mut emitter.particle_animations;
+
+                if anims[i].selected_action() == &mut ItemAction::Delete {
+                    anims.remove(i);
+                    continue;
+                } else if 0 < i && anims[i].selected_action() == &mut ItemAction::MoveUp {
+                    anims[i].reset_action();
+                    anims.swap(i, i - 1);
+                } else if 0 < i && anims[i - 1].selected_action() == &mut ItemAction::MoveDown {
+                    anims[i - 1].reset_action();
+                    anims.swap(i, i - 1);
                 }
 
-                let buffer_content_raw = spawner.uniform.create_buffer_content();
-                let buffer_content = bytemuck::cast_slice(&buffer_content_raw);
+                i += 1;
+            }
 
-                queue.write_buffer(&spawner.emitter_buffer, 0, buffer_content);
-
-                for anim in spawner.particle_animations.iter_mut() {
-                    anim.update(&state.clock, &state.gfx_state);
-                }
-            });
+            for anim in emitter.particle_animations.iter_mut() {
+                anim.update(clock, gfx_state);
+            }
+        }
     }
 
     pub fn compute_particles(state: &'a State, encoder: &'a mut wgpu::CommandEncoder) {
@@ -213,9 +246,9 @@ impl<'a> EmitterState {
         }
     }
 
-    pub fn gui_particle_animations(&mut self, ui: &mut Ui) {
+    pub fn gui_particle_animations(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         for anim in self.particle_animations.iter_mut() {
-            anim.create_gui(ui);
+            anim.create_gui(ui, gui_state);
             ui.separator();
         }
     }
@@ -224,7 +257,7 @@ impl<'a> EmitterState {
         self.uniform.particle_count()
     }
 
-    pub fn export(emitters: &Vec<EmitterState>, lights: &EmitterState) {
+    pub fn export(emitters: &[EmitterState], lights: &EmitterState) {
         let mut to_export = Vec::new();
 
         to_export.push(ExportEmitter {

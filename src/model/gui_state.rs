@@ -1,10 +1,16 @@
-use super::{EmitterState, State};
+use super::{EmitterState, GfxState, State};
 use crate::{
+    animations::ItemAction,
     fx::{bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, PostProcessState},
+    texture::CustomTexture,
     util::Persistence,
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
-use egui_winit::egui::{self, ComboBox};
+use egui_wgpu::wgpu;
+use egui_winit::egui::{
+    self, epaint::TextureManager, ComboBox, ImageButton, TextureHandle, TextureId, Vec2,
+};
+
 use std::path::PathBuf;
 
 pub struct GuiState {
@@ -16,11 +22,22 @@ pub struct GuiState {
     elapsed_text: String,
     particle_count_text: String,
     texture_paths: Vec<PathBuf>,
+    gui_textures: Vec<GuiTextures>,
     selected_tab: Tab,
     selected_post_fx: PostFx,
     selected_texture: usize,
-    selected_new_particle_animation: usize,
+    selected_new_par_anim: usize,
+    selected_new_em_anim: usize,
     selected_emitter_id: usize,
+}
+
+const CHEVRON_UP_ID: &str = "chevron-up";
+const CHEVRON_DOWN_ID: &str = "chevron-down";
+const TRASH_ID: &str = "trash";
+
+struct GuiTextures {
+    pub tag: String,
+    pub texture_id: TextureId,
 }
 
 #[derive(PartialEq)]
@@ -132,8 +149,8 @@ impl GuiState {
             .iter_mut()
             .chain([lights])
             .enumerate()
-            .find(|(e_idx, _)| *e_idx == idx)
-            .map(|(_, em)| em)
+            .find(|item| item.0 == idx)
+            .map(|item| item.1)
     }
 
     fn emitter_animations_tab(state: &mut State, ui: &mut Ui) {
@@ -142,7 +159,29 @@ impl GuiState {
             &mut state.lights,
             state.gui.selected_emitter_id,
         ) {
+            let registered_em_anims = &state.registered_em_anims;
+            let gui = &mut state.gui;
+
             emitter.gui_emitter_animations(ui);
+
+            ui.separator();
+
+            ui.horizontal(|ui| {
+                let sel_animation = &mut gui.selected_new_em_anim;
+
+                ComboBox::from_id_source("new-particle-animation").show_index(
+                    ui,
+                    sel_animation,
+                    registered_em_anims.len(),
+                    |i| registered_em_anims[i].tag(),
+                );
+
+                if ui.button("Add animation").clicked() {
+                    emitter.push_emitter_animation(
+                        registered_em_anims[*sel_animation].create_default(),
+                    );
+                }
+            });
         }
     }
 
@@ -156,12 +195,12 @@ impl GuiState {
         } = state;
 
         if let Some(emitter) = GuiState::selected_emitter(e, l, gui.selected_emitter_id) {
-            emitter.gui_particle_animations(ui);
+            emitter.gui_particle_animations(ui, gui);
 
             ui.separator();
 
             ui.horizontal(|ui| {
-                let sel_animation = &mut gui.selected_new_particle_animation;
+                let sel_animation = &mut gui.selected_new_par_anim;
 
                 ComboBox::from_id_source("new-particle-animation").show_index(
                     ui,
@@ -180,8 +219,48 @@ impl GuiState {
         }
     }
 
-    pub fn new(show_gui: bool) -> Self {
+    fn create_icons(gfx_state: &mut GfxState) -> Vec<GuiTextures> {
+        let device = &gfx_state.device;
+        let queue = &gfx_state.queue;
+        let renderer = &mut gfx_state.renderer;
+
+        let mut textures = Vec::new();
+
+        // Chevron up
+        let mut create_tex = |filename: &str, tag: &str| {
+            let mut icon_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            icon_path.push("src/assets/icons/");
+            icon_path.push(filename);
+            let path_str = icon_path
+                .to_str()
+                .expect(&format!("File doesn't exist: {}", filename));
+
+            let view = CustomTexture::new(device, queue, path_str);
+
+            let texture_id =
+                renderer.register_native_texture(device, &view, wgpu::FilterMode::Nearest);
+
+            GuiTextures {
+                tag: tag.to_string(),
+                texture_id,
+            }
+        };
+
+        textures.push(create_tex("chevron-up.png", CHEVRON_UP_ID));
+        textures.push(create_tex("chevron-down.png", CHEVRON_DOWN_ID));
+        textures.push(create_tex("trash.png", TRASH_ID));
+
+        textures
+    }
+
+    pub fn new(show_gui: bool, gfx_state: &mut GfxState) -> Self {
         let texture_paths = Persistence::import_textures().unwrap();
+        let gui_textures = Self::create_icons(gfx_state);
+
+        //texture_ids.push();
+
+        //let img = egui::Image::new("src/assets/icons/chevron-up.png");
+        //egui::Image::new(chevron_up_id, Vec2::new(32., 32.));
 
         Self {
             enabled: show_gui,
@@ -194,8 +273,10 @@ impl GuiState {
             selected_post_fx: PostFx::Bloom,
             texture_paths,
             selected_emitter_id: 0,
-            selected_new_particle_animation: 0,
+            selected_new_par_anim: 0,
+            selected_new_em_anim: 0,
             selected_texture: 0,
+            gui_textures,
         }
     }
 
@@ -381,6 +462,47 @@ impl GuiState {
     pub fn create_title(ui: &mut Ui, str: &str) {
         ui.label(RichText::new(str).color(Color32::WHITE).size(16.0));
         ui.add_space(5.0);
+    }
+
+    pub fn create_anim_header(&self, ui: &mut Ui, selected_action: &mut ItemAction, title: &str) {
+        ui.horizontal_top(|ui| {
+            GuiState::create_title(ui, title);
+
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                let trash_id = self
+                    .gui_textures
+                    .iter()
+                    .find(|icon| icon.tag == TRASH_ID)
+                    .map(|icon| icon.texture_id)
+                    .expect("Texture doesn't exist");
+
+                if ui.add(ImageButton::new(trash_id, [16., 16.])).clicked() {
+                    *selected_action = ItemAction::Delete;
+                };
+
+                let up_id = self
+                    .gui_textures
+                    .iter()
+                    .find(|icon| icon.tag == CHEVRON_UP_ID)
+                    .map(|icon| icon.texture_id)
+                    .expect("Texture doesn't exist");
+
+                if ui.add(ImageButton::new(up_id, [16., 16.])).clicked() {
+                    *selected_action = ItemAction::MoveUp;
+                };
+
+                let down_id = self
+                    .gui_textures
+                    .iter()
+                    .find(|icon| icon.tag == CHEVRON_DOWN_ID)
+                    .map(|icon| icon.texture_id)
+                    .expect("Texture doesn't exist");
+
+                if ui.add(ImageButton::new(down_id, [16., 16.])).clicked() {
+                    *selected_action = ItemAction::MoveDown;
+                };
+            });
+        });
     }
 
     pub fn create_degree_slider(ui: &mut Ui, val: &mut f32, str: &str) {

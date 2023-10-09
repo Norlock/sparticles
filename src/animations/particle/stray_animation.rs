@@ -1,4 +1,5 @@
 use crate::{
+    animations::ItemAction,
     model::{Clock, EmitterState, GfxState, GuiState},
     traits::{CalculateBufferSize, CustomShader, ParticleAnimation, RegisterParticleAnimation},
     util::persistence::ExportAnimation,
@@ -57,7 +58,7 @@ impl RegisterParticleAnimation for RegisterStrayAnimation {
     }
 
     fn tag(&self) -> &str {
-        "StrayAnimation"
+        "stray"
     }
 
     fn import(
@@ -77,6 +78,7 @@ struct StrayAnimation {
     buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
     update_uniform: bool,
+    selected_action: ItemAction,
 }
 
 impl ParticleAnimation for StrayAnimation {
@@ -113,6 +115,14 @@ impl ParticleAnimation for StrayAnimation {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
 
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
     fn export(&self) -> ExportAnimation {
         let animation = serde_json::to_value(self.uniform).unwrap();
         let animation_type = RegisterStrayAnimation.tag().to_owned();
@@ -123,8 +133,8 @@ impl ParticleAnimation for StrayAnimation {
         }
     }
 
-    fn create_gui(&mut self, ui: &mut Ui) {
-        GuiState::create_title(ui, "Stray animation");
+    fn create_gui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
+        gui_state.create_anim_header(ui, self.selected_action(), "Stray animation");
 
         let mut gui = self.uniform;
         let mut stray_degrees = gui.stray_radians.to_degrees();
@@ -208,6 +218,7 @@ impl StrayAnimation {
             uniform,
             buffer,
             update_uniform: false,
+            selected_action: ItemAction::None,
         }
     }
 }

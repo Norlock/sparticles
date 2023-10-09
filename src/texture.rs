@@ -14,6 +14,52 @@ pub struct DiffuseTexture {
     pub view: wgpu::TextureView,
 }
 
+pub struct CustomTexture;
+
+impl CustomTexture {
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        texture_path: &str,
+    ) -> wgpu::TextureView {
+        let bytes = fs::read(texture_path).expect("Can't read texture image");
+        let diffuse_image = image::load_from_memory(&bytes).unwrap();
+        let diffuse_rgba = diffuse_image.to_rgba8();
+
+        let dimensions = diffuse_image.dimensions();
+
+        let texture_size = wgpu::Extent3d {
+            width: dimensions.0,
+            height: dimensions.1,
+            depth_or_array_layers: 1,
+        };
+
+        let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            label: Some("diffuse_texture"),
+            view_formats: &[],
+        });
+
+        queue.write_texture(
+            diffuse_texture.as_image_copy(),
+            &diffuse_rgba,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * dimensions.0),
+                rows_per_image: Some(dimensions.1),
+            },
+            texture_size,
+        );
+
+        diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default())
+    }
+}
+
 impl GfxState {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
@@ -84,15 +130,10 @@ impl GfxState {
             .default_view()
     }
 
-    pub fn create_diffuse_texture(&self, filename: &str) -> DiffuseTexture {
+    pub fn create_diffuse_texture(&self, texture_path: &str) -> DiffuseTexture {
         let device = &self.device;
 
-        let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        dir.push(format!("src/assets/textures/{}", filename));
-
-        let path = dir.to_str().expect("Texture image doesn't exist");
-
-        let bytes = fs::read(path).expect("Can't read texture image");
+        let bytes = fs::read(texture_path).expect("Can't read texture image");
         let diffuse_image = image::load_from_memory(&bytes).unwrap();
         let diffuse_rgba = diffuse_image.to_rgba8();
 
@@ -116,12 +157,7 @@ impl GfxState {
         });
 
         self.queue.write_texture(
-            wgpu::ImageCopyTexture {
-                texture: &diffuse_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
+            diffuse_texture.as_image_copy(),
             &diffuse_rgba,
             wgpu::ImageDataLayout {
                 offset: 0,
