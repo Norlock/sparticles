@@ -89,6 +89,8 @@ pub trait EmitterAnimation {
     fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock);
     fn create_gui(&mut self, ui: &mut Ui);
     fn export(&self) -> ExportAnimation;
+    //fn selected_action(&mut self) -> &mut ItemAction;
+    //fn reset_action(&mut self);
 }
 
 pub trait CalculateBufferSize {

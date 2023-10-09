@@ -5,7 +5,7 @@ use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
 use crate::util::Persistence;
 use egui_wgpu::wgpu;
-use egui_winit::egui::Ui;
+use egui_winit::egui::{ScrollArea, Ui};
 use glam::Vec3;
 use std::{
     fmt::{Debug, Formatter},
@@ -240,17 +240,31 @@ impl<'a> EmitterState {
     }
 
     pub fn gui_emitter_animations(&mut self, ui: &mut Ui) {
-        for anim in self.emitter_animations.iter_mut() {
-            anim.create_gui(ui);
-            ui.separator();
-        }
+        ScrollArea::vertical()
+            .auto_shrink([true; 2])
+            .vscroll(true)
+            .max_height(500.)
+            .show(ui, |ui| {
+                for anim in self.emitter_animations.iter_mut() {
+                    ui.group(|ui| {
+                        anim.create_gui(ui);
+                    });
+                }
+            });
     }
 
     pub fn gui_particle_animations(&mut self, ui: &mut Ui, gui_state: &GuiState) {
-        for anim in self.particle_animations.iter_mut() {
-            anim.create_gui(ui, gui_state);
-            ui.separator();
-        }
+        ScrollArea::vertical()
+            .auto_shrink([true; 2])
+            .vscroll(true)
+            .max_height(500.)
+            .show(ui, |ui| {
+                for anim in self.particle_animations.iter_mut() {
+                    ui.group(|ui| {
+                        anim.create_gui(ui, gui_state);
+                    });
+                }
+            });
     }
 
     pub fn particle_count(&self) -> u64 {

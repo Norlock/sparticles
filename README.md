@@ -17,5 +17,6 @@ Particle system written in rust + WGPU + EGUI
 - [ ] Motion blur
 - [ ] Being able to extend Fx State bind groups as long as the order is preserved so you have more
 flexibility 
+- [ ] Create preview texture and register with egui to display post fx 
 
 TODO write serialize + deserialize for cgmath vec3 + vec4
