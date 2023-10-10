@@ -7,11 +7,9 @@ use crate::{
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
 use egui_wgpu::wgpu;
-use egui_winit::egui::{
-    self, epaint::TextureManager, ComboBox, ImageButton, TextureHandle, TextureId, Vec2,
-};
+use egui_winit::egui::{self, ComboBox, ImageButton, TextureId};
 
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 pub struct GuiState {
     pub enabled: bool,
@@ -22,7 +20,7 @@ pub struct GuiState {
     elapsed_text: String,
     particle_count_text: String,
     texture_paths: Vec<PathBuf>,
-    gui_textures: Vec<GuiTextures>,
+    icon_textures: HashMap<String, TextureId>,
     selected_tab: Tab,
     selected_post_fx: PostFx,
     selected_texture: usize,
@@ -219,14 +217,13 @@ impl GuiState {
         }
     }
 
-    fn create_icons(gfx_state: &mut GfxState) -> Vec<GuiTextures> {
+    fn create_icons(gfx_state: &mut GfxState) -> HashMap<String, TextureId> {
         let device = &gfx_state.device;
         let queue = &gfx_state.queue;
         let renderer = &mut gfx_state.renderer;
 
-        let mut textures = Vec::new();
+        let mut textures = HashMap::new();
 
-        // Chevron up
         let mut create_tex = |filename: &str, tag: &str| {
             let mut icon_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             icon_path.push("src/assets/icons/");
@@ -240,22 +237,19 @@ impl GuiState {
             let texture_id =
                 renderer.register_native_texture(device, &view, wgpu::FilterMode::Nearest);
 
-            GuiTextures {
-                tag: tag.to_string(),
-                texture_id,
-            }
+            textures.insert(tag.to_string(), texture_id);
         };
 
-        textures.push(create_tex("chevron-up.png", CHEVRON_UP_ID));
-        textures.push(create_tex("chevron-down.png", CHEVRON_DOWN_ID));
-        textures.push(create_tex("trash.png", TRASH_ID));
+        create_tex("chevron-up.png", CHEVRON_UP_ID);
+        create_tex("chevron-down.png", CHEVRON_DOWN_ID);
+        create_tex("trash.png", TRASH_ID);
 
         textures
     }
 
     pub fn new(show_gui: bool, gfx_state: &mut GfxState) -> Self {
         let texture_paths = Persistence::import_textures().unwrap();
-        let gui_textures = Self::create_icons(gfx_state);
+        let icon_textures = Self::create_icons(gfx_state);
 
         //texture_ids.push();
 
@@ -276,7 +270,7 @@ impl GuiState {
             selected_new_par_anim: 0,
             selected_new_em_anim: 0,
             selected_texture: 0,
-            gui_textures,
+            icon_textures,
         }
     }
 
@@ -470,35 +464,29 @@ impl GuiState {
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 let trash_id = self
-                    .gui_textures
-                    .iter()
-                    .find(|icon| icon.tag == TRASH_ID)
-                    .map(|icon| icon.texture_id)
-                    .expect("Texture doesn't exist");
+                    .icon_textures
+                    .get(TRASH_ID)
+                    .expect("Trash icon doesn't exist");
 
-                if ui.add(ImageButton::new(trash_id, [16., 16.])).clicked() {
+                if ui.add(ImageButton::new(*trash_id, [16., 16.])).clicked() {
                     *selected_action = ItemAction::Delete;
                 };
 
                 let up_id = self
-                    .gui_textures
-                    .iter()
-                    .find(|icon| icon.tag == CHEVRON_UP_ID)
-                    .map(|icon| icon.texture_id)
-                    .expect("Texture doesn't exist");
+                    .icon_textures
+                    .get(CHEVRON_UP_ID)
+                    .expect("Chevron up icon doesn't exist");
 
-                if ui.add(ImageButton::new(up_id, [16., 16.])).clicked() {
+                if ui.add(ImageButton::new(*up_id, [16., 16.])).clicked() {
                     *selected_action = ItemAction::MoveUp;
                 };
 
                 let down_id = self
-                    .gui_textures
-                    .iter()
-                    .find(|icon| icon.tag == CHEVRON_DOWN_ID)
-                    .map(|icon| icon.texture_id)
-                    .expect("Texture doesn't exist");
+                    .icon_textures
+                    .get(CHEVRON_DOWN_ID)
+                    .expect("Chevron down icon doesn't exist");
 
-                if ui.add(ImageButton::new(down_id, [16., 16.])).clicked() {
+                if ui.add(ImageButton::new(*down_id, [16., 16.])).clicked() {
                     *selected_action = ItemAction::MoveDown;
                 };
             });

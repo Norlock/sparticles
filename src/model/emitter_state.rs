@@ -90,6 +90,8 @@ impl<'a> EmitterState {
 
             queue.write_buffer(&emitter.emitter_buffer, 0, buffer_content);
 
+            let mut i = 0;
+
             while i < emitter.particle_animations.len() {
                 let anims = &mut emitter.particle_animations;
 
