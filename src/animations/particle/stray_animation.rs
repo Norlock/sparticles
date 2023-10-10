@@ -133,7 +133,7 @@ impl ParticleAnimation for StrayAnimation {
         }
     }
 
-    fn create_gui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
+    fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         gui_state.create_anim_header(ui, self.selected_action(), "Stray animation");
 
         let mut gui = self.uniform;

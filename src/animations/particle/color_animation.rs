@@ -147,7 +147,7 @@ impl ParticleAnimation for ColorAnimation {
         self.selected_action = ItemAction::None;
     }
 
-    fn create_gui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
+    fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         gui_state.create_anim_header(ui, &mut self.selected_action, "Color animation");
 
         let mut gui = self.uniform;

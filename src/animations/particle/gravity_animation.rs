@@ -188,7 +188,7 @@ impl ParticleAnimation for GravityAnimation {
         }
     }
 
-    fn create_gui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
+    fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         let mut gui = self.uniform;
 
         gui_state.create_anim_header(ui, &mut self.selected_action, "Gravity animation");

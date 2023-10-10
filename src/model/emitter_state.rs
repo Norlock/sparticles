@@ -243,7 +243,7 @@ impl<'a> EmitterState {
             .show(ui, |ui| {
                 for anim in self.emitter_animations.iter_mut() {
                     ui.group(|ui| {
-                        anim.create_gui(ui, gui_state);
+                        anim.create_ui(ui, gui_state);
                     });
                 }
             });
@@ -257,7 +257,7 @@ impl<'a> EmitterState {
             .show(ui, |ui| {
                 for anim in self.particle_animations.iter_mut() {
                     ui.group(|ui| {
-                        anim.create_gui(ui, gui_state);
+                        anim.create_ui(ui, gui_state);
                     });
                 }
             });

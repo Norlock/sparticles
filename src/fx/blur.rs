@@ -51,7 +51,7 @@ pub struct BlurExport {
 impl Default for BlurExport {
     fn default() -> Self {
         Self {
-            uniform: BlurUniform::new(),
+            uniform: BlurUniform::default(),
             passes: 8,
         }
     }
@@ -59,12 +59,6 @@ impl Default for BlurExport {
 
 impl Default for BlurUniform {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl BlurUniform {
-    pub fn new() -> Self {
         Self {
             brightness_threshold: 0.6,
             kernel_size: 16,
@@ -74,7 +68,9 @@ impl BlurUniform {
             intensity: 1.00, // betere naam verzinnen
         }
     }
+}
 
+impl BlurUniform {
     pub fn create_buffer_content(&self) -> Vec<u8> {
         let mut buffer = UniformBuffer::new(Vec::new());
         buffer.write(&self).unwrap();
@@ -129,12 +125,12 @@ impl PostFx for Blur {
                 .step_by(2.)
                 .text("Kernel size"),
         );
-        ui.add(Slider::new(&mut blur.sigma, 0.1..=8.0).text("Blur sigma"));
+        ui.add(Slider::new(&mut blur.sigma, 0.1..=3.0).text("Blur sigma"));
         ui.add(Slider::new(&mut blur.hdr_mul, 0.1..=15.0).text("HDR multiplication"));
-        ui.add(Slider::new(&mut blur.radius, 2..=10).text("Blur radius"));
-        ui.add(Slider::new(&mut blur.intensity, 0.1..=2.).text("Blur intensity"));
+        ui.add(Slider::new(&mut blur.radius, 2..=5).text("Blur radius"));
+        ui.add(Slider::new(&mut blur.intensity, 0.8..=1.2).text("Blur intensity"));
         ui.add(
-            Slider::new(&mut self.passes, 2..=100)
+            Slider::new(&mut self.passes, 2..=50)
                 .step_by(2.)
                 .text("Amount of passes"),
         );

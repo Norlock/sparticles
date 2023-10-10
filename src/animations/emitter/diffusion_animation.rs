@@ -100,7 +100,7 @@ impl EmitterAnimation for DiffusionAnimation {
         &mut self.selected_action
     }
 
-    fn create_gui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
+    fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         let life_cycle = &mut self.life_cycle;
         let gui = &mut self.gui;
 
