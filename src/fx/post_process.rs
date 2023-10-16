@@ -1,32 +1,19 @@
-use super::{bloom::BloomExport, color_processing::ColorProcessingUniform, Bloom, ColorProcessing};
+use super::blur::BlurData;
+use super::{color_processing::ColorProcessingUniform, Bloom, ColorProcessing};
+use crate::init::AppSettings;
 use crate::model::{GfxState, State};
 use crate::traits::*;
-use crate::util::persistence::ExportType;
-use crate::util::Persistence;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
-use egui_winit::egui::ClippedPrimitive;
 use encase::{ShaderType, UniformBuffer};
-use serde::{Deserialize, Serialize};
-use std::{num::NonZeroU64, rc::Rc};
 
 pub struct PostProcessState {
-    pub frame_state: FrameState,
-    pub post_fx: Vec<Box<dyn PostFxChain>>,
+    pub post_fx: Vec<Box<dyn PostFx>>,
     pub fx_state: FxState,
-    pub selected_view: String,
-    pub views: Vec<FxView>,
 
-    frame_group_layout: wgpu::BindGroupLayout,
     initialize_pipeline: wgpu::ComputePipeline,
     finalize_pipeline: wgpu::RenderPipeline,
     uniform: OffsetUniform,
     offset_buffer: wgpu::Buffer,
-}
-
-pub struct FrameState {
-    pub depth_view: wgpu::TextureView,
-    pub frame_view: wgpu::TextureView,
-    bind_group: Rc<wgpu::BindGroup>,
 }
 
 #[derive(ShaderType, Clone)]
@@ -36,28 +23,9 @@ pub struct OffsetUniform {
     view_height: f32,
 }
 
-pub struct FxView {
-    pub tag: String,
-    pub bind_group: Rc<wgpu::BindGroup>,
-}
-
-impl PartialEq for FxView {
-    fn eq(&self, other: &Self) -> bool {
-        self.tag == other.tag
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type")]
-pub enum FxPersistenceType {
-    Bloom(BloomExport),
-    ColorProcessing(ColorProcessingUniform),
-}
-
 pub struct CreateFxOptions<'a> {
     pub gfx_state: &'a GfxState,
     pub fx_state: &'a FxState,
-    pub depth_view: &'a wgpu::TextureView,
 }
 
 impl OffsetUniform {
@@ -81,28 +49,6 @@ pub const WORK_GROUP_SIZE: [f32; 2] = [8., 8.];
 impl PostProcessState {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-    pub fn output(&self) -> &Rc<wgpu::BindGroup> {
-        let nr = self.post_fx.iter().filter(|fx| fx.enabled()).count();
-
-        self.fx_state.bind_group(nr)
-    }
-
-    pub fn default_view(&self) -> FxView {
-        FxView {
-            tag: "Default".to_string(),
-            bind_group: self.output().clone(),
-        }
-    }
-
-    fn recreate_views(&mut self) {
-        self.views.clear();
-        self.views.push(self.default_view());
-
-        for (idx, fx) in self.post_fx.iter().enumerate() {
-            fx.add_views(&mut self.views, idx);
-        }
-    }
-
     pub fn resize(&mut self, gfx_state: &GfxState) {
         let config = &gfx_state.surface_config;
         let queue = &gfx_state.queue;
@@ -110,13 +56,7 @@ impl PostProcessState {
         self.uniform = OffsetUniform::new(config);
         queue.write_buffer(&self.offset_buffer, 0, &self.uniform.buffer_content());
 
-        self.frame_state =
-            FrameState::new(gfx_state, &self.frame_group_layout, &self.offset_buffer);
         self.fx_state.resize(config.fx_dimensions(), gfx_state);
-
-        for pfx in self.post_fx.iter_mut() {
-            pfx.resize(gfx_state, &self.fx_state);
-        }
     }
 
     pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
@@ -129,21 +69,22 @@ impl PostProcessState {
 
         c_pass.set_pipeline(&pp.initialize_pipeline);
         c_pass.set_bind_group(0, input, &[]);
-        c_pass.set_bind_group(1, pp.frame_state.output(), &[]);
+        //c_pass.set_bind_group(1, pp.frame_state.output(), &[]);
         c_pass.dispatch_workgroups(pp.fx_state.count_x, pp.fx_state.count_y, 1);
 
-        for (i, pfx) in pp.post_fx.iter().filter(|fx| fx.enabled()).enumerate() {
-            let input = pp.fx_state.bind_group(i);
-            pfx.compute(input, &mut c_pass);
-        }
+        //for (i, pfx) in pp.post_fx.iter().filter(|fx| fx.enabled()).enumerate() {
+        //let input = pp.fx_state.bind_group(i);
+        //pfx.compute(input, &mut c_pass);
+        //}
     }
 
     pub fn render(
         state: &mut State,
         output_view: wgpu::TextureView,
-        clipped_primitives: Vec<ClippedPrimitive>,
         encoder: &mut wgpu::CommandEncoder,
     ) {
+        let clipped_primitives = GfxState::draw_gui(state, encoder);
+
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Post process render"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -158,17 +99,9 @@ impl PostProcessState {
         });
 
         let pp = &mut state.post_process;
-        pp.recreate_views();
-
-        let fx_bind_group = pp
-            .views
-            .iter()
-            .find(|vw| vw.tag == pp.selected_view)
-            .map_or(pp.output(), |vw| &vw.bind_group);
-
         r_pass.set_pipeline(&pp.finalize_pipeline);
-        r_pass.set_bind_group(0, fx_bind_group, &[]);
-        r_pass.set_bind_group(1, pp.frame_state.output(), &[]);
+        r_pass.set_bind_group(0, pp.fx_state.bind_group(0), &[]);
+        //r_pass.set_bind_group(1, pp.frame_state.output(), &[]);
         r_pass.draw(0..3, 0..1);
 
         state.gfx_state.renderer.render(
@@ -178,58 +111,11 @@ impl PostProcessState {
         );
     }
 
-    pub fn create_fx_layout(
-        device: &wgpu::Device,
-        offset: &OffsetUniform,
-    ) -> wgpu::BindGroupLayout {
-        let min_binding_size = NonZeroU64::new(offset.buffer_content().len() as u64);
-
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Frame layout"),
-            entries: &[
-                // Frame
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                // Offset uniform
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size,
-                    },
-                    count: None,
-                },
-                // Noise
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-            ],
-        })
-    }
-
     pub fn export(pp: &PostProcessState) {
-        let to_export: Vec<FxPersistenceType> = pp.post_fx.iter().map(|fx| fx.export()).collect();
-        Persistence::write_to_file(to_export, ExportType::PostFx);
+        //Persistence::write_to_file(to_export, ExportType::PostFx);
     }
 
-    pub fn new(gfx_state: &GfxState) -> Self {
+    pub fn new(gfx_state: &GfxState, app_settings: &impl AppSettings) -> Self {
         let device = &gfx_state.device;
         let config = &gfx_state.surface_config;
 
@@ -245,11 +131,7 @@ impl PostProcessState {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let frame_group_layout = Self::create_fx_layout(device, &uniform);
-        let frame_state = FrameState::new(gfx_state, &frame_group_layout, &offset_buffer);
-
         let fx_state = FxState::new(FxStateOptions {
-            label: "Post process start".to_string(),
             tex_dimensions: config.fx_dimensions(),
             gfx_state,
         });
@@ -258,7 +140,7 @@ impl PostProcessState {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post fx layout"),
-            bind_group_layouts: &[fx_group_layout, &frame_group_layout],
+            bind_group_layouts: &[fx_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -293,17 +175,18 @@ impl PostProcessState {
             multiview: None,
         });
 
+        let post_fx = app_settings.add_post_fx(&CreateFxOptions {
+            fx_state: &fx_state,
+            gfx_state,
+        });
+
         Self {
-            frame_state,
             fx_state,
-            post_fx: vec![],
-            frame_group_layout,
+            post_fx,
             initialize_pipeline,
             finalize_pipeline,
             offset_buffer,
             uniform,
-            views: Vec::new(),
-            selected_view: "Default".to_string(),
         }
     }
 
@@ -311,137 +194,47 @@ impl PostProcessState {
         CreateFxOptions {
             gfx_state,
             fx_state: &self.fx_state,
-            depth_view: &self.frame_state.depth_view,
         }
     }
 
     pub fn add_default_fx(&mut self, gfx_state: &GfxState) {
+        // TODO remove default fx
         let options = self.create_fx_options(gfx_state);
 
-        let bloom = Bloom::new(&options, BloomExport::default());
-        let col_cor = ColorProcessing::new(&options, ColorProcessingUniform::new());
+        let bloom = Bloom::new(&options, BlurData::default());
+        let col_cor = ColorProcessing::new(&options, ColorProcessingUniform::default());
 
         self.post_fx.push(Box::new(bloom));
         self.post_fx.push(Box::new(col_cor));
     }
 
-    pub fn import_fx(&mut self, gfx_state: &GfxState, fx_types: Vec<FxPersistenceType>) {
-        for item in fx_types.into_iter() {
-            match item {
-                FxPersistenceType::Bloom(export) => {
-                    let options = self.create_fx_options(gfx_state);
-                    let bloom = Bloom::new(&options, export);
-
-                    self.post_fx.push(Box::new(bloom));
-                }
-                FxPersistenceType::ColorProcessing(export) => {
-                    let options = self.create_fx_options(gfx_state);
-                    let fx = ColorProcessing::new(&options, export);
-
-                    self.post_fx.push(Box::new(fx));
-                }
-            }
-        }
-    }
-}
-
-impl FrameState {
-    pub fn new(
-        gfx_state: &GfxState,
-        bind_group_layout: &wgpu::BindGroupLayout,
-        buffer: &wgpu::Buffer,
-    ) -> Self {
-        let device = &gfx_state.device;
-
-        let frame_view = gfx_state.create_frame_view();
-        let depth_view = gfx_state.create_depth_view();
-        let noise_view = gfx_state.create_noise_view();
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&frame_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&noise_view),
-                },
-            ],
-        });
-
-        Self {
-            frame_view,
-            depth_view,
-            bind_group: bind_group.into(),
-        }
-    }
-
-    pub fn output(&self) -> &Rc<wgpu::BindGroup> {
-        &self.bind_group
+    pub fn import_fx(&mut self, gfx_state: &GfxState) {
+        // TODO
     }
 }
 
 pub struct FxState {
-    bind_groups: Vec<Rc<wgpu::BindGroup>>,
+    bind_groups: Vec<wgpu::BindGroup>,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub count_x: u32,
     pub count_y: u32,
-    pub label: String,
+    pub fx_view_1: wgpu::TextureView,
+    pub fx_view_2: wgpu::TextureView,
+    pub depth_view: wgpu::TextureView,
+    pub frame_view: wgpu::TextureView,
 }
 
-pub struct FxStateOptions<'a> {
+struct FxStateOptions<'a> {
     /// For debugging purposes
-    pub label: String,
-    pub tex_dimensions: Dimensions,
-    pub gfx_state: &'a GfxState,
+    tex_dimensions: Dimensions,
+    gfx_state: &'a GfxState,
 }
 
 pub type Dimensions = [u32; 2];
 
 impl FxState {
-    pub fn bind_group(&self, idx: usize) -> &Rc<wgpu::BindGroup> {
+    pub fn bind_group(&self, idx: usize) -> &wgpu::BindGroup {
         &self.bind_groups[idx % 2]
-    }
-
-    fn create_bind_groups(
-        dimensions: Dimensions,
-        layout: &wgpu::BindGroupLayout,
-        gfx_state: &GfxState,
-    ) -> Vec<Rc<wgpu::BindGroup>> {
-        let device = &gfx_state.device;
-
-        let mut bind_groups = Vec::new();
-        let fx_view_1 = gfx_state.create_fx_view(dimensions);
-        let fx_view_2 = gfx_state.create_fx_view(dimensions);
-        let fx_views = vec![fx_view_1, fx_view_2];
-
-        for i in 0..2 {
-            let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: None,
-                layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&fx_views[i % 2]),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&fx_views[(i + 1) % 2]),
-                    },
-                ],
-            });
-
-            bind_groups.push(Rc::new(bg));
-        }
-
-        bind_groups
     }
 
     fn get_dispatch_counts(dimensions: Dimensions) -> [u32; 2] {
@@ -452,21 +245,21 @@ impl FxState {
     }
 
     pub fn resize(&mut self, dimensions: Dimensions, gfx_state: &GfxState) {
-        let counts = Self::get_dispatch_counts(dimensions);
-
-        self.bind_groups = Self::create_bind_groups(dimensions, &self.bind_group_layout, gfx_state);
-        self.count_x = counts[0];
-        self.count_y = counts[1];
+        *self = Self::new(FxStateOptions {
+            gfx_state,
+            tex_dimensions: dimensions,
+        });
     }
 
-    pub fn new(options: FxStateOptions) -> Self {
+    fn new(options: FxStateOptions) -> Self {
         let FxStateOptions {
-            label,
             tex_dimensions,
             gfx_state,
         } = options;
 
         let device = &gfx_state.device;
+        let frame_view = gfx_state.create_frame_view();
+        let depth_view = gfx_state.create_depth_view();
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Bloom textures layout"),
@@ -493,18 +286,59 @@ impl FxState {
                     },
                     count: None,
                 },
+                // Frame
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        multisampled: false,
+                    },
+                    count: None,
+                },
             ],
         });
 
-        let bind_groups = Self::create_bind_groups(tex_dimensions, &bind_group_layout, gfx_state);
+        let mut bind_groups = Vec::new();
+        let fx_view_1 = gfx_state.create_fx_view();
+        let fx_view_2 = gfx_state.create_fx_view();
+        let fx_views = vec![&fx_view_1, &fx_view_2];
+
+        for i in 0..2 {
+            let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: &bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(fx_views[i % 2]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(fx_views[(i + 1) % 2]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(&frame_view),
+                    },
+                ],
+            });
+
+            bind_groups.push(bg);
+        }
+
         let counts = Self::get_dispatch_counts(tex_dimensions);
 
         Self {
-            label,
             bind_groups,
             bind_group_layout,
             count_x: counts[0],
             count_y: counts[1],
+            fx_view_1,
+            fx_view_2,
+            depth_view,
+            frame_view,
         }
     }
 }

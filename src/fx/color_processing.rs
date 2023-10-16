@@ -1,16 +1,15 @@
-use super::{
-    post_process::{CreateFxOptions, FxPersistenceType, FxView},
-    FxState,
-};
+use super::{post_process::CreateFxOptions, FxState};
 use crate::{
-    model::{GfxState, GuiState},
-    traits::{CustomShader, PostFxChain},
+    animations::ItemAction,
+    model::GuiState,
+    traits::{CustomShader, HandleAction, PostFx, RegisterPostFx},
+    util::DynamicExport,
 };
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::{self, Slider};
 use encase::{ShaderType, UniformBuffer};
 use serde::{Deserialize, Serialize};
-use std::{num::NonZeroU64, rc::Rc};
+use std::num::NonZeroU64;
 
 #[allow(unused)]
 pub struct ColorProcessing {
@@ -25,6 +24,22 @@ pub struct ColorProcessing {
     delete: bool,
 }
 
+pub struct RegisterColorProcessingFx;
+
+impl RegisterPostFx for RegisterColorProcessingFx {
+    fn tag(&self) -> &str {
+        "color-processing"
+    }
+
+    fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
+        todo!()
+    }
+
+    fn import(&self, options: &CreateFxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
+        todo!()
+    }
+}
+
 #[derive(ShaderType, Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct ColorProcessingUniform {
     pub gamma: f32,
@@ -32,32 +47,24 @@ pub struct ColorProcessingUniform {
     pub brightness: f32,
 }
 
-impl PostFxChain for ColorProcessing {
-    fn add_views(&self, _bind_groups: &mut Vec<FxView>, _idx: usize) {}
-
-    fn delete(&self) -> bool {
-        self.delete
+impl PostFx for ColorProcessing {
+    fn compute<'a>(
+        &'a self,
+        ping_pong_idx: &mut usize,
+        fx_state: &'a FxState,
+        c_pass: &mut wgpu::ComputePass<'a>,
+    ) {
     }
 
-    fn resize(&mut self, _gfx_state: &GfxState, fx_state: &FxState) {
-        self.count_x = fx_state.count_x;
-        self.count_y = fx_state.count_y;
-    }
+    //fn compute<'a>(&'a self, input: &'a Rc<wgpu::BindGroup>, c_pass: &mut wgpu::ComputePass<'a>) {
+    //c_pass.set_pipeline(&self.pipeline);
+    //c_pass.set_bind_group(0, input, &[]);
+    //c_pass.set_bind_group(1, &self.bind_group, &[]);
+    //c_pass.dispatch_workgroups(self.count_x, self.count_y, 1);
+    //}
 
-    fn compute<'a>(&'a self, input: &'a Rc<wgpu::BindGroup>, c_pass: &mut wgpu::ComputePass<'a>) {
-        c_pass.set_pipeline(&self.pipeline);
-        c_pass.set_bind_group(0, input, &[]);
-        c_pass.set_bind_group(1, &self.bind_group, &[]);
-        c_pass.dispatch_workgroups(self.count_x, self.count_y, 1);
-    }
-
-    fn enabled(&self) -> bool {
-        self.enabled
-    }
-
-    fn create_ui(&mut self, ui: &mut egui::Ui, gfx_state: &GfxState) {
+    fn create_ui(&mut self, ui: &mut egui::Ui, ui_state: &GuiState) {
         let uniform = &mut self.uniform;
-        let queue = &gfx_state.queue;
 
         GuiState::create_title(ui, "Color correction");
         ui.add(Slider::new(&mut uniform.gamma, 0.1..=4.0).text("Gamma"));
@@ -65,33 +72,45 @@ impl PostFxChain for ColorProcessing {
         ui.add(Slider::new(&mut uniform.brightness, 0.01..=1.0).text("Brightness"));
         ui.checkbox(&mut self.enabled, "Enabled");
 
-        queue.write_buffer(&self.buffer, 0, &self.uniform.create_buffer_content());
-
         if ui.button("Delete").clicked() {
             self.delete = true;
         }
     }
 
-    fn export(&self) -> FxPersistenceType {
-        FxPersistenceType::ColorProcessing(self.uniform)
+    fn reserved_space(&self) -> usize {
+        0
+    }
+}
+
+impl HandleAction for ColorProcessing {
+    fn selected_action(&mut self) -> &mut ItemAction {
+        todo!()
+    }
+
+    fn reset_action(&mut self) {
+        todo!()
+    }
+
+    fn export(&self) -> DynamicExport {
+        todo!()
+    }
+
+    fn enabled(&self) -> bool {
+        todo!()
     }
 }
 
 impl Default for ColorProcessingUniform {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ColorProcessingUniform {
-    pub fn new() -> Self {
         Self {
             gamma: 1.0,
             contrast: 2.5,
             brightness: 0.3,
         }
     }
+}
 
+impl ColorProcessingUniform {
     // TODO default trait
     pub fn create_buffer_content(&self) -> Vec<u8> {
         let mut buffer = UniformBuffer::new(Vec::new());

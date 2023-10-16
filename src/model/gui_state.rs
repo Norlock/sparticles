@@ -1,7 +1,7 @@
 use super::{EmitterState, GfxState, State};
 use crate::{
     animations::ItemAction,
-    fx::{bloom::BloomExport, Bloom, ColorProcessing, ColorProcessingUniform, PostProcessState},
+    fx::{Bloom, ColorProcessing, ColorProcessingUniform, PostProcessState},
     texture::CustomTexture,
     util::Persistence,
 };
@@ -395,30 +395,28 @@ impl GuiState {
 
     fn post_fx_tab(state: &mut State, ui: &mut Ui) {
         let State {
-            gfx_state,
-            post_process,
-            gui,
-            ..
+            post_process, gui, ..
         } = state;
         let post_fx = &mut post_process.post_fx;
 
         post_fx.retain_mut(|fx| {
-            fx.create_ui(ui, gfx_state);
+            fx.create_ui(ui, gui);
             ui.separator();
-            !fx.delete()
+            fx.selected_action() != &mut ItemAction::Delete
         });
 
-        ComboBox::from_label("Selected view")
-            .selected_text(&post_process.selected_view)
-            .show_ui(ui, |ui| {
-                for item in post_process.views.iter() {
-                    ui.selectable_value(
-                        &mut post_process.selected_view,
-                        item.tag.to_string(),
-                        item.tag.to_string(),
-                    );
-                }
-            });
+        // TODO fix views
+        //ComboBox::from_label("Selected view")
+        //.selected_text(&post_process.selected_view)
+        //.show_ui(ui, |ui| {
+        //for item in post_process.views.iter() {
+        //ui.selectable_value(
+        //&mut post_process.selected_view,
+        //item.tag.to_string(),
+        //item.tag.to_string(),
+        //);
+        //}
+        //});
 
         ui.separator();
 
@@ -434,21 +432,9 @@ impl GuiState {
                     );
                 });
 
+            // TODO change from enum to vec and use that
             if ui.button("Add Post fx").clicked() {
-                match gui.selected_post_fx {
-                    PostFx::Bloom => {
-                        let options = post_process.create_fx_options(gfx_state);
-                        let fx = Bloom::new(&options, BloomExport::default());
-
-                        post_process.post_fx.push(Box::new(fx));
-                    }
-                    PostFx::ColorProcessing => {
-                        let options = post_process.create_fx_options(gfx_state);
-                        let fx = ColorProcessing::new(&options, ColorProcessingUniform::new());
-
-                        post_process.post_fx.push(Box::new(fx));
-                    }
-                };
+                // TODO same as in animations
             }
         });
     }
@@ -458,7 +444,9 @@ impl GuiState {
         ui.add_space(5.0);
     }
 
-    pub fn create_anim_header(&self, ui: &mut Ui, selected_action: &mut ItemAction, title: &str) {
+    pub fn create_anim_header(&self, ui: &mut Ui, title: &str) -> ItemAction {
+        let mut selected_action = ItemAction::None;
+
         ui.horizontal_top(|ui| {
             GuiState::create_title(ui, title);
 
@@ -469,7 +457,7 @@ impl GuiState {
                     .expect("Trash icon doesn't exist");
 
                 if ui.add(ImageButton::new(*trash_id, [16., 16.])).clicked() {
-                    *selected_action = ItemAction::Delete;
+                    selected_action = ItemAction::Delete;
                 };
 
                 let up_id = self
@@ -478,7 +466,7 @@ impl GuiState {
                     .expect("Chevron up icon doesn't exist");
 
                 if ui.add(ImageButton::new(*up_id, [16., 16.])).clicked() {
-                    *selected_action = ItemAction::MoveUp;
+                    selected_action = ItemAction::MoveUp;
                 };
 
                 let down_id = self
@@ -487,10 +475,12 @@ impl GuiState {
                     .expect("Chevron down icon doesn't exist");
 
                 if ui.add(ImageButton::new(*down_id, [16., 16.])).clicked() {
-                    *selected_action = ItemAction::MoveDown;
+                    selected_action = ItemAction::MoveDown;
                 };
             });
         });
+
+        selected_action
     }
 
     pub fn create_degree_slider(ui: &mut Ui, val: &mut f32, str: &str) {

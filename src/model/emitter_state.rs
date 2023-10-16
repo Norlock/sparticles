@@ -129,20 +129,20 @@ impl<'a> EmitterState {
             label: Some("Compute pipeline"),
         });
 
-        let compute = |c_pass: &mut wgpu::ComputePass<'a>, emitter: &'a EmitterState| {
+        let mut compute = |emitter: &'a EmitterState| {
             c_pass.set_pipeline(&emitter.pipeline);
             c_pass.set_bind_group(0, &emitter.bind_groups[nr], &[]);
             c_pass.dispatch_workgroups(emitter.dispatch_x_count, 1, 1);
 
             for anim in emitter.particle_animations.iter() {
-                anim.compute(emitter, clock, c_pass);
+                anim.compute(emitter, clock, &mut c_pass);
             }
         };
 
-        compute(&mut c_pass, lights);
+        compute(lights);
 
         for spawner in emitters.iter() {
-            compute(&mut c_pass, spawner);
+            compute(spawner);
         }
     }
 

@@ -25,8 +25,12 @@ impl Display for ItemAction {
     }
 }
 
-pub fn create_buffer_content(to_buffer: &(impl ShaderType + WriteInto)) -> Vec<u8> {
-    let mut buffer = UniformBuffer::new(Vec::new());
-    buffer.write(&to_buffer).unwrap();
-    buffer.into_inner()
+pub struct CommonAnimation;
+
+impl CommonAnimation {
+    pub fn buffer_content(to_buffer: &(impl ShaderType + WriteInto)) -> Vec<u8> {
+        let mut buffer = UniformBuffer::new(Vec::new());
+        buffer.write(&to_buffer).unwrap();
+        buffer.into_inner()
+    }
 }

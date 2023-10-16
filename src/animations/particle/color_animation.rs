@@ -9,7 +9,7 @@ use crate::{
     math::SparVec4,
     model::{Clock, EmitterState, GfxState, GuiState},
     traits::*,
-    util::persistence::ExportAnimation,
+    util::persistence::DynamicExport,
 };
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -97,17 +97,31 @@ struct ColorAnimation {
     selected_action: ItemAction,
 }
 
-impl ParticleAnimation for ColorAnimation {
-    fn export(&self) -> ExportAnimation {
+impl HandleAction for ColorAnimation {
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
+    fn export(&self) -> DynamicExport {
         let animation = serde_json::to_value(self.uniform).unwrap();
         let animation_type = RegisterColorAnimation.tag().to_owned();
 
-        ExportAnimation {
-            animation_tag: animation_type,
-            animation,
+        DynamicExport {
+            tag: animation_type,
+            data: animation,
         }
     }
 
+    fn enabled(&self) -> bool {
+        true
+    }
+}
+
+impl ParticleAnimation for ColorAnimation {
     fn update(&mut self, _clock: &Clock, gfx_state: &GfxState) {
         if self.update_uniform {
             let buf_content_raw = self.uniform.create_buffer_content();
@@ -139,16 +153,8 @@ impl ParticleAnimation for ColorAnimation {
         Box::new(Self::new(self.uniform, spawner, gfx_state))
     }
 
-    fn selected_action(&mut self) -> &mut ItemAction {
-        &mut self.selected_action
-    }
-
-    fn reset_action(&mut self) {
-        self.selected_action = ItemAction::None;
-    }
-
     fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
-        gui_state.create_anim_header(ui, &mut self.selected_action, "Color animation");
+        self.selected_action = gui_state.create_anim_header(ui, "Color animation");
 
         let mut gui = self.uniform;
 

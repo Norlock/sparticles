@@ -6,8 +6,8 @@ use crate::{
     animations::ItemAction,
     math::SparVec3,
     model::{Clock, EmitterState, GfxState, GuiState, LifeCycle},
-    traits::{CustomShader, ParticleAnimation, RegisterParticleAnimation},
-    util::persistence::ExportAnimation,
+    traits::{CustomShader, HandleAction, ParticleAnimation, RegisterParticleAnimation},
+    util::persistence::DynamicExport,
 };
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -93,6 +93,29 @@ pub struct ForceAnimation {
     selected_action: ItemAction,
 }
 
+impl HandleAction for ForceAnimation {
+    fn export(&self) -> DynamicExport {
+        let animation = serde_json::to_value(self.uniform).unwrap();
+
+        DynamicExport {
+            tag: RegisterForceAnimation.tag().to_owned(),
+            data: animation,
+        }
+    }
+
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
+    fn enabled(&self) -> bool {
+        todo!()
+    }
+}
+
 impl ParticleAnimation for ForceAnimation {
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState) {
         let queue = &gfx_state.queue;
@@ -134,27 +157,10 @@ impl ParticleAnimation for ForceAnimation {
         Box::new(Self::new(self.uniform, spawner, gfx_state))
     }
 
-    fn export(&self) -> ExportAnimation {
-        let animation = serde_json::to_value(self.uniform).unwrap();
+    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
+        self.selected_action = ui_state.create_anim_header(ui, "Force animation");
 
-        ExportAnimation {
-            animation_tag: RegisterForceAnimation.tag().to_owned(),
-            animation,
-        }
-    }
-
-    fn selected_action(&mut self) -> &mut ItemAction {
-        &mut self.selected_action
-    }
-
-    fn reset_action(&mut self) {
-        self.selected_action = ItemAction::None;
-    }
-
-    fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         let mut gui = self.uniform;
-
-        gui_state.create_anim_header(ui, &mut self.selected_action, "Force animation");
 
         ui.horizontal(|ui| {
             ui.label("Animate from sec");

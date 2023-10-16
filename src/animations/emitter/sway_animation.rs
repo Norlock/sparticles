@@ -1,13 +1,13 @@
 use egui_winit::egui::{DragValue, Ui};
 use glam::Vec2;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     animations::ItemAction,
     math::SparVec2,
     model::{Clock, EmitterUniform, GuiState, LifeCycle},
-    traits::{EmitterAnimation, HandleAngles, RegisterEmitterAnimation},
-    util::persistence::ExportAnimation,
+    traits::{EmitterAnimation, HandleAction, HandleAngles, RegisterEmitterAnimation},
+    util::persistence::DynamicExport,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -77,14 +77,28 @@ impl SwayAnimation {
     }
 }
 
-impl EmitterAnimation for SwayAnimation {
-    fn export(&self) -> ExportAnimation {
-        ExportAnimation {
-            animation_tag: RegisterSwayAnimation.tag().to_string(),
-            animation: serde_json::to_value(self).unwrap(),
+impl HandleAction for SwayAnimation {
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn export(&self) -> DynamicExport {
+        DynamicExport {
+            tag: RegisterSwayAnimation.tag().to_string(),
+            data: serde_json::to_value(self).unwrap(),
         }
     }
 
+    fn enabled(&self) -> bool {
+        todo!()
+    }
+}
+
+impl EmitterAnimation for SwayAnimation {
     fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock) {
         let current_sec = self.life_cycle.get_current_sec(clock);
 
@@ -99,19 +113,10 @@ impl EmitterAnimation for SwayAnimation {
         emitter.box_rotation.z = self.roll.x + fraction * (self.roll.y - self.roll.x);
     }
 
-    fn reset_action(&mut self) {
-        self.selected_action = ItemAction::None;
-    }
-
-    fn selected_action(&mut self) -> &mut ItemAction {
-        &mut self.selected_action
-    }
-
-    fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
+    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
+        self.selected_action = ui_state.create_anim_header(ui, "Sway animation");
         let life_cycle = &mut self.life_cycle;
         let gui = &mut self.gui;
-
-        gui_state.create_anim_header(ui, &mut self.selected_action, "Sway animation");
 
         ui.horizontal(|ui| {
             ui.label("Animate from sec");

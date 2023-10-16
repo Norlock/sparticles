@@ -9,7 +9,7 @@ use crate::math::SparVec3;
 use crate::model::clock::Clock;
 use crate::model::{EmitterState, GfxState, GuiState, LifeCycle};
 use crate::traits::*;
-use crate::util::persistence::ExportAnimation;
+use crate::util::persistence::DynamicExport;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct GravityUniform {
@@ -127,6 +127,29 @@ pub struct GravityAnimation {
     selected_action: ItemAction,
 }
 
+impl HandleAction for GravityAnimation {
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn export(&self) -> DynamicExport {
+        let animation = serde_json::to_value(self.uniform).unwrap();
+
+        DynamicExport {
+            tag: RegisterGravityAnimation.tag().to_owned(),
+            data: animation,
+        }
+    }
+
+    fn enabled(&self) -> bool {
+        todo!()
+    }
+}
+
 impl ParticleAnimation for GravityAnimation {
     fn compute<'a>(
         &'a self,
@@ -171,27 +194,9 @@ impl ParticleAnimation for GravityAnimation {
         Box::new(Self::new(self.uniform, spawner, gfx_state))
     }
 
-    fn selected_action(&mut self) -> &mut ItemAction {
-        &mut self.selected_action
-    }
-
-    fn reset_action(&mut self) {
-        self.selected_action = ItemAction::None;
-    }
-
-    fn export(&self) -> ExportAnimation {
-        let animation = serde_json::to_value(self.uniform).unwrap();
-
-        ExportAnimation {
-            animation_tag: RegisterGravityAnimation.tag().to_owned(),
-            animation,
-        }
-    }
-
-    fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
+    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
+        self.selected_action = ui_state.create_anim_header(ui, "Gravity animation");
         let mut gui = self.uniform;
-
-        gui_state.create_anim_header(ui, &mut self.selected_action, "Gravity animation");
 
         ui.horizontal(|ui| {
             ui.label("Animate from sec");

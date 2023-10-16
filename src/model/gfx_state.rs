@@ -52,17 +52,24 @@ impl GfxState {
             .await
             .unwrap();
 
+        let mut limits = wgpu::Limits::default();
+        limits.max_texture_array_layers = 1024;
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::TIMESTAMP_QUERY,
-                    limits: wgpu::Limits::default(),
+                    features: wgpu::Features::TIMESTAMP_QUERY
+                        | wgpu::Features::TEXTURE_BINDING_ARRAY
+                        | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY,
+                    limits,
                     label: None,
                 },
                 None,
             )
             .await
             .unwrap();
+
+        println!("testing");
 
         let size = window.inner_size();
         let surface_caps = surface.get_capabilities(&adapter);
@@ -219,13 +226,10 @@ impl GfxState {
         // Rendering particles
         EmitterState::render_particles(state, &mut encoder);
 
-        // Post processing compute
         PostProcessState::compute(state, &mut encoder);
 
-        let clipped_primitives = GfxState::draw_gui(state, &mut encoder);
-
         // Post processing render
-        PostProcessState::render(state, output_view, clipped_primitives, &mut encoder);
+        PostProcessState::render(state, output_view, &mut encoder);
 
         // Submit the commands.
         state.gfx_state.queue.submit(iter::once(encoder.finish()));

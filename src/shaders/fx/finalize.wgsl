@@ -17,22 +17,10 @@ struct Offset {
     view_height: f32,
 }
 
-@group(0) @binding(1) var output: texture_2d<f32>;
-@group(1) @binding(1) var<uniform> globals: Offset;
+@group(0) @binding(1) var frame_tex: texture_2d<f32>;
+//@group(1) @binding(1) var<uniform> globals: Offset;
 
 @fragment
 fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
-    let fx_size = vec2<f32>(textureDimensions(output));
-
-    if fx_size.x < globals.view_width || fx_size.y < globals.view_height {
-        let scale_x = globals.view_width / fx_size.x;
-        let scale_y = globals.view_height / fx_size.y;
-
-        let x = i32(pos.x / scale_x);
-        let y = i32(pos.y / scale_y);
-
-        return textureLoad(output, vec2<i32>(x, y), 0);
-    } else {
-        return textureLoad(output, vec2<i32>(pos.xy) + globals.offset, 0);
-    }
+    return textureLoad(frame_tex, vec2<i32>(pos.xy), 0);
 }

@@ -109,15 +109,15 @@ impl GfxState {
             .default_view()
     }
 
-    pub fn create_fx_view(&self, dimensions: [u32; 2]) -> wgpu::TextureView {
+    pub fn create_fx_view(&self) -> wgpu::TextureView {
         let format = PostProcessState::TEXTURE_FORMAT;
 
         self.device
             .create_texture(&wgpu::TextureDescriptor {
                 label: None,
                 size: wgpu::Extent3d {
-                    width: dimensions[0],
-                    height: dimensions[1],
+                    width: self.surface_config.width,
+                    height: self.surface_config.height,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,

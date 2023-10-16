@@ -1,12 +1,12 @@
 use crate::{
     animations::ItemAction,
-    fx::post_process::{FxPersistenceType, FxState, FxView},
+    fx::post_process::{CreateFxOptions, FxState},
     model::{Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
-    util::persistence::ExportAnimation,
+    util::persistence::DynamicExport,
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
-use std::{num::NonZeroU64, rc::Rc};
+use std::num::NonZeroU64;
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -64,7 +64,7 @@ impl PartialEq for dyn RegisterParticleAnimation {
     }
 }
 
-pub trait ParticleAnimation {
+pub trait ParticleAnimation: HandleAction {
     fn compute<'a>(
         &'a self,
         spawner: &'a EmitterState,
@@ -80,51 +80,44 @@ pub trait ParticleAnimation {
 
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState);
     fn create_ui(&mut self, ui: &mut Ui, gui: &GuiState);
-    fn export(&self) -> ExportAnimation;
-    fn selected_action(&mut self) -> &mut ItemAction;
-    fn reset_action(&mut self);
 }
 
-pub trait EmitterAnimation {
+pub trait EmitterAnimation: HandleAction {
     fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock);
     fn create_ui(&mut self, ui: &mut Ui, gui: &GuiState);
-    fn export(&self) -> ExportAnimation;
-    fn selected_action(&mut self) -> &mut ItemAction;
-    fn reset_action(&mut self);
 }
 
-pub trait CalculateBufferSize {
-    fn cal_buffer_size(&self) -> Option<NonZeroU64>;
-}
+// Post FX
+pub trait PostFx: HandleAction {
+    fn update(&mut self, gfx_state: &GfxState) {}
 
-pub trait HandleAngles {
-    fn to_degrees(&self) -> Self;
-    fn to_radians(&self) -> Self;
-}
-
-pub trait PostFx {
+    // TODO pass reserved index with bgr
     fn compute<'a>(
         &'a self,
-        fx_inputs: Vec<&'a Rc<wgpu::BindGroup>>,
-        data: &mut wgpu::ComputePass<'a>,
+        ping_pong_idx: &mut usize,
+        fx_state: &'a FxState,
+        c_pass: &mut wgpu::ComputePass<'a>,
     );
 
-    fn resize(&mut self, gfx_state: &GfxState);
-    fn output(&self) -> &Rc<wgpu::BindGroup>;
-    fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
+    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState);
+
+    /// How many textures in the array do you want to reserve
+    fn reserved_space(&self) -> usize;
 }
 
-pub trait PostFxChain {
-    fn compute<'a>(&'a self, input: &'a Rc<wgpu::BindGroup>, c_pass: &mut wgpu::ComputePass<'a>);
+pub trait RegisterPostFx {
+    fn tag(&self) -> &str;
 
-    fn resize(&mut self, gfx_state: &GfxState, fx_state: &FxState);
-    fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState);
+    fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx>;
 
-    fn add_views(&self, fx_views: &mut Vec<FxView>, idx: usize);
-    fn export(&self) -> FxPersistenceType;
+    fn import(&self, options: &CreateFxOptions, value: serde_json::Value) -> Box<dyn PostFx>;
+}
 
+pub trait HandleAction {
+    fn selected_action(&mut self) -> &mut ItemAction;
+    fn reset_action(&mut self);
+    fn export(&self) -> DynamicExport;
     fn enabled(&self) -> bool;
-    fn delete(&self) -> bool;
 }
 
 pub trait CreateFxView {
@@ -134,4 +127,13 @@ pub trait CreateFxView {
 pub trait FxDimensions {
     fn fx_dimensions(&self) -> [u32; 2];
     fn fx_offset(&self) -> u32;
+}
+
+pub trait CalculateBufferSize {
+    fn cal_buffer_size(&self) -> Option<NonZeroU64>;
+}
+
+pub trait HandleAngles {
+    fn to_degrees(&self) -> Self;
+    fn to_radians(&self) -> Self;
 }

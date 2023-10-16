@@ -5,8 +5,8 @@ use crate::{
     animations::ItemAction,
     math::SparVec2,
     model::{Clock, EmitterUniform, GuiState, LifeCycle},
-    traits::{EmitterAnimation, HandleAngles, RegisterEmitterAnimation},
-    util::persistence::ExportAnimation,
+    traits::{EmitterAnimation, HandleAction, HandleAngles, RegisterEmitterAnimation},
+    util::persistence::DynamicExport,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -71,14 +71,28 @@ impl DiffusionAnimation {
     }
 }
 
-impl EmitterAnimation for DiffusionAnimation {
-    fn export(&self) -> ExportAnimation {
-        ExportAnimation {
-            animation_tag: RegisterDiffusionAnimation.tag().to_string(),
-            animation: serde_json::to_value(self).unwrap(),
+impl HandleAction for DiffusionAnimation {
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn export(&self) -> DynamicExport {
+        DynamicExport {
+            tag: RegisterDiffusionAnimation.tag().to_string(),
+            data: serde_json::to_value(self).unwrap(),
         }
     }
 
+    fn enabled(&self) -> bool {
+        todo!()
+    }
+}
+
+impl EmitterAnimation for DiffusionAnimation {
     fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock) {
         let current_sec = self.life_cycle.get_current_sec(clock);
 
@@ -92,19 +106,11 @@ impl EmitterAnimation for DiffusionAnimation {
         emitter.diff_depth = self.diff_depth.x + fraction * (self.diff_depth.y - self.diff_depth.x);
     }
 
-    fn reset_action(&mut self) {
-        self.selected_action = ItemAction::None;
-    }
+    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
+        self.selected_action = ui_state.create_anim_header(ui, "Diffusion animation");
 
-    fn selected_action(&mut self) -> &mut ItemAction {
-        &mut self.selected_action
-    }
-
-    fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         let life_cycle = &mut self.life_cycle;
         let gui = &mut self.gui;
-
-        gui_state.create_anim_header(ui, &mut self.selected_action, "Diffusion animation");
 
         ui.horizontal(|ui| {
             ui.label("Animate from sec");

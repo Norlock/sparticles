@@ -1,8 +1,11 @@
 use crate::{
     animations::ItemAction,
     model::{Clock, EmitterState, GfxState, GuiState},
-    traits::{CalculateBufferSize, CustomShader, ParticleAnimation, RegisterParticleAnimation},
-    util::persistence::ExportAnimation,
+    traits::{
+        CalculateBufferSize, CustomShader, HandleAction, ParticleAnimation,
+        RegisterParticleAnimation,
+    },
+    util::persistence::DynamicExport,
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::{DragValue, Slider, Ui};
@@ -81,6 +84,29 @@ struct StrayAnimation {
     selected_action: ItemAction,
 }
 
+impl HandleAction for StrayAnimation {
+    fn selected_action(&mut self) -> &mut ItemAction {
+        &mut self.selected_action
+    }
+
+    fn reset_action(&mut self) {
+        self.selected_action = ItemAction::None;
+    }
+
+    fn export(&self) -> DynamicExport {
+        let animation = serde_json::to_value(self.uniform).unwrap();
+        let animation_type = RegisterStrayAnimation.tag().to_owned();
+
+        DynamicExport {
+            tag: animation_type,
+            data: animation,
+        }
+    }
+    fn enabled(&self) -> bool {
+        todo!()
+    }
+}
+
 impl ParticleAnimation for StrayAnimation {
     fn update(&mut self, _: &Clock, gfx_state: &GfxState) {
         let queue = &gfx_state.queue;
@@ -115,26 +141,8 @@ impl ParticleAnimation for StrayAnimation {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
 
-    fn selected_action(&mut self) -> &mut ItemAction {
-        &mut self.selected_action
-    }
-
-    fn reset_action(&mut self) {
-        self.selected_action = ItemAction::None;
-    }
-
-    fn export(&self) -> ExportAnimation {
-        let animation = serde_json::to_value(self.uniform).unwrap();
-        let animation_type = RegisterStrayAnimation.tag().to_owned();
-
-        ExportAnimation {
-            animation_tag: animation_type,
-            animation,
-        }
-    }
-
-    fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
-        gui_state.create_anim_header(ui, self.selected_action(), "Stray animation");
+    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
+        self.selected_action = ui_state.create_anim_header(ui, "Stray animation");
 
         let mut gui = self.uniform;
         let mut stray_degrees = gui.stray_radians.to_degrees();

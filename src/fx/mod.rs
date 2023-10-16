@@ -8,5 +8,5 @@ pub mod upscale;
 pub use blend::{Blend, BlendType};
 pub use bloom::Bloom;
 pub use color_processing::{ColorProcessing, ColorProcessingUniform};
-pub use post_process::{FxPersistenceType, FxState, FxStateOptions, PostProcessState};
+pub use post_process::{FxState, PostProcessState};
 pub use upscale::Upscale;

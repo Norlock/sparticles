@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use super::FxState;
 use crate::{model::GfxState, traits::CustomShader};
 use egui_wgpu::wgpu;
@@ -17,15 +15,10 @@ pub enum BlendType {
 }
 
 impl Blend {
-    pub fn add<'a>(
-        &'a self,
-        input: &'a Rc<wgpu::BindGroup>,
-        output: &'a Rc<wgpu::BindGroup>,
-        c_pass: &mut wgpu::ComputePass<'a>,
-    ) {
+    pub fn add<'a>(&'a self, input: &'a FxState, c_pass: &mut wgpu::ComputePass<'a>) {
         c_pass.set_pipeline(&self.additive_pipeline);
-        c_pass.set_bind_group(0, input, &[]);
-        c_pass.set_bind_group(1, output, &[]);
+        // TODO
+        c_pass.set_bind_group(0, input.bind_group(0), &[]);
         c_pass.dispatch_workgroups(self.count_x, self.count_y, 1);
     }
 

@@ -1,57 +1,71 @@
-use super::{FxState, FxStateOptions};
+use super::post_process::CreateFxOptions;
+use super::FxState;
+use crate::animations::ItemAction;
+use crate::model::GuiState;
+use crate::traits::PostFx;
 use crate::traits::*;
-use crate::{model::GfxState, traits::PostFx};
+use crate::util::DynamicExport;
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
-use std::rc::Rc;
 
 pub struct Upscale {
-    fx_state: FxState,
     pipeline: wgpu::ComputePipeline,
 }
 
 impl PostFx for Upscale {
-    fn resize(&mut self, gfx_state: &GfxState) {
-        let config = &gfx_state.surface_config;
-        self.fx_state.resize(config.fx_dimensions(), gfx_state);
-    }
-
     fn compute<'a>(
         &'a self,
-        fx_inputs: Vec<&'a Rc<wgpu::BindGroup>>,
+        ping_pong_idx: &mut usize,
+        fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        let fx_state = &self.fx_state;
+        //let fx_state = &self.fx_state;
 
-        c_pass.set_pipeline(&self.pipeline);
-        c_pass.set_bind_group(0, fx_inputs[0], &[]);
-        c_pass.set_bind_group(1, fx_state.bind_group(0), &[]);
-        c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
+        //c_pass.set_pipeline(&self.pipeline);
+        //c_pass.set_bind_group(0, fx_inputs[0], &[]);
+        //c_pass.set_bind_group(1, fx_state.bind_group(0), &[]);
+        //c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
     }
 
-    fn output(&self) -> &Rc<wgpu::BindGroup> {
-        self.fx_state.bind_group(1)
+    fn create_ui(&mut self, _: &mut Ui, _: &GuiState) {}
+
+    fn reserved_space(&self) -> usize {
+        1
+    }
+}
+
+impl HandleAction for Upscale {
+    fn selected_action(&mut self) -> &mut ItemAction {
+        todo!()
     }
 
-    fn create_ui(&mut self, _ui: &mut Ui, _: &GfxState) {}
+    fn reset_action(&mut self) {
+        todo!()
+    }
+
+    fn export(&self) -> DynamicExport {
+        todo!()
+    }
+
+    fn enabled(&self) -> bool {
+        todo!()
+    }
 }
 
 impl Upscale {
-    pub fn new(gfx_state: &GfxState) -> Self {
+    pub fn new(options: &CreateFxOptions) -> Self {
+        let CreateFxOptions {
+            gfx_state,
+            fx_state,
+        } = options;
+
         let device = &gfx_state.device;
-        let config = &gfx_state.surface_config;
 
         let upscale_shader = device.create_shader("fx/upscale.wgsl", "Upscale");
 
-        let fx_state = FxState::new(FxStateOptions {
-            label: "upscale".to_string(),
-            tex_dimensions: config.fx_dimensions(),
-            gfx_state,
-        });
-
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Upscale"),
-            bind_group_layouts: &[&fx_state.bind_group_layout, &fx_state.bind_group_layout],
+            bind_group_layouts: &[&fx_state.bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -62,6 +76,6 @@ impl Upscale {
             entry_point: "main",
         });
 
-        Self { pipeline, fx_state }
+        Self { pipeline }
     }
 }

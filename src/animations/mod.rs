@@ -2,6 +2,6 @@ pub mod common;
 pub mod emitter;
 pub mod particle;
 
-pub use common::ItemAction;
+pub use common::{CommonAnimation, ItemAction};
 pub use emitter::*;
 pub use particle::*;

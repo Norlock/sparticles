@@ -1,4 +1,4 @@
-use crate::{fx::post_process::FxPersistenceType, model::EmitterUniform};
+use crate::model::EmitterUniform;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
@@ -17,15 +17,15 @@ pub struct ImportError {
 pub struct ExportEmitter {
     pub emitter: EmitterUniform,
     pub is_light: bool,
-    pub particle_animations: Vec<ExportAnimation>,
-    pub emitter_animations: Vec<ExportAnimation>,
+    pub particle_animations: Vec<DynamicExport>,
+    pub emitter_animations: Vec<DynamicExport>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ExportAnimation {
+pub struct DynamicExport {
     #[serde(rename = "type")]
-    pub animation_tag: String,
-    pub animation: serde_json::Value,
+    pub tag: String,
+    pub data: serde_json::Value,
 }
 
 pub enum ExportType {
@@ -54,7 +54,7 @@ impl Persistence {
         serde_json::to_writer(&mut writer, &to_export).expect("Can't write export");
     }
 
-    pub fn import_post_fx() -> Result<Vec<FxPersistenceType>, ImportError> {
+    pub fn import_post_fx() -> Result<Vec<ExportEmitter>, ImportError> {
         let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         dir.push(format!("export/{}", ExportType::PostFx));
 
@@ -64,10 +64,11 @@ impl Persistence {
         let error_msg;
 
         match file_res {
-            Ok(val) => match serde_json::from_str::<Vec<FxPersistenceType>>(&val) {
+            Ok(val) => match serde_json::from_str::<Vec<ExportEmitter>>(&val) {
                 Ok(val) => return Ok(val),
                 Err(err) => {
-                    error_msg = format!("Wrong syntaxed JSON: {}", err);
+                    let filename = dir.file_name().unwrap().to_str().unwrap();
+                    error_msg = format!("Wrong syntaxed JSON for file {}: {}", filename, err);
                 }
             },
             Err(err) => {
@@ -91,9 +92,10 @@ impl Persistence {
                 match serde_json::from_str::<Vec<ExportEmitter>>(&file_str) {
                     Ok(val) => return Ok(val),
                     Err(err) => {
+                        let filename = dir.file_name().unwrap().to_str().unwrap();
                         return Err(ImportError {
-                            msg: format!("Wrong syntaxed JSON: {}", err),
-                        })
+                            msg: format!("Wrong syntaxed JSON for file {}: {}", filename, err),
+                        });
                     }
                 };
             }

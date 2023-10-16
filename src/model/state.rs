@@ -1,9 +1,10 @@
 use super::{Camera, Clock, EmitterState, GfxState, GuiState};
 use crate::init::{InitEmitters, InitSettings};
 use crate::traits::*;
-use crate::{fx::PostProcessState, util::Persistence, AppSettings};
+use crate::{fx::PostProcessState, AppSettings};
 use egui_wgpu::wgpu;
 use egui_winit::winit::{dpi::PhysicalSize, event::KeyboardInput, window::Window};
+use std::collections::HashMap;
 
 pub struct State {
     pub camera: Camera,
@@ -15,6 +16,7 @@ pub struct State {
     pub gfx_state: GfxState,
     pub registered_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
     pub registered_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
+    pub registered_post_fx: HashMap<String, Box<dyn RegisterPostFx>>,
 }
 
 pub enum Messages {
@@ -46,11 +48,11 @@ impl State {
     }
 
     pub fn frame_view(&self) -> &wgpu::TextureView {
-        &self.post_process.frame_state.frame_view
+        &self.post_process.fx_state.frame_view
     }
 
     pub fn depth_view(&self) -> &wgpu::TextureView {
-        &self.post_process.frame_state.depth_view
+        &self.post_process.fx_state.depth_view
     }
 
     pub fn new(app_settings: impl AppSettings, window: Window) -> Self {
@@ -66,14 +68,15 @@ impl State {
             registered_par_anims,
         } = InitSettings::create_emitters(&app_settings, &gfx_state, &camera);
 
-        let mut post_process = PostProcessState::new(&gfx_state);
+        let post_process = PostProcessState::new(&gfx_state, &app_settings);
+        let registered_post_fx = InitSettings::create_post_fx(&app_settings);
 
         // TODO look at import type
-        if let Ok(fx_types) = Persistence::import_post_fx() {
-            post_process.import_fx(&gfx_state, fx_types);
-        } else {
-            post_process.add_default_fx(&gfx_state);
-        }
+        //if let Ok(fx_types) = Persistence::import_post_fx() {
+        //post_process.import_fx(&gfx_state, fx_types);
+        //} else {
+        //post_process.add_default_fx(&gfx_state);
+        //}
 
         let gui = GuiState::new(app_settings.show_gui(), &mut gfx_state);
 
@@ -87,6 +90,7 @@ impl State {
             gfx_state,
             registered_par_anims,
             registered_em_anims,
+            registered_post_fx,
         }
     }
 }

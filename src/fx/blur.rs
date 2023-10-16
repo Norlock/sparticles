@@ -1,8 +1,9 @@
 use super::post_process::CreateFxOptions;
-use super::post_process::FxState;
-use super::post_process::FxStateOptions;
+use super::FxState;
+use crate::animations::ItemAction;
+use crate::model::GuiState;
 use crate::traits::*;
-use crate::GfxState;
+use crate::util::DynamicExport;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
@@ -10,19 +11,16 @@ use encase::{ShaderType, UniformBuffer};
 use serde::Deserialize;
 use serde::Serialize;
 use std::num::NonZeroU64;
-use std::rc::Rc;
 
 pub struct Blur {
     blur_pipeline: wgpu::ComputePipeline,
     split_pipeline: wgpu::ComputePipeline,
-
-    blur_bind_group: Rc<wgpu::BindGroup>,
+    blur_bind_group: wgpu::BindGroup,
 
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub blur: BlurUniform,
     pub blur_buffer: wgpu::Buffer,
 
-    fx_state: FxState,
     passes: usize,
 }
 
@@ -43,12 +41,12 @@ pub struct BlurUniform {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-pub struct BlurExport {
+pub struct BlurData {
     pub uniform: BlurUniform,
     pub passes: usize,
 }
 
-impl Default for BlurExport {
+impl Default for BlurData {
     fn default() -> Self {
         Self {
             uniform: BlurUniform::default(),
@@ -81,40 +79,34 @@ impl BlurUniform {
 impl PostFx for Blur {
     fn compute<'a>(
         &'a self,
-        fx_inputs: Vec<&'a Rc<wgpu::BindGroup>>,
+        ping_pong_idx: &mut usize,
+        fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        let output = &self.fx_state;
+        //let output = &self.fx_state;
 
-        // Splits parts to fx tex
-        c_pass.set_pipeline(&self.split_pipeline);
-        c_pass.set_bind_group(0, fx_inputs[0], &[]);
-        c_pass.set_bind_group(1, output.bind_group(1), &[]);
-        c_pass.set_bind_group(2, &self.blur_bind_group, &[]);
-        c_pass.dispatch_workgroups(output.count_x, output.count_y, 1);
+        //// Splits parts to fx tex
+        //c_pass.set_pipeline(&self.split_pipeline);
+        //c_pass.set_bind_group(0, fx_inputs[0], &[]);
+        //c_pass.set_bind_group(1, output.bind_group(1), &[]);
+        //c_pass.set_bind_group(2, &self.blur_bind_group, &[]);
+        //c_pass.dispatch_workgroups(output.count_x, output.count_y, 1);
 
-        // Smoothen downscaled texture
-        for i in 0..self.passes {
-            c_pass.set_pipeline(&self.blur_pipeline);
-            c_pass.set_bind_group(0, fx_inputs[0], &[]);
-            c_pass.set_bind_group(1, output.bind_group(i), &[]);
-            c_pass.set_bind_group(2, &self.blur_bind_group, &[]);
-            c_pass.dispatch_workgroups(output.count_x, output.count_y, 1);
-        }
+        //// Smoothen downscaled texture
+        //for i in 0..self.passes {
+        //c_pass.set_pipeline(&self.blur_pipeline);
+        //c_pass.set_bind_group(0, fx_inputs[0], &[]);
+        //c_pass.set_bind_group(1, output.bind_group(i), &[]);
+        //c_pass.set_bind_group(2, &self.blur_bind_group, &[]);
+        //c_pass.dispatch_workgroups(output.count_x, output.count_y, 1);
+        //}
     }
 
-    fn resize(&mut self, gfx_state: &GfxState) {
-        let dims = Self::tex_dimensions(&gfx_state.surface_config, self.blur.kernel_size);
-        self.fx_state.resize(dims, gfx_state);
+    fn reserved_space(&self) -> usize {
+        1
     }
 
-    fn output(&self) -> &Rc<wgpu::BindGroup> {
-        self.fx_state.bind_group(self.passes % 2)
-    }
-
-    fn create_ui(&mut self, ui: &mut Ui, gfx_state: &GfxState) {
-        let queue = &gfx_state.queue;
-        let config = &gfx_state.surface_config;
+    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
         let blur = &mut self.blur;
         let mut kernel_size = blur.kernel_size;
 
@@ -135,17 +127,27 @@ impl PostFx for Blur {
                 .text("Amount of passes"),
         );
 
-        queue.write_buffer(&self.blur_buffer, 0, &blur.create_buffer_content());
-
         if kernel_size != blur.kernel_size {
             blur.kernel_size = kernel_size;
-
-            self.fx_state = FxState::new(FxStateOptions {
-                label: "Blur".to_string(),
-                tex_dimensions: Self::tex_dimensions(config, kernel_size),
-                gfx_state,
-            });
         }
+    }
+}
+
+impl HandleAction for Blur {
+    fn selected_action(&mut self) -> &mut ItemAction {
+        todo!()
+    }
+
+    fn reset_action(&mut self) {
+        todo!()
+    }
+
+    fn export(&self) -> DynamicExport {
+        todo!()
+    }
+
+    fn enabled(&self) -> bool {
+        todo!()
     }
 }
 
@@ -158,25 +160,24 @@ impl Blur {
         [tex_width, tex_height]
     }
 
-    pub fn export(&self) -> BlurExport {
-        BlurExport {
+    pub fn export(&self) -> BlurData {
+        BlurData {
             uniform: self.blur,
             passes: self.passes,
         }
     }
 
-    pub fn new(options: &CreateFxOptions, export: BlurExport) -> Self {
+    pub fn new(options: &CreateFxOptions, data: BlurData) -> Self {
         let CreateFxOptions {
             gfx_state,
-            depth_view,
-            ..
+            fx_state,
         } = options;
 
         let device = &gfx_state.device;
         let config = &gfx_state.surface_config;
 
-        let blur = export.uniform;
-        let passes = export.passes;
+        let blur = data.uniform;
+        let passes = data.passes;
 
         let buffer_content = blur.create_buffer_content();
         let min_binding_size = NonZeroU64::new(buffer_content.len() as u64);
@@ -187,12 +188,6 @@ impl Blur {
             label: Some("Blur uniform"),
             contents: &buffer_content,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let fx_state = FxState::new(FxStateOptions {
-            label: "Blur".to_string(),
-            tex_dimensions: Self::tex_dimensions(config, blur.kernel_size),
-            gfx_state,
         });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -209,40 +204,22 @@ impl Blur {
                     },
                     count: None,
                 },
-                // Depth
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        multisampled: false,
-                    },
-                    count: None,
-                },
             ],
         });
 
         let blur_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Blur uniform bind group"),
             layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: blur_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(depth_view),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: blur_buffer.as_entire_binding(),
+            }],
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Split layout"),
             bind_group_layouts: &[
                 &fx_state.bind_group_layout, // input
-                &fx_state.bind_group_layout, // output
                 &bind_group_layout,          // globals + depth
             ],
             push_constant_ranges: &[],
@@ -263,10 +240,9 @@ impl Blur {
         Self {
             blur_pipeline,
             bind_group_layout,
-            blur_bind_group: blur_bind_group.into(),
+            blur_bind_group,
             blur_buffer,
             blur,
-            fx_state,
             split_pipeline,
             passes,
         }

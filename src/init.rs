@@ -1,7 +1,12 @@
+use std::collections::HashMap;
+
 use crate::animations::color_animation::RegisterColorAnimation;
 use crate::animations::diffusion_animation::RegisterDiffusionAnimation;
 use crate::animations::sway_animation::RegisterSwayAnimation;
 use crate::animations::{RegisterForceAnimation, RegisterGravityAnimation, RegisterStrayAnimation};
+use crate::fx::bloom::RegisterBloomFx;
+use crate::fx::color_processing::RegisterColorProcessingFx;
+use crate::fx::post_process::CreateFxOptions;
 use crate::model::{Camera, CreateEmitterOptions, EmitterState, EmitterUniform, GfxState};
 use crate::traits::*;
 use crate::util::persistence::ExportEmitter;
@@ -19,18 +24,33 @@ pub trait AppSettings {
     fn show_gui(&self) -> bool;
     fn light(&self) -> EmitterUniform;
     fn emitters(&self) -> Vec<EmitterUniform>;
-    fn add_particle_anim(&self, emitter: &mut EmitterState, gfx_state: &GfxState);
-    fn add_emitter_anim(&self, emitter: &mut EmitterState);
+
+    /// If you want to add through code use this function otherwise use gui
+    fn add_particle_anim(&self, emitter: &mut EmitterState, gfx_state: &GfxState) {}
+
+    /// If you want to add through code use this function otherwise use gui
+    fn add_emitter_anim(&self, emitter: &mut EmitterState) {}
+
+    /// If you want to add through code use this function otherwise use gui
+    fn add_post_fx(&self, options: &CreateFxOptions) -> Vec<Box<dyn PostFx>> {
+        vec![]
+    }
 
     fn import_mode(&self) -> JsonImportMode {
         JsonImportMode::Replace
     }
 
+    /// If you want your animations available in the gui add to register
     fn register_custom_particle_animations(&self) -> Vec<Box<dyn RegisterParticleAnimation>> {
         vec![]
     }
 
+    /// If you want your animations available in the gui add to register
     fn register_custom_emitter_animations(&self) -> Vec<Box<dyn RegisterEmitterAnimation>> {
+        vec![]
+    }
+
+    fn register_custom_post_fx(&self) -> Vec<Box<dyn RegisterPostFx>> {
         vec![]
     }
 }
@@ -93,39 +113,78 @@ impl InitSettings {
         emitters
     }
 
+    fn from_code(
+        app_settings: &impl AppSettings,
+        gfx_state: &GfxState,
+        camera: &Camera,
+        registered_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
+        registered_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
+    ) -> InitEmitters {
+        let lights = InitSettings::create_light_spawner(app_settings, gfx_state, camera);
+
+        let emitters = InitSettings::create_spawners(
+            app_settings,
+            gfx_state,
+            &lights.bind_group_layout,
+            camera,
+        );
+
+        InitEmitters {
+            lights,
+            emitters,
+            registered_em_anims,
+            registered_par_anims,
+        }
+    }
+
+    pub fn create_post_fx(
+        app_settings: &impl AppSettings,
+    ) -> HashMap<String, Box<dyn RegisterPostFx>> {
+        let mut registered_post_fx = app_settings.register_custom_post_fx();
+        registered_post_fx.push(Box::new(RegisterBloomFx));
+        registered_post_fx.push(Box::new(RegisterColorProcessingFx));
+
+        let mut result = HashMap::new();
+
+        for item in registered_post_fx {
+            if result.contains_key(item.tag()) {
+                panic!(
+                    "There are two post fx registered with the same tag: {}",
+                    item.tag()
+                );
+            }
+
+            result.insert(item.tag().to_string(), item);
+        }
+
+        result
+    }
+
     pub fn create_emitters(
         app_settings: &impl AppSettings,
         gfx_state: &GfxState,
         camera: &Camera,
     ) -> InitEmitters {
+        // TODO as hashmap
         let mut registered_par_anims = app_settings.register_custom_particle_animations();
         registered_par_anims.push(Box::new(RegisterColorAnimation));
         registered_par_anims.push(Box::new(RegisterForceAnimation));
         registered_par_anims.push(Box::new(RegisterGravityAnimation));
         registered_par_anims.push(Box::new(RegisterStrayAnimation));
 
+        // TODO as hashmap
         let mut registered_em_anims = app_settings.register_custom_emitter_animations();
         registered_em_anims.push(Box::new(RegisterSwayAnimation));
         registered_em_anims.push(Box::new(RegisterDiffusionAnimation));
 
         match app_settings.import_mode() {
-            JsonImportMode::Ignore => {
-                let lights = InitSettings::create_light_spawner(app_settings, gfx_state, camera);
-
-                let emitters = InitSettings::create_spawners(
-                    app_settings,
-                    gfx_state,
-                    &lights.bind_group_layout,
-                    camera,
-                );
-
-                InitEmitters {
-                    lights,
-                    emitters,
-                    registered_em_anims,
-                    registered_par_anims,
-                }
-            }
+            JsonImportMode::Ignore => Self::from_code(
+                app_settings,
+                gfx_state,
+                camera,
+                registered_par_anims,
+                registered_em_anims,
+            ),
             JsonImportMode::Replace => match Persistence::import_emitter_states() {
                 Ok(val) => Self::import(
                     val,
@@ -134,7 +193,16 @@ impl InitSettings {
                     registered_par_anims,
                     registered_em_anims,
                 ),
-                Err(err) => panic!("{:?}", err.msg),
+                Err(err) => {
+                    println!("{}", err.msg);
+                    Self::from_code(
+                        app_settings,
+                        gfx_state,
+                        camera,
+                        registered_par_anims,
+                        registered_em_anims,
+                    )
+                }
             },
         }
     }
@@ -172,8 +240,8 @@ impl InitSettings {
         // Import animations
         for export_animation in lights_export.particle_animations {
             for reg in registered_par_anims.iter() {
-                if export_animation.animation_tag == reg.tag() {
-                    let anim = reg.import(gfx_state, &lights, export_animation.animation);
+                if export_animation.tag == reg.tag() {
+                    let anim = reg.import(gfx_state, &lights, export_animation.data);
                     lights.push_particle_animation(anim);
                     break;
                 }
@@ -182,8 +250,8 @@ impl InitSettings {
 
         for export_animation in lights_export.emitter_animations {
             for reg in registered_em_anims.iter() {
-                if export_animation.animation_tag == reg.tag() {
-                    let anim = reg.import(export_animation.animation);
+                if export_animation.tag == reg.tag() {
+                    let anim = reg.import(export_animation.data);
                     lights.push_emitter_animation(anim);
                     break;
                 }
@@ -199,8 +267,8 @@ impl InitSettings {
 
             for export_animation in emitter_export.particle_animations {
                 for reg in registered_par_anims.iter() {
-                    if export_animation.animation_tag == reg.tag() {
-                        let anim = reg.import(gfx_state, &emitter, export_animation.animation);
+                    if export_animation.tag == reg.tag() {
+                        let anim = reg.import(gfx_state, &emitter, export_animation.data);
                         emitter.push_particle_animation(anim);
                         break;
                     }
@@ -209,8 +277,8 @@ impl InitSettings {
 
             for export_animation in emitter_export.emitter_animations {
                 for reg in registered_em_anims.iter() {
-                    if export_animation.animation_tag == reg.tag() {
-                        let anim = reg.import(export_animation.animation);
+                    if export_animation.tag == reg.tag() {
+                        let anim = reg.import(export_animation.data);
                         emitter.push_emitter_animation(anim);
                         break;
                     }
