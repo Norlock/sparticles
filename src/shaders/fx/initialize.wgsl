@@ -1,4 +1,4 @@
-@group(0) @binding(0) var dst_texture: texture_storage_2d<rgba8unorm, write>;
+@group(0) @binding(0) var dst_texture: binding_array<texture_storage_2d<rgba8unorm, write>, 32>;
 @group(0) @binding(2) var frame_texture: texture_2d<f32>;
 
 @compute
@@ -6,7 +6,7 @@
 fn init(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     //let fx_size = vec2<f32>(textureDimensions(output));
     let pos = global_invocation_id.xy;
-    let size = textureDimensions(dst_texture);
+    let size = textureDimensions(frame_texture);
 
     if any(size < pos) {
         return;
@@ -24,5 +24,5 @@ fn init(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     //}
     let out = textureLoad(frame_texture, vec2<i32>(pos.xy), 0);
 
-    textureStore(dst_texture, pos, out);
+    textureStore(dst_texture[0], pos, out);
 }

@@ -21,10 +21,7 @@ flexibility
 
 ## Post fx overhaul
 - [ ] Create one bindgrouplayout + 2 (ping pong) bindgroups
-- [ ] Textures are stored in arrays
-- [ ] Maybe - Already in normal render pass write to fx tex
-- [ ] Every post process is done on the render pass
-- [ ] Blend will write to frame texture
+- [ ] Textures are stored in the bind group and determined how many have available
 - [ ] Downscaled is just the same fx texture but uses only top left
 - [ ] Simplify API and make only one post fx trait + register trait
 - [ ] Noise textures are updated once in a while

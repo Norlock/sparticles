@@ -52,8 +52,10 @@ impl GfxState {
             .await
             .unwrap();
 
+        // Higher limits for Post FX
         let mut limits = wgpu::Limits::default();
-        limits.max_texture_array_layers = 1024;
+        limits.max_sampled_textures_per_shader_stage = 64;
+        limits.max_storage_textures_per_shader_stage = 64;
 
         let (device, queue) = adapter
             .request_device(
@@ -68,8 +70,6 @@ impl GfxState {
             )
             .await
             .unwrap();
-
-        println!("testing");
 
         let size = window.inner_size();
         let surface_caps = surface.get_capabilities(&adapter);
