@@ -1,11 +1,11 @@
 use crate::{
-    animations::ItemAction,
     model::{Clock, EmitterState, GfxState, GuiState},
     traits::{
         CalculateBufferSize, CustomShader, HandleAction, ParticleAnimation,
         RegisterParticleAnimation,
     },
     util::persistence::DynamicExport,
+    util::ItemAction,
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::{DragValue, Slider, Ui};

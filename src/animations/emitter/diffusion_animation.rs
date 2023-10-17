@@ -1,13 +1,12 @@
-use egui_winit::egui::{DragValue, Ui};
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    animations::ItemAction,
     math::SparVec2,
     model::{Clock, EmitterUniform, GuiState, LifeCycle},
     traits::{EmitterAnimation, HandleAction, HandleAngles, RegisterEmitterAnimation},
     util::persistence::DynamicExport,
+    util::ItemAction,
 };
+use egui_winit::egui::{DragValue, Ui};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 struct Gui {

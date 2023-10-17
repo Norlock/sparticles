@@ -1,4 +1,4 @@
-@group(0) @binding(0) var dst_texture: binding_array<texture_storage_2d<rgba8unorm, write>, 32>;
+@group(0) @binding(0) var output: binding_array<texture_storage_2d<rgba8unorm, write>, 32>;
 @group(0) @binding(2) var frame_texture: texture_2d<f32>;
 
 @compute
@@ -24,5 +24,5 @@ fn init(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     //}
     let out = textureLoad(frame_texture, vec2<i32>(pos.xy), 0);
 
-    textureStore(dst_texture[0], pos, out);
+    textureStore(output[0], pos, out);
 }

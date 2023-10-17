@@ -1,16 +1,15 @@
+use crate::{
+    math::SparVec4,
+    model::{Clock, EmitterState, GfxState, GuiState},
+    traits::*,
+    util::persistence::DynamicExport,
+    util::ItemAction,
+};
 use egui_wgpu::wgpu;
 use egui_winit::egui::{DragValue, Ui};
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
 use wgpu::util::DeviceExt;
-
-use crate::{
-    animations::ItemAction,
-    math::SparVec4,
-    model::{Clock, EmitterState, GfxState, GuiState},
-    traits::*,
-    util::persistence::DynamicExport,
-};
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ColorUniform {

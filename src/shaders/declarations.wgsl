@@ -43,15 +43,19 @@ struct CameraUniform {
     view_pos: vec4<f32>,
 };
 
-struct Bloom {
+struct GaussianBlur {
     br_treshold: f32,
-    kernel_size: u32,
+    downscale: u32,
     radius: i32,
     sigma: f32,
     hdr_mul: f32,
     intensity: f32,
 }
 
+struct FxMeta {
+    in_idx: u32,
+    out_idx: u32,
+}
 
 fn pi() -> f32 {
     return 3.141592653589;

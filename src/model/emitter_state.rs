@@ -1,8 +1,8 @@
 use super::{Camera, EmitterGuiState, EmitterUniform, GfxState, GuiState, State};
-use crate::animations::ItemAction;
 use crate::traits::{CalculateBufferSize, CustomShader};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
+use crate::util::ItemAction;
 use crate::util::Persistence;
 use egui_wgpu::wgpu;
 use egui_winit::egui::{ScrollArea, Ui};

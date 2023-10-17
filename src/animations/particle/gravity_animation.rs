@@ -1,15 +1,14 @@
-use egui_wgpu::wgpu;
-use egui_winit::egui::{DragValue, Ui};
-use glam::Vec3;
-use serde::{Deserialize, Serialize};
-use wgpu::util::DeviceExt;
-
-use crate::animations::ItemAction;
 use crate::math::SparVec3;
 use crate::model::clock::Clock;
 use crate::model::{EmitterState, GfxState, GuiState, LifeCycle};
 use crate::traits::*;
 use crate::util::persistence::DynamicExport;
+use crate::util::ItemAction;
+use egui_wgpu::wgpu;
+use egui_winit::egui::{DragValue, Ui};
+use glam::Vec3;
+use serde::{Deserialize, Serialize};
+use wgpu::util::DeviceExt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct GravityUniform {

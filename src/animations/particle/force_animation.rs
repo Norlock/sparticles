@@ -1,14 +1,13 @@
-use egui_wgpu::wgpu::{self, util::DeviceExt};
-use egui_winit::egui::{DragValue, Ui};
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    animations::ItemAction,
     math::SparVec3,
     model::{Clock, EmitterState, GfxState, GuiState, LifeCycle},
     traits::{CustomShader, HandleAction, ParticleAnimation, RegisterParticleAnimation},
     util::persistence::DynamicExport,
+    util::ItemAction,
 };
+use egui_wgpu::wgpu::{self, util::DeviceExt};
+use egui_winit::egui::{DragValue, Ui};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ForceUniform {

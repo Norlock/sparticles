@@ -1,8 +1,8 @@
 use crate::{
-    animations::ItemAction,
     fx::post_process::{CreateFxOptions, FxState},
     model::{Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
     util::persistence::DynamicExport,
+    util::ItemAction,
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
@@ -100,9 +100,6 @@ pub trait PostFx: HandleAction {
     );
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState);
-
-    /// How many textures in the array do you want to reserve
-    fn reserved_space(&self) -> usize;
 }
 
 pub trait RegisterPostFx {

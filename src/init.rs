@@ -137,27 +137,28 @@ impl InitSettings {
         }
     }
 
-    pub fn create_post_fx(
-        app_settings: &impl AppSettings,
-    ) -> HashMap<String, Box<dyn RegisterPostFx>> {
+    pub fn create_post_fx(app_settings: &impl AppSettings) -> Vec<Box<dyn RegisterPostFx>> {
         let mut registered_post_fx = app_settings.register_custom_post_fx();
         registered_post_fx.push(Box::new(RegisterBloomFx));
         registered_post_fx.push(Box::new(RegisterColorProcessingFx));
 
-        let mut result = HashMap::new();
+        //for item in registered_post_fx.iter() {
+        //if registered_post_fx.iter().any(|fx| fx.tag() == item.tag()) {
+        //panic!(
+        //"There are two post fx registered with the same tag: {}",
+        //item.tag()
+        //);
+        //}
+        //}
 
-        for item in registered_post_fx {
-            if result.contains_key(item.tag()) {
-                panic!(
-                    "There are two post fx registered with the same tag: {}",
-                    item.tag()
-                );
-            }
+        // TODO look at import type
+        //if let Ok(fx_types) = Persistence::import_post_fx() {
+        //post_process.import_fx(&gfx_state, fx_types);
+        //} else {
+        //post_process.add_default_fx(&gfx_state);
+        //}
 
-            result.insert(item.tag().to_string(), item);
-        }
-
-        result
+        registered_post_fx
     }
 
     pub fn create_emitters(

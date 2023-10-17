@@ -226,10 +226,10 @@ impl GfxState {
         // Rendering particles
         EmitterState::render_particles(state, &mut encoder);
 
-        PostProcessState::compute(state, &mut encoder);
+        let ping_pong_idx = PostProcessState::compute(state, &mut encoder);
 
         // Post processing render
-        PostProcessState::render(state, output_view, &mut encoder);
+        PostProcessState::render(state, output_view, &mut encoder, ping_pong_idx);
 
         // Submit the commands.
         state.gfx_state.queue.submit(iter::once(encoder.finish()));

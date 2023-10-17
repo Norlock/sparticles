@@ -1,12 +1,14 @@
 use super::blur::Blur;
-use super::blur::BlurData;
+use super::blur::BlurSettings;
 use super::post_process::CreateFxOptions;
+use super::post_process::FxMetaUniform;
 use super::Blend;
+use super::BlendType;
 use super::FxState;
-use crate::animations::ItemAction;
 use crate::model::GuiState;
 use crate::traits::*;
 use crate::util::DynamicExport;
+use crate::util::ItemAction;
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
 use serde::Deserialize;
@@ -16,12 +18,28 @@ pub struct Bloom {
     blur: Blur,
     blend: Blend,
     enabled: bool,
-    delete: bool,
+    selected_action: ItemAction,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct BloomExport {
-    pub blur: BlurData,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BloomSettings {
+    pub blur: BlurSettings,
+    pub blend: FxMetaUniform,
+}
+
+impl Default for BloomSettings {
+    fn default() -> Self {
+        Self {
+            blur: BlurSettings::new(FxMetaUniform {
+                input_idx: 0,
+                output_idx: 1,
+            }),
+            blend: FxMetaUniform {
+                input_idx: 1,
+                output_idx: 0,
+            },
+        }
+    }
 }
 
 pub struct RegisterBloomFx;
@@ -37,7 +55,7 @@ impl RegisterPostFx for RegisterBloomFx {
     }
 
     fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
-        Box::new(Bloom::new(options, BlurData::default()))
+        Box::new(Bloom::new(options, BloomSettings::default()))
     }
 }
 
@@ -48,8 +66,8 @@ impl PostFx for Bloom {
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        //self.blur.compute(vec![input], c_pass);
-        //self.blend.add(self.blur.output(), input, c_pass);
+        self.blur.compute(ping_pong_idx, fx_state, c_pass);
+        self.blend.compute(ping_pong_idx, fx_state, c_pass);
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
@@ -61,18 +79,14 @@ impl PostFx for Bloom {
         ui.checkbox(&mut self.enabled, "Enabled");
 
         if ui.button("Delete").clicked() {
-            self.delete = true;
+            self.selected_action = ItemAction::Delete;
         }
-    }
-
-    fn reserved_space(&self) -> usize {
-        todo!()
     }
 }
 
 impl HandleAction for Bloom {
     fn selected_action(&mut self) -> &mut ItemAction {
-        todo!()
+        &mut self.selected_action
     }
 
     fn reset_action(&mut self) {
@@ -84,27 +98,22 @@ impl HandleAction for Bloom {
     }
 
     fn enabled(&self) -> bool {
-        todo!()
+        self.enabled
     }
 }
 
 impl Bloom {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-    pub fn new(options: &CreateFxOptions, blur_data: BlurData) -> Self {
-        let CreateFxOptions {
-            gfx_state,
-            fx_state,
-        } = options;
-
-        let blur = Blur::new(options, blur_data);
-        let blend = Blend::new(gfx_state, fx_state);
+    pub fn new(options: &CreateFxOptions, bloom_settings: BloomSettings) -> Self {
+        let blur = Blur::new(options, bloom_settings.blur);
+        let blend = Blend::new(options, BlendType::ADDITIVE, bloom_settings.blend);
 
         Self {
             blur,
             blend,
+            selected_action: ItemAction::None,
             enabled: true,
-            delete: false,
         }
     }
 }

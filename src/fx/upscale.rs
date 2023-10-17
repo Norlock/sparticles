@@ -1,10 +1,9 @@
 use super::post_process::CreateFxOptions;
 use super::FxState;
-use crate::animations::ItemAction;
 use crate::model::GuiState;
 use crate::traits::PostFx;
 use crate::traits::*;
-use crate::util::DynamicExport;
+use crate::util::{DynamicExport, ItemAction};
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
 
@@ -28,10 +27,6 @@ impl PostFx for Upscale {
     }
 
     fn create_ui(&mut self, _: &mut Ui, _: &GuiState) {}
-
-    fn reserved_space(&self) -> usize {
-        1
-    }
 }
 
 impl HandleAction for Upscale {

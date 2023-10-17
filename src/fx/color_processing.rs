@@ -1,9 +1,8 @@
 use super::{post_process::CreateFxOptions, FxState};
 use crate::{
-    animations::ItemAction,
     model::GuiState,
     traits::{CustomShader, HandleAction, PostFx, RegisterPostFx},
-    util::DynamicExport,
+    util::{DynamicExport, ItemAction},
 };
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::{self, Slider};
@@ -18,8 +17,6 @@ pub struct ColorProcessing {
     bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
     pipeline: wgpu::ComputePipeline,
-    count_x: u32,
-    count_y: u32,
     enabled: bool,
     delete: bool,
 }
@@ -76,10 +73,6 @@ impl PostFx for ColorProcessing {
             self.delete = true;
         }
     }
-
-    fn reserved_space(&self) -> usize {
-        0
-    }
 }
 
 impl HandleAction for ColorProcessing {
@@ -124,7 +117,6 @@ impl ColorProcessing {
         let CreateFxOptions {
             gfx_state,
             fx_state,
-            ..
         } = options;
 
         let device = &gfx_state.device;
@@ -188,8 +180,6 @@ impl ColorProcessing {
             bind_group_layout,
             bind_group,
             pipeline,
-            count_x: fx_state.count_x,
-            count_y: fx_state.count_y,
             enabled: true,
             delete: false,
         }

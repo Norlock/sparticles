@@ -1,11 +1,19 @@
-use super::FxState;
-use crate::{model::GfxState, traits::CustomShader};
+use super::{
+    post_process::{CreateFxOptions, FxMetaCompute, FxMetaUniform},
+    FxState,
+};
+use crate::{
+    model::{GfxState, GuiState},
+    traits::{CustomShader, HandleAction, PostFx},
+    util::{DynamicExport, ItemAction},
+};
 use egui_wgpu::wgpu;
+use egui_winit::egui::Ui;
 
 pub struct Blend {
     additive_pipeline: wgpu::ComputePipeline,
-    count_x: u32,
-    count_y: u32,
+    blend_type: BlendType,
+    meta_compute: FxMetaCompute,
 }
 
 pub enum BlendType {
@@ -14,27 +22,58 @@ pub enum BlendType {
     REPLACE,
 }
 
-impl Blend {
-    pub fn add<'a>(&'a self, input: &'a FxState, c_pass: &mut wgpu::ComputePass<'a>) {
+impl PostFx for Blend {
+    fn compute<'a>(
+        &'a self,
+        ping_pong_idx: &mut usize,
+        fx_state: &'a FxState,
+        c_pass: &mut wgpu::ComputePass<'a>,
+    ) {
         c_pass.set_pipeline(&self.additive_pipeline);
-        // TODO
-        c_pass.set_bind_group(0, input.bind_group(0), &[]);
-        c_pass.dispatch_workgroups(self.count_x, self.count_y, 1);
+        c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
+        c_pass.set_bind_group(1, &self.meta_compute.bind_group, &[]);
+        c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
+
+        *ping_pong_idx += 1;
     }
 
-    pub fn resize(&mut self, fx_state: &FxState) {
-        self.count_x = fx_state.count_x;
-        self.count_y = fx_state.count_y;
+    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {}
+}
+
+impl HandleAction for Blend {
+    fn selected_action(&mut self) -> &mut ItemAction {
+        todo!()
     }
 
-    pub fn new(gfx_state: &GfxState, fx_state: &FxState) -> Self {
+    fn reset_action(&mut self) {
+        todo!()
+    }
+
+    fn export(&self) -> DynamicExport {
+        todo!()
+    }
+
+    fn enabled(&self) -> bool {
+        todo!()
+    }
+}
+
+impl Blend {
+    pub fn new(options: &CreateFxOptions, blend_type: BlendType, fx_meta: FxMetaUniform) -> Self {
+        let CreateFxOptions {
+            gfx_state,
+            fx_state,
+        } = options;
+
         let device = &gfx_state.device;
 
         let blend_shader = device.create_shader("fx/blend.wgsl", "Blend");
 
+        let meta_compute = fx_meta.into_compute(device);
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Blend layout"),
-            bind_group_layouts: &[&fx_state.bind_group_layout, &fx_state.bind_group_layout],
+            bind_group_layouts: &[&fx_state.bind_group_layout, &meta_compute.bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -48,8 +87,8 @@ impl Blend {
 
         Self {
             additive_pipeline,
-            count_x: fx_state.count_x,
-            count_y: fx_state.count_y,
+            blend_type,
+            meta_compute,
         }
     }
 }

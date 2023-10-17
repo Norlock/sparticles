@@ -1,14 +1,13 @@
 use super::{EmitterState, GfxState, State};
 use crate::{
-    animations::ItemAction,
-    fx::{Bloom, ColorProcessing, ColorProcessingUniform, PostProcessState},
+    fx::{post_process::CreateFxOptions, PostProcessState},
     texture::CustomTexture,
+    util::ItemAction,
     util::Persistence,
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
 use egui_wgpu::wgpu;
 use egui_winit::egui::{self, ComboBox, ImageButton, TextureId};
-
 use std::{collections::HashMap, path::PathBuf};
 
 pub struct GuiState {
@@ -22,10 +21,10 @@ pub struct GuiState {
     texture_paths: Vec<PathBuf>,
     icon_textures: HashMap<String, TextureId>,
     selected_tab: Tab,
-    selected_post_fx: PostFx,
     selected_texture: usize,
     selected_new_par_anim: usize,
     selected_new_em_anim: usize,
+    selected_new_post_fx: usize,
     selected_emitter_id: usize,
 }
 
@@ -33,23 +32,12 @@ const CHEVRON_UP_ID: &str = "chevron-up";
 const CHEVRON_DOWN_ID: &str = "chevron-down";
 const TRASH_ID: &str = "trash";
 
-struct GuiTextures {
-    pub tag: String,
-    pub texture_id: TextureId,
-}
-
 #[derive(PartialEq)]
 enum Tab {
     SpawnSettings,
     PostFxSettings,
     ParticleAnimations,
     EmitterAnimations,
-}
-
-#[derive(PartialEq, Debug)]
-enum PostFx {
-    Bloom,
-    ColorProcessing,
 }
 
 impl GuiState {
@@ -251,11 +239,6 @@ impl GuiState {
         let texture_paths = Persistence::import_textures().unwrap();
         let icon_textures = Self::create_icons(gfx_state);
 
-        //texture_ids.push();
-
-        //let img = egui::Image::new("src/assets/icons/chevron-up.png");
-        //egui::Image::new(chevron_up_id, Vec2::new(32., 32.));
-
         Self {
             enabled: show_gui,
             reset_camera: false,
@@ -264,11 +247,11 @@ impl GuiState {
             elapsed_text: "".to_string(),
             particle_count_text: "".to_string(),
             selected_tab: Tab::SpawnSettings,
-            selected_post_fx: PostFx::Bloom,
             texture_paths,
             selected_emitter_id: 0,
             selected_new_par_anim: 0,
             selected_new_em_anim: 0,
+            selected_new_post_fx: 0,
             selected_texture: 0,
             icon_textures,
         }
@@ -395,8 +378,13 @@ impl GuiState {
 
     fn post_fx_tab(state: &mut State, ui: &mut Ui) {
         let State {
-            post_process, gui, ..
+            post_process,
+            gui,
+            registered_post_fx,
+            gfx_state,
+            ..
         } = state;
+
         let post_fx = &mut post_process.post_fx;
 
         post_fx.retain_mut(|fx| {
@@ -405,36 +393,25 @@ impl GuiState {
             fx.selected_action() != &mut ItemAction::Delete
         });
 
-        // TODO fix views
-        //ComboBox::from_label("Selected view")
-        //.selected_text(&post_process.selected_view)
-        //.show_ui(ui, |ui| {
-        //for item in post_process.views.iter() {
-        //ui.selectable_value(
-        //&mut post_process.selected_view,
-        //item.tag.to_string(),
-        //item.tag.to_string(),
-        //);
-        //}
-        //});
-
         ui.separator();
 
         ui.horizontal(|ui| {
-            ComboBox::from_id_source("post-fx")
-                .selected_text(format!("{:?}", &gui.selected_post_fx))
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut gui.selected_post_fx, PostFx::Bloom, "Bloom");
-                    ui.selectable_value(
-                        &mut gui.selected_post_fx,
-                        PostFx::ColorProcessing,
-                        "ColorProcessing",
-                    );
-                });
+            let sel_post_fx = &mut gui.selected_new_post_fx;
 
-            // TODO change from enum to vec and use that
-            if ui.button("Add Post fx").clicked() {
-                // TODO same as in animations
+            ComboBox::from_id_source("new-post-fx").show_index(
+                ui,
+                sel_post_fx,
+                registered_post_fx.len(),
+                |i| registered_post_fx[i].tag(),
+            );
+
+            if ui.button("Add post fx").clicked() {
+                post_fx.push(
+                    registered_post_fx[*sel_post_fx].create_default(&CreateFxOptions {
+                        fx_state: &post_process.fx_state,
+                        gfx_state,
+                    }),
+                );
             }
         });
     }

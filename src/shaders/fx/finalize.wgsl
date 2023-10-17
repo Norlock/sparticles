@@ -18,7 +18,6 @@ struct Offset {
 }
 
 @group(0) @binding(1) var fx_read: binding_array<texture_2d<f32>, 32>;
-//@group(1) @binding(1) var<uniform> globals: Offset;
 
 @fragment
 fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {

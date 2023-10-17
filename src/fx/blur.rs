@@ -1,9 +1,12 @@
 use super::post_process::CreateFxOptions;
+use super::post_process::FxMetaCompute;
+use super::post_process::FxMetaUniform;
 use super::FxState;
-use crate::animations::ItemAction;
 use crate::model::GuiState;
 use crate::traits::*;
+use crate::util::CommonBuffer;
 use crate::util::DynamicExport;
+use crate::util::ItemAction;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
@@ -15,8 +18,9 @@ use std::num::NonZeroU64;
 pub struct Blur {
     blur_pipeline: wgpu::ComputePipeline,
     split_pipeline: wgpu::ComputePipeline,
-    blur_bind_group: wgpu::BindGroup,
+    bind_group: wgpu::BindGroup,
 
+    pub meta_compute: FxMetaCompute,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub blur: BlurUniform,
     pub blur_buffer: wgpu::Buffer,
@@ -31,7 +35,7 @@ pub struct BlurUniform {
 
     /// Kernel size (8 default) too high or too low slows down performance
     /// Lower is more precise (pow of 2 values is better) (TODO maybe downscale attr? instead of kernel_size)
-    pub kernel_size: u32,
+    pub downscale: u32,
 
     // How far to look
     pub radius: i32,
@@ -41,25 +45,17 @@ pub struct BlurUniform {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-pub struct BlurData {
+pub struct BlurSettings {
     pub uniform: BlurUniform,
+    pub fx_meta: FxMetaUniform,
     pub passes: usize,
-}
-
-impl Default for BlurData {
-    fn default() -> Self {
-        Self {
-            uniform: BlurUniform::default(),
-            passes: 8,
-        }
-    }
 }
 
 impl Default for BlurUniform {
     fn default() -> Self {
         Self {
             brightness_threshold: 0.6,
-            kernel_size: 16,
+            downscale: 16, // power of 2
             radius: 4,
             sigma: 1.3,
             hdr_mul: 25.,
@@ -83,32 +79,33 @@ impl PostFx for Blur {
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        //let output = &self.fx_state;
+        let count_x = (fx_state.count_x as f32 / self.blur.downscale as f32).ceil() as u32;
+        let count_y = (fx_state.count_y as f32 / self.blur.downscale as f32).ceil() as u32;
 
-        //// Splits parts to fx tex
-        //c_pass.set_pipeline(&self.split_pipeline);
-        //c_pass.set_bind_group(0, fx_inputs[0], &[]);
-        //c_pass.set_bind_group(1, output.bind_group(1), &[]);
-        //c_pass.set_bind_group(2, &self.blur_bind_group, &[]);
-        //c_pass.dispatch_workgroups(output.count_x, output.count_y, 1);
+        // Splits parts to fx tex
+        c_pass.set_pipeline(&self.split_pipeline);
+        c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
+        c_pass.set_bind_group(1, &self.meta_compute.bind_group, &[]);
+        c_pass.set_bind_group(2, &self.bind_group, &[]);
+        c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        //// Smoothen downscaled texture
-        //for i in 0..self.passes {
-        //c_pass.set_pipeline(&self.blur_pipeline);
-        //c_pass.set_bind_group(0, fx_inputs[0], &[]);
-        //c_pass.set_bind_group(1, output.bind_group(i), &[]);
-        //c_pass.set_bind_group(2, &self.blur_bind_group, &[]);
-        //c_pass.dispatch_workgroups(output.count_x, output.count_y, 1);
-        //}
-    }
+        *ping_pong_idx += 1;
 
-    fn reserved_space(&self) -> usize {
-        1
+        // Smoothen downscaled texture
+        for _ in 0..self.passes {
+            c_pass.set_pipeline(&self.blur_pipeline);
+            c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
+            c_pass.set_bind_group(1, &self.meta_compute.bind_group, &[]);
+            c_pass.set_bind_group(2, &self.bind_group, &[]);
+            c_pass.dispatch_workgroups(count_x, count_y, 1);
+
+            *ping_pong_idx += 1;
+        }
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
         let blur = &mut self.blur;
-        let mut kernel_size = blur.kernel_size;
+        let mut kernel_size = blur.downscale;
 
         ui.label("Gaussian blur");
         ui.add(Slider::new(&mut blur.brightness_threshold, 0.0..=1.0).text("Brightness threshold"));
@@ -127,8 +124,8 @@ impl PostFx for Blur {
                 .text("Amount of passes"),
         );
 
-        if kernel_size != blur.kernel_size {
-            blur.kernel_size = kernel_size;
+        if kernel_size != blur.downscale {
+            blur.downscale = kernel_size;
         }
     }
 }
@@ -151,36 +148,39 @@ impl HandleAction for Blur {
     }
 }
 
-impl Blur {
-    fn tex_dimensions(config: &wgpu::SurfaceConfiguration, kernel_size: u32) -> [u32; 2] {
-        let fx_dim = config.fx_dimensions();
-        let tex_width = (fx_dim[0] as f32 / kernel_size as f32).ceil() as u32;
-        let tex_height = (fx_dim[1] as f32 / kernel_size as f32).ceil() as u32;
-
-        [tex_width, tex_height]
+impl BlurSettings {
+    pub fn new(fx_meta: FxMetaUniform) -> Self {
+        Self {
+            uniform: BlurUniform::default(),
+            fx_meta,
+            passes: 8,
+        }
     }
+}
 
-    pub fn export(&self) -> BlurData {
-        BlurData {
+impl Blur {
+    pub fn export(&self) -> BlurSettings {
+        BlurSettings {
             uniform: self.blur,
+            fx_meta: self.meta_compute.uniform,
             passes: self.passes,
         }
     }
 
-    pub fn new(options: &CreateFxOptions, data: BlurData) -> Self {
+    pub fn new(options: &CreateFxOptions, blur_settings: BlurSettings) -> Self {
         let CreateFxOptions {
             gfx_state,
             fx_state,
         } = options;
 
         let device = &gfx_state.device;
-        let config = &gfx_state.surface_config;
 
-        let blur = data.uniform;
-        let passes = data.passes;
+        let blur = blur_settings.uniform;
+        let passes = blur_settings.passes;
+        let fx_meta = blur_settings.fx_meta;
 
-        let buffer_content = blur.create_buffer_content();
-        let min_binding_size = NonZeroU64::new(buffer_content.len() as u64);
+        let buffer_content = CommonBuffer::uniform_content(&blur);
+        let meta_compute = fx_meta.into_compute(device);
 
         let blur_shader = device.create_shader("fx/gaussian_blur.wgsl", "Gaussian blur");
 
@@ -192,22 +192,19 @@ impl Blur {
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Blur uniform layout"),
-            entries: &[
-                // Globals
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size,
-                    },
-                    count: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: NonZeroU64::new(buffer_content.len() as u64),
                 },
-            ],
+                count: None,
+            }],
         });
 
-        let blur_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Blur uniform bind group"),
             layout: &bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
@@ -219,8 +216,9 @@ impl Blur {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Split layout"),
             bind_group_layouts: &[
-                &fx_state.bind_group_layout, // input
-                &bind_group_layout,          // globals + depth
+                &fx_state.bind_group_layout,     // input
+                &meta_compute.bind_group_layout, // meta
+                &bind_group_layout,              // blur
             ],
             push_constant_ranges: &[],
         });
@@ -240,10 +238,11 @@ impl Blur {
         Self {
             blur_pipeline,
             bind_group_layout,
-            blur_bind_group,
+            bind_group,
             blur_buffer,
             blur,
             split_pipeline,
+            meta_compute,
             passes,
         }
     }

@@ -25,10 +25,10 @@ impl Display for ItemAction {
     }
 }
 
-pub struct CommonAnimation;
+pub struct CommonBuffer;
 
-impl CommonAnimation {
-    pub fn buffer_content(to_buffer: &(impl ShaderType + WriteInto)) -> Vec<u8> {
+impl CommonBuffer {
+    pub fn uniform_content(to_buffer: &(impl ShaderType + WriteInto)) -> Vec<u8> {
         let mut buffer = UniformBuffer::new(Vec::new());
         buffer.write(&to_buffer).unwrap();
         buffer.into_inner()

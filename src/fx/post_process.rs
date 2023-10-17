@@ -1,12 +1,12 @@
-use std::num::NonZeroU32;
-
-use super::blur::BlurData;
-use super::{color_processing::ColorProcessingUniform, Bloom, ColorProcessing};
 use crate::init::AppSettings;
 use crate::model::{GfxState, State};
 use crate::traits::*;
-use egui_wgpu::wgpu::{self, util::DeviceExt};
-use encase::{ShaderType, StorageBuffer};
+use crate::util::CommonBuffer;
+use egui_wgpu::wgpu;
+use egui_wgpu::wgpu::util::DeviceExt;
+use encase::ShaderType;
+use serde::{Deserialize, Serialize};
+use std::num::{NonZeroU32, NonZeroU64};
 
 pub struct PostProcessState {
     pub post_fx: Vec<Box<dyn PostFx>>,
@@ -16,12 +16,10 @@ pub struct PostProcessState {
     finalize_pipeline: wgpu::RenderPipeline,
 }
 
-#[derive(ShaderType, Clone)]
-pub struct MetadataUniform {
-    frame_idx: u32,
-    output_idx: u32,
-    width: f32,
-    height: f32,
+#[derive(ShaderType, Clone, Copy, Serialize, Deserialize, Debug)]
+pub struct FxMetaUniform {
+    pub input_idx: u32,
+    pub output_idx: u32,
 }
 
 pub struct CreateFxOptions<'a> {
@@ -29,11 +27,57 @@ pub struct CreateFxOptions<'a> {
     pub fx_state: &'a FxState,
 }
 
-impl MetadataUniform {
-    fn buffer_content(&self) -> Vec<u8> {
-        let mut buffer = StorageBuffer::new(Vec::new());
-        buffer.write(&self).unwrap();
-        buffer.into_inner()
+pub struct BufferInfo {
+    pub buffer: wgpu::Buffer,
+    pub binding_size: Option<NonZeroU64>,
+}
+
+pub struct FxMetaCompute {
+    pub buffer: wgpu::Buffer,
+    pub uniform: FxMetaUniform,
+    pub bind_group: wgpu::BindGroup,
+    pub bind_group_layout: wgpu::BindGroupLayout,
+}
+
+impl FxMetaUniform {
+    pub fn into_compute(self, device: &wgpu::Device) -> FxMetaCompute {
+        let contents = CommonBuffer::uniform_content(&self);
+
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Meta uniform"),
+            contents: &contents,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Blur uniform layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: NonZeroU64::new(contents.len() as u64),
+                },
+                count: None,
+            }],
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Blur uniform bind group"),
+            layout: &bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: buffer.as_entire_binding(),
+            }],
+        });
+
+        FxMetaCompute {
+            buffer,
+            bind_group,
+            bind_group_layout,
+            uniform: self,
+        }
     }
 }
 
@@ -47,7 +91,7 @@ impl PostProcessState {
     }
 
     // TODO return idx of bindgroup
-    pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
+    pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) -> usize {
         let pp = &mut state.post_process;
 
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -58,16 +102,20 @@ impl PostProcessState {
         c_pass.set_bind_group(0, pp.fx_state.bind_group(1), &[]);
         c_pass.dispatch_workgroups(pp.fx_state.count_x, pp.fx_state.count_y, 1);
 
-        //for (i, pfx) in pp.post_fx.iter().filter(|fx| fx.enabled()).enumerate() {
-        //let input = pp.fx_state.bind_group(i);
-        //pfx.compute(input, &mut c_pass);
-        //}
+        let mut ping_pong_idx = 0;
+
+        for fx in pp.post_fx.iter().filter(|fx| fx.enabled()) {
+            fx.compute(&mut ping_pong_idx, &pp.fx_state, &mut c_pass);
+        }
+
+        ping_pong_idx
     }
 
     pub fn render(
         state: &mut State,
         output_view: wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
+        ping_pong_idx: usize,
     ) {
         let clipped_primitives = GfxState::draw_gui(state, encoder);
 
@@ -86,8 +134,7 @@ impl PostProcessState {
 
         let pp = &mut state.post_process;
         r_pass.set_pipeline(&pp.finalize_pipeline);
-        r_pass.set_bind_group(0, pp.fx_state.bind_group(0), &[]);
-        //r_pass.set_bind_group(1, pp.frame_state.output(), &[]);
+        r_pass.set_bind_group(0, pp.fx_state.bind_group(ping_pong_idx), &[]);
         r_pass.draw(0..3, 0..1);
 
         state.gfx_state.renderer.render(
@@ -95,10 +142,6 @@ impl PostProcessState {
             &clipped_primitives,
             &state.gfx_state.screen_descriptor,
         );
-    }
-
-    pub fn export(pp: &PostProcessState) {
-        //Persistence::write_to_file(to_export, ExportType::PostFx);
     }
 
     pub fn new(gfx_state: &GfxState, app_settings: &impl AppSettings) -> Self {
@@ -160,26 +203,12 @@ impl PostProcessState {
         }
     }
 
-    pub fn create_fx_options<'a>(&'a self, gfx_state: &'a GfxState) -> CreateFxOptions {
-        CreateFxOptions {
-            gfx_state,
-            fx_state: &self.fx_state,
-        }
-    }
-
-    pub fn add_default_fx(&mut self, gfx_state: &GfxState) {
-        // TODO remove default fx
-        let options = self.create_fx_options(gfx_state);
-
-        let bloom = Bloom::new(&options, BlurData::default());
-        let col_cor = ColorProcessing::new(&options, ColorProcessingUniform::default());
-
-        self.post_fx.push(Box::new(bloom));
-        self.post_fx.push(Box::new(col_cor));
-    }
-
     pub fn import_fx(&mut self, gfx_state: &GfxState) {
         // TODO
+    }
+
+    pub fn export(pp: &PostProcessState) {
+        //Persistence::write_to_file(to_export, ExportType::PostFx);
     }
 }
 
