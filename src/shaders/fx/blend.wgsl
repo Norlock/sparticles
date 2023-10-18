@@ -14,7 +14,7 @@ fn additive(@builtin(global_invocation_id) pos_u32: vec3<u32>) {
     }
 
     let frame_color = textureLoad(read_fx[0], pos_u32.xy, 0).rgb;
-    let fx_color = textureLoad(read_fx[fx_meta.in_idx], vec2<u32>(pos) / 16u, 0).rgb;
+    let fx_color = textureLoad(read_fx[fx_meta.in_idx], vec2<u32>(pos) / fx_meta.in_downscale, 0).rgb;
 
     let result = frame_color + fx_color;
 

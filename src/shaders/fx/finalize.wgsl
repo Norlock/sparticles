@@ -17,9 +17,10 @@ struct Offset {
     view_height: f32,
 }
 
-@group(0) @binding(1) var fx_read: binding_array<texture_2d<f32>, 32>;
+@group(0) @binding(2) var fx_blend: texture_storage_2d<rgba8unorm, read_write>;
 
 @fragment
 fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
-    return textureLoad(fx_read[0], vec2<i32>(pos.xy), 0);
+    var out =  textureLoad(fx_blend, vec2<i32>(pos.xy), 0);
+    return out;
 }

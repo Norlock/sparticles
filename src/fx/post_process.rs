@@ -18,8 +18,14 @@ pub struct PostProcessState {
 
 #[derive(ShaderType, Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct FxMetaUniform {
-    pub input_idx: u32,
-    pub output_idx: u32,
+    pub in_idx: i32,  // -1 == fx_blend
+    pub out_idx: i32, // -1 == fx_blend
+}
+
+impl FxMetaUniform {
+    pub fn new(in_idx: i32, out_idx: i32) -> Self {
+        Self { in_idx, out_idx }
+    }
 }
 
 pub struct CreateFxOptions<'a> {
@@ -32,7 +38,7 @@ pub struct BufferInfo {
     pub binding_size: Option<NonZeroU64>,
 }
 
-pub struct FxMetaCompute {
+pub struct MetaUniformCompute {
     pub buffer: wgpu::Buffer,
     pub uniform: FxMetaUniform,
     pub bind_group: wgpu::BindGroup,
@@ -40,7 +46,7 @@ pub struct FxMetaCompute {
 }
 
 impl FxMetaUniform {
-    pub fn into_compute(self, device: &wgpu::Device) -> FxMetaCompute {
+    pub fn into_compute(self, device: &wgpu::Device) -> MetaUniformCompute {
         let contents = CommonBuffer::uniform_content(&self);
 
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -72,7 +78,7 @@ impl FxMetaUniform {
             }],
         });
 
-        FxMetaCompute {
+        MetaUniformCompute {
             buffer,
             bind_group,
             bind_group_layout,
@@ -99,7 +105,7 @@ impl PostProcessState {
         });
 
         c_pass.set_pipeline(&pp.initialize_pipeline);
-        c_pass.set_bind_group(0, pp.fx_state.bind_group(1), &[]);
+        c_pass.set_bind_group(0, pp.fx_state.bind_group(0), &[]);
         c_pass.dispatch_workgroups(pp.fx_state.count_x, pp.fx_state.count_y, 1);
 
         let mut ping_pong_idx = 0;
@@ -234,7 +240,7 @@ impl FxState {
         let frame_view = gfx_state.create_frame_view();
         let depth_view = gfx_state.create_depth_view();
 
-        let array_count = 32;
+        let array_count = 16;
 
         let mut layout_entries = Vec::new();
 
@@ -253,7 +259,7 @@ impl FxState {
         // Fx Read
         layout_entries.push(wgpu::BindGroupLayoutEntry {
             binding: 1,
-            visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
+            visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Texture {
                 view_dimension: wgpu::TextureViewDimension::D2,
                 sample_type: wgpu::TextureSampleType::Float { filterable: false },
@@ -262,10 +268,22 @@ impl FxState {
             count: NonZeroU32::new(array_count),
         });
 
-        // Frame
+        // Fx Blend READ_WRITE
         layout_entries.push(wgpu::BindGroupLayoutEntry {
             binding: 2,
             visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::StorageTexture {
+                view_dimension: wgpu::TextureViewDimension::D2,
+                format: PostProcessState::TEXTURE_FORMAT,
+                access: wgpu::StorageTextureAccess::ReadWrite,
+            },
+            count: None,
+        });
+
+        // Frame
+        layout_entries.push(wgpu::BindGroupLayoutEntry {
+            binding: 3,
+            visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Texture {
                 view_dimension: wgpu::TextureViewDimension::D2,
                 sample_type: wgpu::TextureSampleType::Float { filterable: false },
@@ -276,7 +294,7 @@ impl FxState {
 
         // Depth
         layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 3,
+            binding: 4,
             visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Texture {
                 view_dimension: wgpu::TextureViewDimension::D2,
@@ -300,6 +318,22 @@ impl FxState {
         }
 
         let mut bind_groups = Vec::new();
+        let blend_view = device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d {
+                    width: gfx_state.surface_config.width,
+                    height: gfx_state.surface_config.height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                view_formats: &[],
+                dimension: wgpu::TextureDimension::D2,
+                format: PostProcessState::TEXTURE_FORMAT,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+            })
+            .default_view();
 
         let ping_refs: Vec<&wgpu::TextureView> = ping_views.iter().map(|v| v).collect();
         let pong_refs: Vec<&wgpu::TextureView> = pong_views.iter().map(|v| v).collect();
@@ -320,10 +354,14 @@ impl FxState {
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: wgpu::BindingResource::TextureView(&frame_view),
+                        resource: wgpu::BindingResource::TextureView(&blend_view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 3,
+                        resource: wgpu::BindingResource::TextureView(&frame_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
                         resource: wgpu::BindingResource::TextureView(&depth_view),
                     },
                 ],

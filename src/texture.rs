@@ -110,8 +110,6 @@ impl GfxState {
     }
 
     pub fn create_fx_view(&self) -> wgpu::TextureView {
-        let format = PostProcessState::TEXTURE_FORMAT;
-
         self.device
             .create_texture(&wgpu::TextureDescriptor {
                 label: None,
@@ -124,7 +122,7 @@ impl GfxState {
                 sample_count: 1,
                 view_formats: &[],
                 dimension: wgpu::TextureDimension::D2,
-                format,
+                format: PostProcessState::TEXTURE_FORMAT,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
             })
             .default_view()

@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, FxMetaCompute, FxMetaUniform},
+    post_process::{CreateFxOptions, FxMetaUniform, MetaUniformCompute},
     FxState,
 };
 use crate::{
@@ -13,7 +13,7 @@ use egui_winit::egui::Ui;
 pub struct Blend {
     additive_pipeline: wgpu::ComputePipeline,
     blend_type: BlendType,
-    meta_compute: FxMetaCompute,
+    pub meta_compute: MetaUniformCompute,
 }
 
 pub enum BlendType {
@@ -29,7 +29,14 @@ impl PostFx for Blend {
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        c_pass.set_pipeline(&self.additive_pipeline);
+        match self.blend_type {
+            BlendType::ADDITIVE => {
+                c_pass.set_pipeline(&self.additive_pipeline);
+            }
+            BlendType::BLEND => {}
+            BlendType::REPLACE => {}
+        }
+
         c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
         c_pass.set_bind_group(1, &self.meta_compute.bind_group, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);

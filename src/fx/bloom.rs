@@ -30,14 +30,8 @@ pub struct BloomSettings {
 impl Default for BloomSettings {
     fn default() -> Self {
         Self {
-            blur: BlurSettings::new(FxMetaUniform {
-                input_idx: 0,
-                output_idx: 1,
-            }),
-            blend: FxMetaUniform {
-                input_idx: 1,
-                output_idx: 0,
-            },
+            blur: BlurSettings::new(FxMetaUniform::new(-1, 0)),
+            blend: FxMetaUniform::new(0, -1),
         }
     }
 }
@@ -50,8 +44,8 @@ impl RegisterPostFx for RegisterBloomFx {
     }
 
     fn import(&self, options: &CreateFxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
-        let blur_data = serde_json::from_value(value).unwrap();
-        Box::new(Bloom::new(options, blur_data))
+        let bloom_settings = serde_json::from_value(value).unwrap();
+        Box::new(Bloom::new(options, bloom_settings))
     }
 
     fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
@@ -94,7 +88,19 @@ impl HandleAction for Bloom {
     }
 
     fn export(&self) -> DynamicExport {
-        todo!()
+        let bloom_settings = BloomSettings {
+            blend: self.blend.meta_compute.uniform,
+            blur: BlurSettings {
+                fx_meta: self.blur.meta_compute.uniform,
+                uniform: self.blur.blur_uniform,
+                passes: self.blur.passes,
+            },
+        };
+
+        DynamicExport {
+            tag: RegisterBloomFx.tag().to_string(),
+            data: serde_json::to_value(bloom_settings).unwrap(),
+        }
     }
 
     fn enabled(&self) -> bool {

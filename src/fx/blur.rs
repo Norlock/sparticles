@@ -1,7 +1,8 @@
 use super::post_process::CreateFxOptions;
-use super::post_process::FxMetaCompute;
 use super::post_process::FxMetaUniform;
+use super::post_process::MetaUniformCompute;
 use super::FxState;
+use crate::model::GfxState;
 use crate::model::GuiState;
 use crate::traits::*;
 use crate::util::CommonBuffer;
@@ -10,7 +11,7 @@ use crate::util::ItemAction;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
-use encase::{ShaderType, UniformBuffer};
+use encase::ShaderType;
 use serde::Deserialize;
 use serde::Serialize;
 use std::num::NonZeroU64;
@@ -20,21 +21,19 @@ pub struct Blur {
     split_pipeline: wgpu::ComputePipeline,
     bind_group: wgpu::BindGroup,
 
-    pub meta_compute: FxMetaCompute,
+    pub meta_compute: MetaUniformCompute,
     pub bind_group_layout: wgpu::BindGroupLayout,
-    pub blur: BlurUniform,
+    pub blur_uniform: BlurUniform,
     pub blur_buffer: wgpu::Buffer,
-
-    passes: usize,
+    pub passes: usize,
+    pub update_uniform: bool,
 }
 
-#[derive(ShaderType, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(ShaderType, Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct BlurUniform {
     /// 0.10 - 0.15 is reasonable
     pub brightness_threshold: f32,
 
-    /// Kernel size (8 default) too high or too low slows down performance
-    /// Lower is more precise (pow of 2 values is better) (TODO maybe downscale attr? instead of kernel_size)
     pub downscale: u32,
 
     // How far to look
@@ -55,7 +54,7 @@ impl Default for BlurUniform {
     fn default() -> Self {
         Self {
             brightness_threshold: 0.6,
-            downscale: 16, // power of 2
+            downscale: 8,
             radius: 4,
             sigma: 1.3,
             hdr_mul: 25.,
@@ -64,23 +63,24 @@ impl Default for BlurUniform {
     }
 }
 
-impl BlurUniform {
-    pub fn create_buffer_content(&self) -> Vec<u8> {
-        let mut buffer = UniformBuffer::new(Vec::new());
-        buffer.write(&self).unwrap();
-        buffer.into_inner()
-    }
-}
-
 impl PostFx for Blur {
+    fn update(&mut self, gfx_state: &GfxState) {
+        if self.update_uniform {
+            let queue = &gfx_state.queue;
+
+            let buffer_content = CommonBuffer::uniform_content(&self.blur_uniform);
+            queue.write_buffer(&self.blur_buffer, 0, &buffer_content);
+        }
+    }
+
     fn compute<'a>(
         &'a self,
         ping_pong_idx: &mut usize,
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        let count_x = (fx_state.count_x as f32 / self.blur.downscale as f32).ceil() as u32;
-        let count_y = (fx_state.count_y as f32 / self.blur.downscale as f32).ceil() as u32;
+        let count_x = (fx_state.count_x as f32 / self.blur_uniform.downscale as f32).ceil() as u32;
+        let count_y = (fx_state.count_y as f32 / self.blur_uniform.downscale as f32).ceil() as u32;
 
         // Splits parts to fx tex
         c_pass.set_pipeline(&self.split_pipeline);
@@ -104,13 +104,12 @@ impl PostFx for Blur {
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-        let blur = &mut self.blur;
-        let mut kernel_size = blur.downscale;
+        let mut blur = self.blur_uniform;
 
         ui.label("Gaussian blur");
         ui.add(Slider::new(&mut blur.brightness_threshold, 0.0..=1.0).text("Brightness threshold"));
         ui.add(
-            Slider::new(&mut kernel_size, 4..=32)
+            Slider::new(&mut blur.downscale, 4..=32)
                 .step_by(2.)
                 .text("Kernel size"),
         );
@@ -124,8 +123,9 @@ impl PostFx for Blur {
                 .text("Amount of passes"),
         );
 
-        if kernel_size != blur.downscale {
-            blur.downscale = kernel_size;
+        if self.blur_uniform != blur {
+            self.blur_uniform = blur;
+            self.update_uniform = true;
         }
     }
 }
@@ -161,7 +161,7 @@ impl BlurSettings {
 impl Blur {
     pub fn export(&self) -> BlurSettings {
         BlurSettings {
-            uniform: self.blur,
+            uniform: self.blur_uniform,
             fx_meta: self.meta_compute.uniform,
             passes: self.passes,
         }
@@ -175,11 +175,11 @@ impl Blur {
 
         let device = &gfx_state.device;
 
-        let blur = blur_settings.uniform;
+        let blur_uniform = blur_settings.uniform;
         let passes = blur_settings.passes;
         let fx_meta = blur_settings.fx_meta;
 
-        let buffer_content = CommonBuffer::uniform_content(&blur);
+        let buffer_content = CommonBuffer::uniform_content(&blur_uniform);
         let meta_compute = fx_meta.into_compute(device);
 
         let blur_shader = device.create_shader("fx/gaussian_blur.wgsl", "Gaussian blur");
@@ -240,10 +240,11 @@ impl Blur {
             bind_group_layout,
             bind_group,
             blur_buffer,
-            blur,
+            blur_uniform,
             split_pipeline,
             meta_compute,
             passes,
+            update_uniform: false,
         }
     }
 }

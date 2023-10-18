@@ -1,4 +1,4 @@
-use super::post_process::CreateFxOptions;
+use super::post_process::{CreateFxOptions, FxMetaUniform};
 use super::FxState;
 use crate::model::GuiState;
 use crate::traits::PostFx;
@@ -48,7 +48,7 @@ impl HandleAction for Upscale {
 }
 
 impl Upscale {
-    pub fn new(options: &CreateFxOptions) -> Self {
+    pub fn new(options: &CreateFxOptions, fx_meta: FxMetaUniform) -> Self {
         let CreateFxOptions {
             gfx_state,
             fx_state,
@@ -57,10 +57,11 @@ impl Upscale {
         let device = &gfx_state.device;
 
         let upscale_shader = device.create_shader("fx/upscale.wgsl", "Upscale");
+        let meta_compute = fx_meta.into_compute(device);
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Upscale"),
-            bind_group_layouts: &[&fx_state.bind_group_layout],
+            bind_group_layouts: &[&fx_state.bind_group_layout, &meta_compute.bind_group_layout],
             push_constant_ranges: &[],
         });
 

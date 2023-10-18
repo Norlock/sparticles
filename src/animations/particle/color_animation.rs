@@ -106,13 +106,10 @@ impl HandleAction for ColorAnimation {
     }
 
     fn export(&self) -> DynamicExport {
-        let animation = serde_json::to_value(self.uniform).unwrap();
-        let animation_type = RegisterColorAnimation.tag().to_owned();
+        let data = serde_json::to_value(self.uniform).unwrap();
+        let tag = RegisterColorAnimation.tag().to_owned();
 
-        DynamicExport {
-            tag: animation_type,
-            data: animation,
-        }
+        DynamicExport { tag, data }
     }
 
     fn enabled(&self) -> bool {
