@@ -66,10 +66,10 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    let start_x = pos.x * fx_meta.out_downscale;
-    let end_x = start_x + fx_meta.out_downscale;
-    let start_y = pos.y * fx_meta.out_downscale;
-    let end_y = start_y + fx_meta.out_downscale;
+    let start_x = pos.x * globals.downscale;
+    let end_x = start_x + globals.downscale;
+    let start_y = pos.y * globals.downscale;
+    let end_y = start_y + globals.downscale;
 
     var weight = 0u;
     var result = vec3<f32>(0.0);
@@ -94,3 +94,106 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     }
 }
 
+struct Neighbour {
+    pos: vec2<u32>,
+    fx_pos: vec2<u32>,
+    dist: u32,
+    pct: f32,
+}
+
+fn get_offset(is_horizontal: bool) -> vec2<f32> {
+    if is_horizontal {
+        return vec2<f32>(1., 0.);
+    } else {
+        return vec2<f32>(0., 1.);
+    }
+}
+
+// pos = 19 
+// scale = 8 
+// fx_pos = 19 / 8 == 2 
+// local_pos = 19 % 8 = 3 
+// center = 8 / 2 = 4 
+// d_center = 4 - 3
+// pct = 1 / 8
+fn get_neighbour_x(pos: vec2<f32>, color: vec3<f32>, scale: f32, max_x: f32) -> vec3<f32> {
+    let fx_pos = pos / scale;
+    let local_pos = pos.x % scale;
+    let center = scale / 2.;
+
+    if local_pos == center {
+        return color;
+    } 
+
+    let d_center = abs(center - local_pos);
+    let pct = d_center / scale;
+
+    if center < local_pos {
+        // right neighbour
+        let nb_pos = fx_pos + get_offset(false);
+        if nb_pos.x < max_x {
+            let nb_col = textureLoad(src_texture, vec2<u32>(nb_pos), 0).rgb;
+            return mix(color, nb_col, pct);
+        }
+    } else {
+        // left neighbour
+        let nb_pos = fx_pos - get_offset(false);
+        if 0. <= nb_pos.x {
+            let nb_col = textureLoad(src_texture, vec2<u32>(nb_pos), 0).rgb;
+            return mix(color, nb_col, pct);
+        }
+
+    }
+    return color;
+}
+
+fn get_neighbour_y(pos: vec2<f32>, color: vec3<f32>, scale: f32, max_y: f32) -> vec3<f32> {
+    let fx_pos = pos / scale;
+    let local_pos = pos.y % scale;
+    let center = scale / 2.;
+
+    if local_pos == center {
+        return color;
+    } 
+ 
+    let d_center = abs(center - local_pos);
+    let pct = d_center / scale;
+
+    if center < local_pos {
+        // down neighbour
+        let nb_pos = fx_pos + get_offset(false);
+        if nb_pos.y < max_y {
+            let nb_col = textureLoad(src_texture, vec2<u32>(nb_pos), 0).rgb;
+            return mix(color, nb_col, pct);
+        }
+    } else {
+        // up neighbour
+        let nb_pos = fx_pos - get_offset(false);
+        if 0. <= nb_pos.y {
+            let nb_col = textureLoad(src_texture, vec2<u32>(nb_pos), 0).rgb;
+            return mix(color, nb_col, pct);
+        }
+    }
+
+    return color;
+}
+
+@compute
+@workgroup_size(8, 8, 1)
+fn upscale(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+    let fx_size = textureDimensions(fx_blend);
+    let pos = global_invocation_id.xy;
+
+    if any(fx_size < pos) {
+        return;
+    }
+
+    let scale = globals.downscale;
+
+    var result = textureLoad(src_texture, vec2<u32>(pos / scale), 0).rgb;
+
+    result = get_neighbour_x(pos, result, scale, fx_size.x);
+    result = get_neighbour_y(pos, result, scale, fx_size.y);
+
+    textureStore(dst_texture, vec2<u32>(pos), vec4<f32>(result, 1.0));
+}

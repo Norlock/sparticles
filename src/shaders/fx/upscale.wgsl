@@ -1,3 +1,6 @@
+@group(0) @binding(1) var src_texture: texture_2d<f32>;
+@group(1) @binding(0) var dst_texture: texture_storage_2d<rgba8unorm, write>;
+
 struct Neighbour {
     pos: vec2<u32>,
     fx_pos: vec2<u32>,
@@ -5,8 +8,6 @@ struct Neighbour {
     pct: f32,
 }
 
-@group(0) @binding(1) var src_texture: texture_2d<f32>;
-@group(1) @binding(0) var dst_texture: texture_storage_2d<rgba8unorm, write>;
 
 fn get_offset(is_horizontal: bool) -> vec2<f32> {
     if is_horizontal {

@@ -368,6 +368,10 @@ impl FxState {
             }));
         }
 
+        // Render layout
+
+        // Render bind_group
+
         let count_x = (config.width as f32 / WORK_GROUP_SIZE[0]).ceil() as u32;
         let count_y = (config.height as f32 / WORK_GROUP_SIZE[1]).ceil() as u32;
 
