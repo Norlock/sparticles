@@ -39,7 +39,8 @@ fn create_particle_position(input_random: f32) -> vec3<f32> {
     return vec3<f32>(em.box_x, em.box_y, em.box_z) + local_rot;
 }
 
-fn spawn_particle(index: u32, particle: ptr<function, Particle>) {
+fn spawn_particle(index: u32) {
+    var particle = particles_src[index];
     let input_random = f32(index);
 
     let particle_color = vec4<f32>(
@@ -59,12 +60,12 @@ fn spawn_particle(index: u32, particle: ptr<function, Particle>) {
     let position = create_particle_position(input_random);
     let velocity = create_velocity(input_random, particle_speed);
 
-    (*particle).pos_size = vec4<f32>(position, size);
-    (*particle).color = particle_color;
-    (*particle).vel_mass = vec4<f32>(velocity, em.material_mass * size);
-    (*particle).lifetime = 0.;
+    particle.pos_size = vec4<f32>(position, size);
+    particle.color = particle_color;
+    particle.vel_mass = vec4<f32>(velocity, em.material_mass * size);
+    particle.lifetime = 0.;
 
-    particles_dst[index] = *particle;
+    particles_dst[index] = particle;
 }
 
 @compute
@@ -77,13 +78,12 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    var particle = particles_src[index];
-
     if (u32(em.spawn_from) <= index && index < u32(em.spawn_until)) {
-        spawn_particle(index, &particle);
+        spawn_particle(index);
         return;
     } 
 
+    var particle = particles_src[index];
     particle.lifetime += em.delta_sec;
 
     if (is_decayed(particle)) {

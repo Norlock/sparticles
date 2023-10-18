@@ -8,7 +8,8 @@ use crate::{
 use egui::{Color32, RichText, Slider, Ui, Window};
 use egui_wgpu::wgpu;
 use egui_winit::egui::{
-    self, epaint::TextureManager, ComboBox, ImageButton, ImageData, TextureHandle, TextureId,
+    self, epaint::TextureManager, load::SizedTexture, ComboBox, ImageButton, ImageData,
+    TextureHandle, TextureId,
 };
 use std::{collections::HashMap, path::PathBuf};
 
@@ -435,7 +436,7 @@ impl GuiState {
                     .get(TRASH_ID)
                     .expect("Trash icon doesn't exist");
 
-                let trash_img = (*trash_id, [16., 16.].into());
+                let trash_img = SizedTexture::new(*trash_id, [16., 16.]);
                 if ui.add(ImageButton::new(trash_img)).clicked() {
                     selected_action = ItemAction::Delete;
                 };
@@ -445,7 +446,7 @@ impl GuiState {
                     .get(CHEVRON_UP_ID)
                     .expect("Chevron up icon doesn't exist");
 
-                let up_img = (*up_id, [16., 16.].into());
+                let up_img = SizedTexture::new(*up_id, [16., 16.]);
                 if ui.add(ImageButton::new(up_img)).clicked() {
                     selected_action = ItemAction::MoveUp;
                 };
@@ -455,7 +456,7 @@ impl GuiState {
                     .get(CHEVRON_DOWN_ID)
                     .expect("Chevron down icon doesn't exist");
 
-                let down_img = (*down_id, [16., 16.].into());
+                let down_img = SizedTexture::new(*down_id, [16., 16.]);
                 if ui.add(ImageButton::new(down_img)).clicked() {
                     selected_action = ItemAction::MoveDown;
                 };
