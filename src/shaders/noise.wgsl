@@ -28,8 +28,9 @@ fn worley(n: vec2<f32>, s: f32) -> f32 {
 // copy from https://www.shadertoy.com/view/4sc3z2
 
 
-fn hash33(p3: vec3<f32>) -> vec3<f32> {
-    var p3 = p3;
+// TODO pointer
+fn hash33(p3a: vec3<f32>) -> vec3<f32> {
+    var p3 = p3a;
     let MOD3 = vec3<f32>(.1031,.11369,.13787);
 	p3 = fract(p3 * MOD3);
     p3 += dot(p3, p3.yxz+19.19);
@@ -62,8 +63,8 @@ fn perlin_noise(p: vec3<f32>) -> f32 {
     			w.y);
 }
 
-fn create_layers(v_pos: vec2<f32>, normal: f32, idx: f32, time: f32) -> vec3<f32> {
-    var idx = idx;
+fn create_layers(v_pos: vec2<f32>, normal: f32, idxa: f32, time: f32) -> vec3<f32> {
+    var idx = idxa;
     var sum = vec3<f32>(0.0);
     var amp = 1.;
     var scale = 2.;
