@@ -2,8 +2,8 @@
 @group(0) @binding(1) var read_fx: binding_array<texture_2d<f32>, 32>;
 @group(0) @binding(2) var fx_blend: texture_storage_2d<rgba8unorm, read_write>;
 
-@group(1) @binding(0) var<uniform> fx_meta: FxMeta; 
-@group(2) @binding(0) var<uniform> globals: GaussianBlur; 
+@group(1) @binding(0) var<uniform> globals: GaussianBlur; 
+@group(1) @binding(1) var<uniform> fx_meta: FxMeta; 
 
 @compute
 @workgroup_size(8, 8, 1)

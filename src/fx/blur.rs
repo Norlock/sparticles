@@ -9,9 +9,10 @@ use crate::util::CommonBuffer;
 use crate::util::DynamicExport;
 use crate::util::ItemAction;
 use crate::util::UniformCompute;
-use egui_wgpu::wgpu::{self, util::DeviceExt};
+use egui_wgpu::wgpu;
 use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
+use encase::private::WriteInto;
 use encase::ShaderType;
 use serde::Deserialize;
 use serde::Serialize;
@@ -22,10 +23,11 @@ pub struct Blur {
     upscale_pipeline: wgpu::ComputePipeline,
     bind_group: wgpu::BindGroup,
 
-    pub meta_compute: MetaUniformCompute,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub blur_uniform: BlurUniform,
     pub blur_buffer: wgpu::Buffer,
+    pub meta_uniform: FxMetaUniform,
+    pub meta_buffer: wgpu::Buffer,
     pub passes: usize,
     pub update_uniform: bool,
 
@@ -88,8 +90,7 @@ impl PostFx for Blur {
         // Splits parts to fx tex
         c_pass.set_pipeline(&self.split_pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
-        c_pass.set_bind_group(1, &self.meta_compute.bind_group, &[]);
-        c_pass.set_bind_group(2, &self.bind_group, &[]);
+        c_pass.set_bind_group(1, &self.bind_group, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
         *ping_pong_idx += 1;
@@ -98,8 +99,7 @@ impl PostFx for Blur {
         for _ in 0..self.passes {
             c_pass.set_pipeline(&self.blur_pipeline);
             c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
-            c_pass.set_bind_group(1, &self.meta_compute.bind_group, &[]);
-            c_pass.set_bind_group(2, &self.bind_group, &[]);
+            c_pass.set_bind_group(1, &self.bind_group, &[]);
             c_pass.dispatch_workgroups(count_x, count_y, 1);
 
             *ping_pong_idx += 1;
@@ -107,8 +107,7 @@ impl PostFx for Blur {
 
         c_pass.set_pipeline(&self.upscale_pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
-        c_pass.set_bind_group(1, &self.meta_compute.bind_group, &[]);
-        c_pass.set_bind_group(2, &self.bind_group, &[]);
+        c_pass.set_bind_group(1, &self.bind_group, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
 
         *ping_pong_idx += 1;
@@ -173,7 +172,7 @@ impl Blur {
     pub fn export(&self) -> BlurSettings {
         BlurSettings {
             uniform: self.blur_uniform,
-            fx_meta: self.meta_compute.uniform,
+            fx_meta: self.meta_uniform,
             passes: self.passes,
         }
     }
@@ -188,23 +187,27 @@ impl Blur {
 
         let blur_uniform = blur_settings.uniform;
         let passes = blur_settings.passes;
-        let fx_meta = blur_settings.fx_meta;
+        let meta_uniform = blur_settings.fx_meta;
 
-        let meta_compute = fx_meta.into_compute(device);
         let blur_shader = device.create_shader("fx/gaussian_blur.wgsl", "Gaussian blur");
 
+        let blur_content = CommonBuffer::uniform_content(&blur_uniform);
+        let meta_content = CommonBuffer::uniform_content(&meta_uniform);
+
         let UniformCompute {
-            buffer: blur_buffer,
+            mut buffers,
             bind_group,
             bind_group_layout,
-        } = UniformCompute::new(&blur_uniform, device, "Gaussian blur");
+        } = UniformCompute::new(&[&blur_content, &meta_content], device, "Gaussian blur");
+
+        let meta_buffer = buffers.pop().unwrap();
+        let blur_buffer = buffers.pop().unwrap();
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Split layout"),
             bind_group_layouts: &[
-                &fx_state.bind_group_layout,     // input
-                &meta_compute.bind_group_layout, // meta
-                &bind_group_layout,              // blur
+                &fx_state.bind_group_layout, // input
+                &bind_group_layout,          // blur + meta
             ],
             push_constant_ranges: &[],
         });
@@ -229,7 +232,8 @@ impl Blur {
             blur_buffer,
             blur_uniform,
             split_pipeline,
-            meta_compute,
+            meta_buffer,
+            meta_uniform,
             passes,
             update_uniform: false,
             upscale_pipeline,

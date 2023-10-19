@@ -466,7 +466,6 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 [[package]]
 name = "ecolor"
 version = "0.23.0"
-source = "git+https://github.com/Norlock/egui.git#a97c5fa246a0c3e7869a2ca5ce8eb12f5435d961"
 dependencies = [
  "bytemuck",
 ]
@@ -474,7 +473,6 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.23.0"
-source = "git+https://github.com/Norlock/egui.git#a97c5fa246a0c3e7869a2ca5ce8eb12f5435d961"
 dependencies = [
  "ahash 0.8.3",
  "epaint",
@@ -485,7 +483,6 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.23.0"
-source = "git+https://github.com/Norlock/egui.git#a97c5fa246a0c3e7869a2ca5ce8eb12f5435d961"
 dependencies = [
  "bytemuck",
  "epaint",
@@ -498,7 +495,6 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.23.0"
-source = "git+https://github.com/Norlock/egui.git#a97c5fa246a0c3e7869a2ca5ce8eb12f5435d961"
 dependencies = [
  "arboard",
  "egui",
@@ -519,7 +515,6 @@ checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 [[package]]
 name = "emath"
 version = "0.23.0"
-source = "git+https://github.com/Norlock/egui.git#a97c5fa246a0c3e7869a2ca5ce8eb12f5435d961"
 dependencies = [
  "bytemuck",
 ]
@@ -571,7 +566,6 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.23.0"
-source = "git+https://github.com/Norlock/egui.git#a97c5fa246a0c3e7869a2ca5ce8eb12f5435d961"
 dependencies = [
  "ab_glyph",
  "ahash 0.8.3",
@@ -786,6 +780,10 @@ name = "glam"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5418c17512bdf42730f9032c74e1ae39afc408745ebb2acf72fbc4691c17945"
+dependencies = [
+ "bytemuck",
+ "serde",
+]
 
 [[package]]
 name = "glow"

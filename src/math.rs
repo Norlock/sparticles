@@ -4,6 +4,8 @@ use std::{num::NonZeroU64, ops::Deref};
 
 use crate::traits::{CalculateBufferSize, HandleAngles};
 use egui_wgpu::wgpu;
+use encase::private::{Metadata, WriteInto};
+use encase::ShaderType;
 use glam::{Vec2, Vec3, Vec4};
 use serde::de::{self, Deserialize, Deserializer, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
@@ -76,6 +78,17 @@ pub struct SparVec2(pub Vec2);
 pub struct SparVec3(pub Vec3);
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct SparVec4(pub Vec4);
+
+//impl ShaderType for SparVec4 {
+//const METADATA: Metadata<Self::ExtraMetadata> =
+//fn size(&self) -> NonZeroU64 {
+//NonZeroU64::new(16).unwrap()
+//}
+
+//fn min_size() -> NonZeroU64 {
+//NonZeroU64::new(16).unwrap()
+//}
+//}
 
 // -------- Deref / DerefMut --------------
 impl Deref for SparVec2 {

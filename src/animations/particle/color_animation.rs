@@ -2,19 +2,21 @@ use crate::{
     math::SparVec4,
     model::{Clock, EmitterState, GfxState, GuiState},
     traits::*,
-    util::persistence::DynamicExport,
-    util::ItemAction,
+    util::{persistence::DynamicExport, UniformCompute},
+    util::{CommonBuffer, ItemAction},
 };
 use egui_wgpu::wgpu;
-use egui_winit::egui::{DragValue, Ui};
+use egui_winit::egui::{
+    color_picker::{color_edit_button_rgba, Alpha},
+    DragValue, Rgba, Ui,
+};
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
-use wgpu::util::DeviceExt;
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ColorUniform {
-    pub from_color: SparVec4,
-    pub to_color: SparVec4,
+    pub from_color: Vec4,
+    pub to_color: Vec4,
     pub from_sec: f32,
     pub until_sec: f32,
 }
@@ -22,17 +24,17 @@ pub struct ColorUniform {
 impl Default for ColorUniform {
     fn default() -> Self {
         Self {
+            from_color: Vec4::from_rgb(0, 255, 0),
+            to_color: Vec4::from_rgb(0, 0, 255),
             from_sec: 0.,
             until_sec: 0.5,
-            from_color: Vec4::from_rgb(0, 255, 0).into(),
-            to_color: Vec4::from_rgb(0, 0, 255).into(),
         }
     }
 }
 
 impl ColorUniform {
-    fn create_buffer_content(&self) -> Vec<f32> {
-        vec![
+    fn create_buffer_content(&self) -> Vec<u8> {
+        let raw = [
             self.from_color.x,
             self.from_color.y,
             self.from_color.z,
@@ -43,7 +45,9 @@ impl ColorUniform {
             self.to_color.w,
             self.from_sec,
             self.until_sec,
-        ]
+        ];
+
+        bytemuck::cast_slice(&raw).to_vec()
     }
 }
 
@@ -89,7 +93,7 @@ impl RegisterParticleAnimation for RegisterColorAnimation {
 
 struct ColorAnimation {
     pipeline: wgpu::ComputePipeline,
-    animation_bind_group: wgpu::BindGroup,
+    bind_group: wgpu::BindGroup,
     uniform: ColorUniform,
     buffer: wgpu::Buffer,
     update_uniform: bool,
@@ -120,9 +124,8 @@ impl HandleAction for ColorAnimation {
 impl ParticleAnimation for ColorAnimation {
     fn update(&mut self, _clock: &Clock, gfx_state: &GfxState) {
         if self.update_uniform {
-            let buf_content_raw = self.uniform.create_buffer_content();
-            let buf_content = bytemuck::cast_slice(&buf_content_raw);
-            gfx_state.queue.write_buffer(&self.buffer, 0, buf_content);
+            let buf_content = self.uniform.create_buffer_content();
+            gfx_state.queue.write_buffer(&self.buffer, 0, &buf_content);
             self.update_uniform = false;
         }
     }
@@ -137,7 +140,7 @@ impl ParticleAnimation for ColorAnimation {
 
         compute_pass.set_pipeline(&self.pipeline);
         compute_pass.set_bind_group(0, &spawner.bind_groups[nr], &[]);
-        compute_pass.set_bind_group(1, &self.animation_bind_group, &[]);
+        compute_pass.set_bind_group(1, &self.bind_group, &[]);
         compute_pass.dispatch_workgroups(spawner.dispatch_x_count, 1, 1);
     }
 
@@ -164,33 +167,21 @@ impl ParticleAnimation for ColorAnimation {
             ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
         });
 
-        fn color_drag_value(val: &mut f32) -> DragValue<'_> {
-            DragValue::new(val).clamp_range(0f32..=1f32).speed(0.01)
-        }
+        let mut from_color = Rgba(gui.from_color.to_array());
+        let mut to_color = Rgba(gui.to_color.to_array());
 
         ui.horizontal(|ui| {
-            ui.label("From color >");
-            ui.label("r:");
-            ui.add(color_drag_value(&mut gui.from_color.x));
-            ui.label("g:");
-            ui.add(color_drag_value(&mut gui.from_color.y));
-            ui.label("b:");
-            ui.add(color_drag_value(&mut gui.from_color.z));
-            ui.label("a:");
-            ui.add(color_drag_value(&mut gui.from_color.w));
+            ui.label("From color: ");
+            color_edit_button_rgba(ui, &mut from_color, Alpha::Opaque);
         });
 
         ui.horizontal(|ui| {
-            ui.label("To color >");
-            ui.label("r:");
-            ui.add(color_drag_value(&mut gui.to_color.x));
-            ui.label("g:");
-            ui.add(color_drag_value(&mut gui.to_color.y));
-            ui.label("b:");
-            ui.add(color_drag_value(&mut gui.to_color.z));
-            ui.label("a:");
-            ui.add(color_drag_value(&mut gui.to_color.w));
+            ui.label("To color: ");
+            color_edit_button_rgba(ui, &mut to_color, Alpha::Opaque);
         });
+
+        gui.from_color = from_color.0.into();
+        gui.to_color = to_color.0.into();
 
         if self.uniform != gui {
             self.update_uniform = true;
@@ -200,47 +191,25 @@ impl ParticleAnimation for ColorAnimation {
 }
 
 impl ColorAnimation {
-    fn new(uniform: ColorUniform, spawner: &EmitterState, gfx_state: &GfxState) -> Self {
+    fn new(uniform: ColorUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
         let shader = device.create_shader("color_anim.wgsl", "Color animation");
 
-        let animation_uniform = uniform.create_buffer_content();
+        let buffer_content = uniform.create_buffer_content();
 
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Color buffer"),
-            contents: bytemuck::cast_slice(&animation_uniform),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
+        println!("content: {:?}", buffer_content);
 
-        let animation_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                // Uniform data
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: animation_uniform.cal_buffer_size(),
-                    },
-                    count: None,
-                },
-            ],
-            label: None,
-        });
+        let UniformCompute {
+            mut buffers,
+            bind_group,
+            bind_group_layout,
+        } = UniformCompute::new(&[&buffer_content], device, "Color animation");
 
-        let animation_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &animation_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-            label: Some("Color animation"),
-        });
+        let buffer = buffers.pop().unwrap();
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Compute layout"),
-            bind_group_layouts: &[&spawner.bind_group_layout, &animation_layout],
+            bind_group_layouts: &[&emitter.bind_group_layout, &bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -253,7 +222,7 @@ impl ColorAnimation {
 
         Self {
             pipeline,
-            animation_bind_group,
+            bind_group,
             buffer,
             uniform,
             update_uniform: false,

@@ -91,7 +91,7 @@ impl HandleAction for Bloom {
         let bloom_settings = BloomSettings {
             blend: self.blend.meta_compute.uniform,
             blur: BlurSettings {
-                fx_meta: self.blur.meta_compute.uniform,
+                fx_meta: self.blur.meta_uniform,
                 uniform: self.blur.blur_uniform,
                 passes: self.blur.passes,
             },

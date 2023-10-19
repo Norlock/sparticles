@@ -92,8 +92,8 @@ impl AppSettings for CustomSettings {
                 ColorUniform {
                     from_sec: 0.,
                     until_sec: 0.5,
-                    from_color: SparVec4::from_rgb(0, 255, 0),
-                    to_color: SparVec4::from_rgb(0, 0, 255),
+                    from_color: Vec4::from_rgb(0, 255, 0),
+                    to_color: Vec4::from_rgb(0, 0, 255),
                 },
                 emitter,
                 gfx_state,

@@ -8,7 +8,6 @@ use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::{self, Slider};
 use encase::{ShaderType, UniformBuffer};
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroU64;
 
 #[allow(unused)]
 pub struct ColorProcessing {
@@ -112,11 +111,13 @@ impl ColorProcessing {
 
         let device = &gfx_state.device;
 
+        let uniform_content = CommonBuffer::uniform_content(&uniform);
+
         let UniformCompute {
-            buffer,
+            mut buffers,
             bind_group,
             bind_group_layout,
-        } = UniformCompute::new(&uniform, device, "Color processing");
+        } = UniformCompute::new(&[&uniform_content], device, "Color processing");
 
         let shader = device.create_shader("fx/color_correction.wgsl", "Color correction");
 
@@ -138,7 +139,7 @@ impl ColorProcessing {
 
         Self {
             uniform,
-            buffer,
+            buffer: buffers.remove(0),
             bind_group_layout,
             bind_group,
             pipeline,
