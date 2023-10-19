@@ -8,11 +8,11 @@
 fn additive(@builtin(global_invocation_id) pos: vec3<u32>) {
     let fx_size = textureDimensions(fx_blend);
 
-    if any(fx_size < pos) {
-        return;
-    }
+    //if any(fx_size < pos) {
+    //    return;
+    //}
 
-    let frame_color = textureLoad(fx_blend, pos.xy, 0).rgb;
+    let frame_color = textureLoad(fx_blend, pos.xy).rgb;
     let fx_color = textureLoad(read_fx[fx_meta.in_idx], pos.xy, 0).rgb;
 
     let result = frame_color + fx_color;

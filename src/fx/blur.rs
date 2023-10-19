@@ -19,6 +19,7 @@ use std::num::NonZeroU64;
 pub struct Blur {
     blur_pipeline: wgpu::ComputePipeline,
     split_pipeline: wgpu::ComputePipeline,
+    upscale_pipeline: wgpu::ComputePipeline,
     bind_group: wgpu::BindGroup,
 
     pub meta_compute: MetaUniformCompute,
@@ -70,6 +71,7 @@ impl PostFx for Blur {
 
             let buffer_content = CommonBuffer::uniform_content(&self.blur_uniform);
             queue.write_buffer(&self.blur_buffer, 0, &buffer_content);
+            self.update_uniform = false;
         }
     }
 
@@ -101,6 +103,14 @@ impl PostFx for Blur {
 
             *ping_pong_idx += 1;
         }
+
+        c_pass.set_pipeline(&self.upscale_pipeline);
+        c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
+        c_pass.set_bind_group(1, &self.meta_compute.bind_group, &[]);
+        c_pass.set_bind_group(2, &self.bind_group, &[]);
+        c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
+
+        *ping_pong_idx += 1;
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
@@ -234,6 +244,7 @@ impl Blur {
 
         let blur_pipeline = new_pipeline("apply_blur");
         let split_pipeline = new_pipeline("split_bloom");
+        let upscale_pipeline = new_pipeline("upscale");
 
         Self {
             blur_pipeline,
@@ -245,6 +256,7 @@ impl Blur {
             meta_compute,
             passes,
             update_uniform: false,
+            upscale_pipeline,
         }
     }
 }

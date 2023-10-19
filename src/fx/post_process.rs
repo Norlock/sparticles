@@ -46,6 +46,16 @@ pub struct MetaUniformCompute {
 }
 
 impl FxMetaUniform {
+    pub fn create_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
+        let contents = CommonBuffer::uniform_content(&self);
+
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Meta uniform"),
+            contents: &contents,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        })
+    }
+
     pub fn into_compute(self, device: &wgpu::Device) -> MetaUniformCompute {
         let contents = CommonBuffer::uniform_content(&self);
 
@@ -321,22 +331,7 @@ impl FxState {
         }
 
         let mut bind_groups = Vec::new();
-        let blend_view = device
-            .create_texture(&wgpu::TextureDescriptor {
-                label: None,
-                size: wgpu::Extent3d {
-                    width: gfx_state.surface_config.width,
-                    height: gfx_state.surface_config.height,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                view_formats: &[],
-                dimension: wgpu::TextureDimension::D2,
-                format: PostProcessState::TEXTURE_FORMAT,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING,
-            })
-            .default_view();
+        let blend_view = gfx_state.create_fx_view();
 
         let ping_refs: Vec<&wgpu::TextureView> = ping_views.iter().map(|v| v).collect();
         let pong_refs: Vec<&wgpu::TextureView> = pong_views.iter().map(|v| v).collect();

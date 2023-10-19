@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 egui-winit = {path = "../egui/crates/egui-winit"}
-egui-wgpu = { path = "../egui/crates/egui-wgpu"}
+egui-wgpu = {path = "../egui/crates/egui-wgpu"}
 glam = "0.24.2"
 pollster = "0.3.0"
 image = { version = "0.24.7", features = ["png", "jpeg"] }

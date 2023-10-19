@@ -25,7 +25,7 @@ fn apply_blur(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             var offset = vec2<i32>(x, y);
             var nb_pos = pos + offset;
 
-            if all(0 < nb_pos) && all(nb_pos < size) {
+            if all(vec2<i32>(0) < nb_pos) && all(nb_pos < size) {
                 var xf = f32(x);
                 var yf = f32(y);
 
@@ -48,18 +48,15 @@ fn apply_blur(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let pos = global_invocation_id.xy;
 
-    let frame_size;
-    let in_tex;
+    var frame_size: vec2<u32>;
 
     if fx_meta.in_idx == -1 {
-        in_tex = fx_blend;
         frame_size = vec2<u32>(textureDimensions(fx_blend));
     } else {
-        in_tex = read_fx[fx_meta.in_idx];
-        frame_size = vec2<u32>(textureDimensions(in_tex));
+        frame_size = vec2<u32>(textureDimensions(read_fx[fx_meta.in_idx]));
     }
 
-    let fx_size_f32 = ceil(vec2<f32>(frame_size) / f32(fx_meta.out_downscale));
+    let fx_size_f32 = ceil(vec2<f32>(frame_size) / f32(globals.downscale));
     let fx_size = vec2<u32>(fx_size_f32);
 
     if any(fx_size < pos) {
@@ -77,7 +74,11 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     for (var x = start_x; x < end_x; x++) {
         for (var y = start_y; y < end_y; y++) {
             if x < frame_size.x && y < frame_size.y {
-                result += textureLoad(in_tex, vec2<u32>(x, y), 0).rgb;
+                if fx_meta.in_idx == -1 {
+                    result += textureLoad(fx_blend, vec2<u32>(x, y)).rgb;
+                } else {
+                    result += textureLoad(read_fx[fx_meta.in_idx], vec2<u32>(x, y), 0).rgb;
+                }
                 weight++;
             }
         }
@@ -86,7 +87,7 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Averaging out
     result /= f32(weight); 
 
-    if any(globals.br_treshold < result) {
+    if any(vec3<f32>(globals.br_treshold) < result) {
         // Convert to HDR
         textureStore(write_fx[fx_meta.out_idx], pos, vec4<f32>(result * globals.hdr_mul, 1.0));
     } else {
@@ -120,6 +121,7 @@ fn get_neighbour_x(pos: vec2<f32>, color: vec3<f32>, scale: f32, max_x: f32) -> 
     let fx_pos = pos / scale;
     let local_pos = pos.x % scale;
     let center = scale / 2.;
+    let read_tex = read_fx[fx_meta.out_idx];
 
     if local_pos == center {
         return color;
@@ -132,14 +134,14 @@ fn get_neighbour_x(pos: vec2<f32>, color: vec3<f32>, scale: f32, max_x: f32) -> 
         // right neighbour
         let nb_pos = fx_pos + get_offset(false);
         if nb_pos.x < max_x {
-            let nb_col = textureLoad(src_texture, vec2<u32>(nb_pos), 0).rgb;
+            let nb_col = textureLoad(read_tex, vec2<u32>(nb_pos), 0).rgb;
             return mix(color, nb_col, pct);
         }
     } else {
         // left neighbour
         let nb_pos = fx_pos - get_offset(false);
         if 0. <= nb_pos.x {
-            let nb_col = textureLoad(src_texture, vec2<u32>(nb_pos), 0).rgb;
+            let nb_col = textureLoad(read_tex, vec2<u32>(nb_pos), 0).rgb;
             return mix(color, nb_col, pct);
         }
 
@@ -151,6 +153,7 @@ fn get_neighbour_y(pos: vec2<f32>, color: vec3<f32>, scale: f32, max_y: f32) -> 
     let fx_pos = pos / scale;
     let local_pos = pos.y % scale;
     let center = scale / 2.;
+    let read_tex = read_fx[fx_meta.out_idx];
 
     if local_pos == center {
         return color;
@@ -163,14 +166,14 @@ fn get_neighbour_y(pos: vec2<f32>, color: vec3<f32>, scale: f32, max_y: f32) -> 
         // down neighbour
         let nb_pos = fx_pos + get_offset(false);
         if nb_pos.y < max_y {
-            let nb_col = textureLoad(src_texture, vec2<u32>(nb_pos), 0).rgb;
+            let nb_col = textureLoad(read_tex, vec2<u32>(nb_pos), 0).rgb;
             return mix(color, nb_col, pct);
         }
     } else {
         // up neighbour
         let nb_pos = fx_pos - get_offset(false);
         if 0. <= nb_pos.y {
-            let nb_col = textureLoad(src_texture, vec2<u32>(nb_pos), 0).rgb;
+            let nb_col = textureLoad(read_tex, vec2<u32>(nb_pos), 0).rgb;
             return mix(color, nb_col, pct);
         }
     }
@@ -181,19 +184,21 @@ fn get_neighbour_y(pos: vec2<f32>, color: vec3<f32>, scale: f32, max_y: f32) -> 
 @compute
 @workgroup_size(8, 8, 1)
 fn upscale(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-    let fx_size = textureDimensions(fx_blend);
-    let pos = global_invocation_id.xy;
+    let fx_size = vec2<f32>(textureDimensions(fx_blend));
+    let pos = vec2<f32>(global_invocation_id.xy);
 
     if any(fx_size < pos) {
         return;
     }
 
-    let scale = globals.downscale;
+    let scale = f32(globals.downscale);
 
-    var result = textureLoad(src_texture, vec2<u32>(pos / scale), 0).rgb;
+    let read_tex = read_fx[fx_meta.out_idx];
+    var result = textureLoad(read_tex, vec2<u32>(pos / scale), 0).rgb;
 
     result = get_neighbour_x(pos, result, scale, fx_size.x);
     result = get_neighbour_y(pos, result, scale, fx_size.y);
 
-    textureStore(dst_texture, vec2<u32>(pos), vec4<f32>(result, 1.0));
+    let write_tex = write_fx[fx_meta.out_idx];
+    textureStore(write_tex, vec2<u32>(pos), vec4<f32>(result, 1.0));
 }
