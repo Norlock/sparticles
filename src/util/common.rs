@@ -39,6 +39,7 @@ pub struct CommonBuffer;
 
 impl UniformCompute {
     pub fn new(
+        // TODO array of uniform in case of more meta + global
         uniform: &(impl ShaderType + WriteInto),
         device: &wgpu::Device,
         label: &str,

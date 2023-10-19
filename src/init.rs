@@ -166,14 +166,12 @@ impl InitSettings {
         gfx_state: &GfxState,
         camera: &Camera,
     ) -> InitEmitters {
-        // TODO as hashmap
         let mut registered_par_anims = app_settings.register_custom_particle_animations();
         registered_par_anims.push(Box::new(RegisterColorAnimation));
         registered_par_anims.push(Box::new(RegisterForceAnimation));
         registered_par_anims.push(Box::new(RegisterGravityAnimation));
         registered_par_anims.push(Box::new(RegisterStrayAnimation));
 
-        // TODO as hashmap
         let mut registered_em_anims = app_settings.register_custom_emitter_animations();
         registered_em_anims.push(Box::new(RegisterSwayAnimation));
         registered_em_anims.push(Box::new(RegisterDiffusionAnimation));

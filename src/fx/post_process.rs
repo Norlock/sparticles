@@ -106,7 +106,6 @@ impl PostProcessState {
         self.fx_state = FxState::new(gfx_state);
     }
 
-    // TODO return idx of bindgroup
     pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) -> usize {
         let pp = &mut state.post_process;
 
@@ -116,7 +115,7 @@ impl PostProcessState {
         });
 
         c_pass.set_pipeline(&pp.initialize_pipeline);
-        c_pass.set_bind_group(0, pp.fx_state.bind_group(0), &[]);
+        c_pass.set_bind_group(0, pp.fx_state.bind_group(1), &[]);
         c_pass.dispatch_workgroups(pp.fx_state.count_x, pp.fx_state.count_y, 1);
 
         let mut ping_pong_idx = 0;

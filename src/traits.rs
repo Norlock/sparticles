@@ -91,7 +91,6 @@ pub trait EmitterAnimation: HandleAction {
 pub trait PostFx: HandleAction {
     fn update(&mut self, gfx_state: &GfxState) {}
 
-    // TODO pass reserved index with bgr
     fn compute<'a>(
         &'a self,
         ping_pong_idx: &mut usize,
