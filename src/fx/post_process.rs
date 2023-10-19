@@ -102,6 +102,7 @@ impl PostProcessState {
 
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Post process pipeline"),
+            timestamp_writes: None,
         });
 
         c_pass.set_pipeline(&pp.initialize_pipeline);
@@ -132,10 +133,12 @@ impl PostProcessState {
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: true,
+                    store: wgpu::StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
+            occlusion_query_set: None,
+            timestamp_writes: None,
         });
 
         let pp = &mut state.post_process;

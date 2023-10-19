@@ -1,5 +1,3 @@
-use std::iter;
-
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::CommandEncoder;
@@ -12,6 +10,7 @@ use egui_winit::egui::FontFamily;
 use egui_winit::winit;
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::EventResponse;
+use std::iter;
 use winit::dpi::PhysicalSize;
 use winit::window;
 

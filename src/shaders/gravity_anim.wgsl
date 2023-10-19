@@ -37,9 +37,10 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let current_pos = vec3<f32>(force.current_pos_x, force.current_pos_y, force.current_pos_z);
     let distance = current_pos - particle_center;
 
-    if all(abs(distance) < force.dead_zone) {
-        return;
-    }
+    // TODO FIX
+    //if all(abs(distance) < force.dead_zone) {
+    //    return;
+    //}
 
     let distance_pow_x = distance.x * distance.x;
     let distance_pow_y = distance.y * distance.y;
