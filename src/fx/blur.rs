@@ -8,13 +8,13 @@ use crate::traits::*;
 use crate::util::CommonBuffer;
 use crate::util::DynamicExport;
 use crate::util::ItemAction;
+use crate::util::UniformCompute;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
 use encase::ShaderType;
 use serde::Deserialize;
 use serde::Serialize;
-use std::num::NonZeroU64;
 
 pub struct Blur {
     blur_pipeline: wgpu::ComputePipeline,
@@ -28,11 +28,12 @@ pub struct Blur {
     pub blur_buffer: wgpu::Buffer,
     pub passes: usize,
     pub update_uniform: bool,
+
+    selected_action: ItemAction,
 }
 
 #[derive(ShaderType, Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct BlurUniform {
-    /// 0.10 - 0.15 is reasonable
     pub brightness_threshold: f32,
 
     pub downscale: u32,
@@ -68,8 +69,8 @@ impl PostFx for Blur {
     fn update(&mut self, gfx_state: &GfxState) {
         if self.update_uniform {
             let queue = &gfx_state.queue;
-
             let buffer_content = CommonBuffer::uniform_content(&self.blur_uniform);
+
             queue.write_buffer(&self.blur_buffer, 0, &buffer_content);
             self.update_uniform = false;
         }
@@ -113,7 +114,7 @@ impl PostFx for Blur {
         *ping_pong_idx += 1;
     }
 
-    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
+    fn create_ui(&mut self, ui: &mut Ui, _: &GuiState) {
         let mut blur = self.blur_uniform;
 
         ui.label("Gaussian blur");
@@ -121,7 +122,7 @@ impl PostFx for Blur {
         ui.add(
             Slider::new(&mut blur.downscale, 4..=32)
                 .step_by(2.)
-                .text("Kernel size"),
+                .text("Downscale"),
         );
         ui.add(Slider::new(&mut blur.sigma, 0.1..=3.0).text("Blur sigma"));
         ui.add(Slider::new(&mut blur.hdr_mul, 0.1..=15.0).text("HDR multiplication"));
@@ -189,39 +190,14 @@ impl Blur {
         let passes = blur_settings.passes;
         let fx_meta = blur_settings.fx_meta;
 
-        let buffer_content = CommonBuffer::uniform_content(&blur_uniform);
         let meta_compute = fx_meta.into_compute(device);
-
         let blur_shader = device.create_shader("fx/gaussian_blur.wgsl", "Gaussian blur");
 
-        let blur_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Blur uniform"),
-            contents: &buffer_content,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Blur uniform layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: NonZeroU64::new(buffer_content.len() as u64),
-                },
-                count: None,
-            }],
-        });
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Blur uniform bind group"),
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: blur_buffer.as_entire_binding(),
-            }],
-        });
+        let UniformCompute {
+            buffer: blur_buffer,
+            bind_group,
+            bind_group_layout,
+        } = UniformCompute::new(&blur_uniform, device, "Gaussian blur");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Split layout"),
@@ -257,6 +233,7 @@ impl Blur {
             passes,
             update_uniform: false,
             upscale_pipeline,
+            selected_action: ItemAction::None,
         }
     }
 }

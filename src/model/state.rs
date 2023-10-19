@@ -28,6 +28,7 @@ impl State {
         self.clock.update();
 
         Camera::update(self);
+        PostProcessState::update(self);
         EmitterState::update_emitters(self);
         GuiState::process_gui(self);
     }

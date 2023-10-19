@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::num::{NonZeroU32, NonZeroU64};
 
 pub struct PostProcessState {
-    pub post_fx: Vec<Box<dyn PostFx>>,
+    pub effects: Vec<Box<dyn PostFx>>,
     pub fx_state: FxState,
 
     initialize_pipeline: wgpu::ComputePipeline,
@@ -106,6 +106,14 @@ impl PostProcessState {
         self.fx_state = FxState::new(gfx_state);
     }
 
+    pub fn update(state: &mut State) {
+        let effects = &mut state.post_process.effects;
+
+        for fx in effects {
+            fx.update(&state.gfx_state);
+        }
+    }
+
     pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) -> usize {
         let pp = &mut state.post_process;
 
@@ -120,7 +128,7 @@ impl PostProcessState {
 
         let mut ping_pong_idx = 0;
 
-        for fx in pp.post_fx.iter().filter(|fx| fx.enabled()) {
+        for fx in pp.effects.iter().filter(|fx| fx.enabled()) {
             fx.compute(&mut ping_pong_idx, &pp.fx_state, &mut c_pass);
         }
 
@@ -215,7 +223,7 @@ impl PostProcessState {
 
         Self {
             fx_state,
-            post_fx,
+            effects: post_fx,
             initialize_pipeline,
             finalize_pipeline,
         }

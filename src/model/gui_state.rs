@@ -388,7 +388,7 @@ impl GuiState {
             ..
         } = state;
 
-        let post_fx = &mut post_process.post_fx;
+        let post_fx = &mut post_process.effects;
 
         post_fx.retain_mut(|fx| {
             fx.create_ui(ui, gui);
