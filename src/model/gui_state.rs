@@ -2,7 +2,7 @@ use super::{EmitterState, GfxState, State};
 use crate::{
     fx::{post_process::CreateFxOptions, PostProcessState},
     texture::CustomTexture,
-    util::ItemAction,
+    util::ListAction,
     util::Persistence,
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
@@ -393,7 +393,7 @@ impl GuiState {
         post_fx.retain_mut(|fx| {
             fx.create_ui(ui, gui);
             ui.separator();
-            fx.selected_action() != &mut ItemAction::Delete
+            fx.selected_action() != &mut ListAction::Delete
         });
 
         ui.separator();
@@ -424,8 +424,9 @@ impl GuiState {
         ui.add_space(5.0);
     }
 
-    pub fn create_anim_header(&self, ui: &mut Ui, title: &str) -> ItemAction {
-        let mut selected_action = ItemAction::None;
+    /// Creates list item header
+    pub fn create_li_header(&self, ui: &mut Ui, title: &str) -> ListAction {
+        let mut selected_action = ListAction::None;
 
         ui.horizontal_top(|ui| {
             GuiState::create_title(ui, title);
@@ -438,7 +439,7 @@ impl GuiState {
 
                 let trash_img = SizedTexture::new(*trash_id, [16., 16.]);
                 if ui.add(ImageButton::new(trash_img)).clicked() {
-                    selected_action = ItemAction::Delete;
+                    selected_action = ListAction::Delete;
                 };
 
                 let up_id = self
@@ -448,7 +449,7 @@ impl GuiState {
 
                 let up_img = SizedTexture::new(*up_id, [16., 16.]);
                 if ui.add(ImageButton::new(up_img)).clicked() {
-                    selected_action = ItemAction::MoveUp;
+                    selected_action = ListAction::MoveUp;
                 };
 
                 let down_id = self
@@ -458,7 +459,7 @@ impl GuiState {
 
                 let down_img = SizedTexture::new(*down_id, [16., 16.]);
                 if ui.add(ImageButton::new(down_img)).clicked() {
-                    selected_action = ItemAction::MoveDown;
+                    selected_action = ListAction::MoveDown;
                 };
             });
         });

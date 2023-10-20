@@ -2,7 +2,7 @@ use super::{Camera, EmitterGuiState, EmitterUniform, GfxState, GuiState, State};
 use crate::traits::{CalculateBufferSize, CustomShader};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
-use crate::util::ItemAction;
+use crate::util::ListAction;
 use crate::util::Persistence;
 use egui_wgpu::wgpu;
 use egui_winit::egui::{ScrollArea, Ui};
@@ -67,13 +67,13 @@ impl<'a> EmitterState {
             while i < emitter.emitter_animations.len() {
                 let anims = &mut emitter.emitter_animations;
 
-                if anims[i].selected_action() == &mut ItemAction::Delete {
+                if anims[i].selected_action() == &mut ListAction::Delete {
                     anims.remove(i);
                     continue;
-                } else if 0 < i && anims[i].selected_action() == &mut ItemAction::MoveUp {
+                } else if 0 < i && anims[i].selected_action() == &mut ListAction::MoveUp {
                     anims[i].reset_action();
                     anims.swap(i, i - 1);
-                } else if 0 < i && anims[i - 1].selected_action() == &mut ItemAction::MoveDown {
+                } else if 0 < i && anims[i - 1].selected_action() == &mut ListAction::MoveDown {
                     anims[i - 1].reset_action();
                     anims.swap(i, i - 1);
                 }
@@ -95,13 +95,13 @@ impl<'a> EmitterState {
             while i < emitter.particle_animations.len() {
                 let anims = &mut emitter.particle_animations;
 
-                if anims[i].selected_action() == &mut ItemAction::Delete {
+                if anims[i].selected_action() == &mut ListAction::Delete {
                     anims.remove(i);
                     continue;
-                } else if 0 < i && anims[i].selected_action() == &mut ItemAction::MoveUp {
+                } else if 0 < i && anims[i].selected_action() == &mut ListAction::MoveUp {
                     anims[i].reset_action();
                     anims.swap(i, i - 1);
-                } else if 0 < i && anims[i - 1].selected_action() == &mut ItemAction::MoveDown {
+                } else if 0 < i && anims[i - 1].selected_action() == &mut ListAction::MoveDown {
                     anims[i - 1].reset_action();
                     anims.swap(i, i - 1);
                 }

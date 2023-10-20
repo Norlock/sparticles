@@ -5,7 +5,7 @@ use super::{
 use crate::{
     model::{GfxState, GuiState},
     traits::{CustomShader, HandleAction, PostFx},
-    util::{DynamicExport, ItemAction},
+    util::{DynamicExport, ListAction, UniformCompute},
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
@@ -13,7 +13,10 @@ use egui_winit::egui::Ui;
 pub struct Blend {
     additive_pipeline: wgpu::ComputePipeline,
     blend_type: BlendType,
-    pub meta_compute: MetaUniformCompute,
+    bind_group: wgpu::BindGroup,
+    bind_group_layout: wgpu::BindGroupLayout,
+    buffer: wgpu::Buffer,
+    pub meta_uniform: FxMetaUniform,
 }
 
 pub enum BlendType {
@@ -38,19 +41,19 @@ impl PostFx for Blend {
         }
 
         c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
-        c_pass.set_bind_group(1, &self.meta_compute.bind_group, &[]);
+        c_pass.set_bind_group(1, &self.bind_group, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
 
         *ping_pong_idx += 1;
     }
 
-    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {}
+    fn create_ui(&mut self, _ui: &mut Ui, _ui_state: &GuiState) {}
 
     fn update(&mut self, gfx_state: &GfxState) {}
 }
 
 impl HandleAction for Blend {
-    fn selected_action(&mut self) -> &mut ItemAction {
+    fn selected_action(&mut self) -> &mut ListAction {
         todo!()
     }
 
@@ -63,26 +66,35 @@ impl HandleAction for Blend {
     }
 
     fn enabled(&self) -> bool {
-        todo!()
+        true
     }
 }
 
 impl Blend {
-    pub fn new(options: &CreateFxOptions, blend_type: BlendType, fx_meta: FxMetaUniform) -> Self {
+    pub fn new(
+        options: &CreateFxOptions,
+        blend_type: BlendType,
+        meta_uniform: FxMetaUniform,
+    ) -> Self {
         let CreateFxOptions {
             gfx_state,
             fx_state,
         } = options;
 
         let device = &gfx_state.device;
-
         let blend_shader = device.create_shader("fx/blend.wgsl", "Blend");
 
-        let meta_compute = fx_meta.into_compute(device);
+        let content = meta_uniform.create_content();
+
+        let UniformCompute {
+            mut buffers,
+            bind_group,
+            bind_group_layout,
+        } = UniformCompute::new(&[&content], device, "Blend");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Blend layout"),
-            bind_group_layouts: &[&fx_state.bind_group_layout, &meta_compute.bind_group_layout],
+            bind_group_layouts: &[&fx_state.bind_group_layout, &bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -97,7 +109,10 @@ impl Blend {
         Self {
             additive_pipeline,
             blend_type,
-            meta_compute,
+            buffer: buffers.swap_remove(0),
+            bind_group,
+            bind_group_layout,
+            meta_uniform,
         }
     }
 }

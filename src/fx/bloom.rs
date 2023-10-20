@@ -9,7 +9,7 @@ use crate::model::GfxState;
 use crate::model::GuiState;
 use crate::traits::*;
 use crate::util::DynamicExport;
-use crate::util::ItemAction;
+use crate::util::ListAction;
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
 use serde::Deserialize;
@@ -19,7 +19,7 @@ pub struct Bloom {
     blur: Blur,
     blend: Blend,
     enabled: bool,
-    selected_action: ItemAction,
+    selected_action: ListAction,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -66,16 +66,12 @@ impl PostFx for Bloom {
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-        GuiState::create_title(ui, "Bloom settings");
+        self.selected_action = ui_state.create_li_header(ui, "Bloom settings");
         ui.add_space(5.0);
 
         self.blur.create_ui(ui, ui_state);
 
         ui.checkbox(&mut self.enabled, "Enabled");
-
-        if ui.button("Delete").clicked() {
-            self.selected_action = ItemAction::Delete;
-        }
     }
 
     fn update(&mut self, gfx_state: &GfxState) {
@@ -84,17 +80,17 @@ impl PostFx for Bloom {
 }
 
 impl HandleAction for Bloom {
-    fn selected_action(&mut self) -> &mut ItemAction {
+    fn selected_action(&mut self) -> &mut ListAction {
         &mut self.selected_action
     }
 
     fn reset_action(&mut self) {
-        todo!()
+        self.selected_action = ListAction::None
     }
 
     fn export(&self) -> DynamicExport {
         let bloom_settings = BloomSettings {
-            blend: self.blend.meta_compute.uniform,
+            blend: self.blend.meta_uniform,
             blur: BlurSettings {
                 fx_meta: self.blur.meta_uniform,
                 uniform: self.blur.blur_uniform,
@@ -123,7 +119,7 @@ impl Bloom {
         Self {
             blur,
             blend,
-            selected_action: ItemAction::None,
+            selected_action: ListAction::None,
             enabled: true,
         }
     }

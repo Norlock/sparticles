@@ -2,7 +2,7 @@ use crate::{
     model::{Clock, EmitterUniform, GuiState, LifeCycle},
     traits::{EmitterAnimation, HandleAction, HandleAngles, RegisterEmitterAnimation},
     util::persistence::DynamicExport,
-    util::ItemAction,
+    util::ListAction,
 };
 use egui_winit::egui::{DragValue, Ui};
 use glam::Vec2;
@@ -24,7 +24,7 @@ pub struct SwayAnimation {
     gui: Gui,
 
     #[serde(skip_serializing, skip_deserializing)]
-    selected_action: ItemAction,
+    selected_action: ListAction,
 }
 
 #[derive(Clone, Copy)]
@@ -69,7 +69,7 @@ impl SwayAnimation {
             yaw: yaw_deg.to_radians().into(),
             pitch: pitch_deg.to_radians().into(),
             roll: roll_deg.to_radians().into(),
-            selected_action: ItemAction::None,
+            selected_action: ListAction::None,
             gui,
         }
     }
@@ -77,10 +77,10 @@ impl SwayAnimation {
 
 impl HandleAction for SwayAnimation {
     fn reset_action(&mut self) {
-        self.selected_action = ItemAction::None;
+        self.selected_action = ListAction::None;
     }
 
-    fn selected_action(&mut self) -> &mut ItemAction {
+    fn selected_action(&mut self) -> &mut ListAction {
         &mut self.selected_action
     }
 
@@ -112,7 +112,7 @@ impl EmitterAnimation for SwayAnimation {
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-        self.selected_action = ui_state.create_anim_header(ui, "Sway animation");
+        self.selected_action = ui_state.create_li_header(ui, "Sway animation");
         let life_cycle = &mut self.life_cycle;
         let gui = &mut self.gui;
 

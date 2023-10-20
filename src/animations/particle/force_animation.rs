@@ -2,7 +2,7 @@ use crate::{
     model::{Clock, EmitterState, GfxState, GuiState, LifeCycle},
     traits::{CustomShader, HandleAction, ParticleAnimation, RegisterParticleAnimation},
     util::persistence::DynamicExport,
-    util::ItemAction,
+    util::ListAction,
 };
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::{DragValue, Ui};
@@ -89,7 +89,7 @@ pub struct ForceAnimation {
     buffer: wgpu::Buffer,
     update_uniform: bool,
     should_animate: bool,
-    selected_action: ItemAction,
+    selected_action: ListAction,
 }
 
 impl HandleAction for ForceAnimation {
@@ -102,12 +102,12 @@ impl HandleAction for ForceAnimation {
         }
     }
 
-    fn selected_action(&mut self) -> &mut ItemAction {
+    fn selected_action(&mut self) -> &mut ListAction {
         &mut self.selected_action
     }
 
     fn reset_action(&mut self) {
-        self.selected_action = ItemAction::None;
+        self.selected_action = ListAction::None;
     }
 
     fn enabled(&self) -> bool {
@@ -157,7 +157,7 @@ impl ParticleAnimation for ForceAnimation {
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-        self.selected_action = ui_state.create_anim_header(ui, "Force animation");
+        self.selected_action = ui_state.create_li_header(ui, "Force animation");
 
         let mut gui = self.uniform;
 
@@ -257,7 +257,7 @@ impl ForceAnimation {
             buffer,
             update_uniform: false,
             should_animate: false,
-            selected_action: ItemAction::None,
+            selected_action: ListAction::None,
         }
     }
 }

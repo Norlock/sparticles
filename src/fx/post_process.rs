@@ -1,7 +1,7 @@
 use crate::init::AppSettings;
 use crate::model::{GfxState, State};
 use crate::traits::*;
-use crate::util::{CommonBuffer, DynamicExport, ExportType, Persistence};
+use crate::util::{CommonBuffer, DynamicExport, ExportType, ListAction, Persistence};
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::util::DeviceExt;
 use encase::ShaderType;
@@ -46,54 +46,8 @@ pub struct MetaUniformCompute {
 }
 
 impl FxMetaUniform {
-    pub fn create_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
-        let contents = CommonBuffer::uniform_content(&self);
-
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Meta uniform"),
-            contents: &contents,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        })
-    }
-
-    pub fn into_compute(self, device: &wgpu::Device) -> MetaUniformCompute {
-        let contents = CommonBuffer::uniform_content(&self);
-
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Meta uniform"),
-            contents: &contents,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Blur uniform layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: NonZeroU64::new(contents.len() as u64),
-                },
-                count: None,
-            }],
-        });
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Blur uniform bind group"),
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-        });
-
-        MetaUniformCompute {
-            buffer,
-            bind_group,
-            bind_group_layout,
-            uniform: self,
-        }
+    pub fn create_content(&self) -> Vec<u8> {
+        CommonBuffer::uniform_content(self)
     }
 }
 
@@ -109,8 +63,26 @@ impl PostProcessState {
     pub fn update(state: &mut State) {
         let effects = &mut state.post_process.effects;
 
-        for fx in effects {
+        for fx in effects.iter_mut() {
             fx.update(&state.gfx_state);
+        }
+
+        // TODO make function in item action to handle all cases like this
+        let mut i = 0;
+
+        while i < effects.len() {
+            if effects[i].selected_action() == &mut ListAction::Delete {
+                effects.remove(i);
+                continue;
+            } else if 0 < i && effects[i].selected_action() == &mut ListAction::MoveUp {
+                effects[i].reset_action();
+                effects.swap(i, i - 1);
+            } else if 0 < i && effects[i - 1].selected_action() == &mut ListAction::MoveDown {
+                effects[i - 1].reset_action();
+                effects.swap(i, i - 1);
+            }
+
+            i += 1;
         }
     }
 
@@ -216,14 +188,14 @@ impl PostProcessState {
             multiview: None,
         });
 
-        let post_fx = app_settings.add_post_fx(&CreateFxOptions {
+        let effects = app_settings.add_post_fx(&CreateFxOptions {
             fx_state: &fx_state,
             gfx_state,
         });
 
         Self {
             fx_state,
-            effects: post_fx,
+            effects,
             initialize_pipeline,
             finalize_pipeline,
         }

@@ -5,7 +5,7 @@ use crate::{
         RegisterParticleAnimation,
     },
     util::persistence::DynamicExport,
-    util::ItemAction,
+    util::ListAction,
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::{DragValue, Slider, Ui};
@@ -81,16 +81,16 @@ struct StrayAnimation {
     buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
     update_uniform: bool,
-    selected_action: ItemAction,
+    selected_action: ListAction,
 }
 
 impl HandleAction for StrayAnimation {
-    fn selected_action(&mut self) -> &mut ItemAction {
+    fn selected_action(&mut self) -> &mut ListAction {
         &mut self.selected_action
     }
 
     fn reset_action(&mut self) {
-        self.selected_action = ItemAction::None;
+        self.selected_action = ListAction::None;
     }
 
     fn export(&self) -> DynamicExport {
@@ -142,7 +142,7 @@ impl ParticleAnimation for StrayAnimation {
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-        self.selected_action = ui_state.create_anim_header(ui, "Stray animation");
+        self.selected_action = ui_state.create_li_header(ui, "Stray animation");
 
         let mut gui = self.uniform;
         let mut stray_degrees = gui.stray_radians.to_degrees();
@@ -232,7 +232,7 @@ impl StrayAnimation {
             uniform,
             buffer,
             update_uniform: false,
-            selected_action: ItemAction::None,
+            selected_action: ListAction::None,
         }
     }
 }

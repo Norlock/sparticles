@@ -1,7 +1,7 @@
 use crate::{
     model::{Clock, EmitterState, GfxState, GuiState},
     traits::*,
-    util::{persistence::DynamicExport, ItemAction, UniformCompute},
+    util::{persistence::DynamicExport, ListAction, UniformCompute},
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::{
@@ -95,16 +95,16 @@ struct ColorAnimation {
     uniform: ColorUniform,
     buffer: wgpu::Buffer,
     update_uniform: bool,
-    selected_action: ItemAction,
+    selected_action: ListAction,
 }
 
 impl HandleAction for ColorAnimation {
-    fn selected_action(&mut self) -> &mut ItemAction {
+    fn selected_action(&mut self) -> &mut ListAction {
         &mut self.selected_action
     }
 
     fn reset_action(&mut self) {
-        self.selected_action = ItemAction::None;
+        self.selected_action = ListAction::None;
     }
 
     fn export(&self) -> DynamicExport {
@@ -151,7 +151,7 @@ impl ParticleAnimation for ColorAnimation {
     }
 
     fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
-        self.selected_action = gui_state.create_anim_header(ui, "Color animation");
+        self.selected_action = gui_state.create_li_header(ui, "Color animation");
 
         let mut gui = self.uniform;
 
@@ -222,7 +222,7 @@ impl ColorAnimation {
             buffer,
             uniform,
             update_uniform: false,
-            selected_action: ItemAction::None,
+            selected_action: ListAction::None,
         }
     }
 }

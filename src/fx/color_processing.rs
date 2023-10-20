@@ -5,7 +5,7 @@ use super::{
 use crate::{
     model::{GfxState, GuiState},
     traits::{CustomShader, HandleAction, PostFx, RegisterPostFx},
-    util::{CommonBuffer, DynamicExport, ItemAction, UniformCompute},
+    util::{CommonBuffer, DynamicExport, ListAction, UniformCompute},
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::{self, Slider};
@@ -21,7 +21,7 @@ pub struct ColorProcessing {
     bind_group: wgpu::BindGroup,
     pipeline: wgpu::ComputePipeline,
     enabled: bool,
-    selected_action: ItemAction,
+    selected_action: ListAction,
     update_uniform: bool,
 }
 
@@ -103,10 +103,10 @@ impl PostFx for ColorProcessing {
         }
     }
 
-    fn create_ui(&mut self, ui: &mut egui::Ui, _ui_state: &GuiState) {
+    fn create_ui(&mut self, ui: &mut egui::Ui, ui_state: &GuiState) {
         let mut uniform = self.color_uniform;
 
-        GuiState::create_title(ui, "Color correction");
+        self.selected_action = ui_state.create_li_header(ui, "Color correction");
         ui.add(Slider::new(&mut uniform.gamma, 0.1..=4.0).text("Gamma"));
         ui.add(Slider::new(&mut uniform.contrast, 0.1..=4.0).text("Contrast"));
         ui.add(Slider::new(&mut uniform.brightness, 0.01..=1.0).text("Brightness"));
@@ -116,20 +116,16 @@ impl PostFx for ColorProcessing {
             self.update_uniform = true;
             self.color_uniform = uniform;
         }
-        // TODO fix
-        //if ui.button("Delete").clicked() {
-        //self.delete = true;
-        //}
     }
 }
 
 impl HandleAction for ColorProcessing {
-    fn selected_action(&mut self) -> &mut ItemAction {
+    fn selected_action(&mut self) -> &mut ListAction {
         &mut self.selected_action
     }
 
     fn reset_action(&mut self) {
-        self.selected_action = ItemAction::None;
+        self.selected_action = ListAction::None;
     }
 
     fn export(&self) -> DynamicExport {
@@ -194,7 +190,7 @@ impl ColorProcessing {
             pipeline,
             enabled: true,
             update_uniform: false,
-            selected_action: ItemAction::None,
+            selected_action: ListAction::None,
         }
     }
 }

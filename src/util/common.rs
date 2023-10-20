@@ -8,7 +8,7 @@ use encase::{private::WriteInto, ShaderType, UniformBuffer};
 use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Serialize, Deserialize, Default)]
-pub enum ItemAction {
+pub enum ListAction {
     #[default]
     None,
     Delete,
@@ -17,7 +17,7 @@ pub enum ItemAction {
     Disable,
 }
 
-impl Display for ItemAction {
+impl Display for ListAction {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Self::Disable => f.write_str("Disable"),

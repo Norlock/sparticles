@@ -6,7 +6,7 @@ use crate::model::GuiState;
 use crate::traits::*;
 use crate::util::CommonBuffer;
 use crate::util::DynamicExport;
-use crate::util::ItemAction;
+use crate::util::ListAction;
 use crate::util::UniformCompute;
 use egui_wgpu::wgpu;
 use egui_winit::egui::Slider;
@@ -29,7 +29,7 @@ pub struct Blur {
     pub passes: usize,
     pub update_uniform: bool,
 
-    selected_action: ItemAction,
+    selected_action: ListAction,
 }
 
 #[derive(ShaderType, Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -139,7 +139,7 @@ impl PostFx for Blur {
 }
 
 impl HandleAction for Blur {
-    fn selected_action(&mut self) -> &mut ItemAction {
+    fn selected_action(&mut self) -> &mut ListAction {
         todo!()
     }
 
@@ -235,7 +235,7 @@ impl Blur {
             passes,
             update_uniform: false,
             upscale_pipeline,
-            selected_action: ItemAction::None,
+            selected_action: ListAction::None,
         }
     }
 }

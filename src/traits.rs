@@ -2,7 +2,7 @@ use crate::{
     fx::post_process::{CreateFxOptions, FxState},
     model::{Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
     util::persistence::DynamicExport,
-    util::ItemAction,
+    util::ListAction,
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
@@ -110,7 +110,7 @@ pub trait RegisterPostFx {
 }
 
 pub trait HandleAction {
-    fn selected_action(&mut self) -> &mut ItemAction;
+    fn selected_action(&mut self) -> &mut ListAction;
     fn reset_action(&mut self);
     fn export(&self) -> DynamicExport;
     fn enabled(&self) -> bool;
