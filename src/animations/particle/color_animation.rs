@@ -1,9 +1,7 @@
 use crate::{
-    math::SparVec4,
     model::{Clock, EmitterState, GfxState, GuiState},
     traits::*,
-    util::{persistence::DynamicExport, UniformCompute},
-    util::{CommonBuffer, ItemAction},
+    util::{persistence::DynamicExport, ItemAction, UniformCompute},
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::{
@@ -196,8 +194,6 @@ impl ColorAnimation {
         let shader = device.create_shader("color_anim.wgsl", "Color animation");
 
         let buffer_content = uniform.create_buffer_content();
-
-        println!("content: {:?}", buffer_content);
 
         let UniformCompute {
             mut buffers,

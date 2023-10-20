@@ -1,24 +1,24 @@
 use crate::{
-    math::SparVec2,
     model::{Clock, EmitterUniform, GuiState, LifeCycle},
     traits::{EmitterAnimation, HandleAction, HandleAngles, RegisterEmitterAnimation},
     util::persistence::DynamicExport,
     util::ItemAction,
 };
 use egui_winit::egui::{DragValue, Ui};
+use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 struct Gui {
-    diff_width: SparVec2,
-    diff_depth: SparVec2,
+    diff_width: Vec2,
+    diff_depth: Vec2,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct DiffusionAnimation {
     life_cycle: LifeCycle,
-    diff_width: SparVec2,
-    diff_depth: SparVec2,
+    diff_width: Vec2,
+    diff_depth: Vec2,
     gui: Gui,
 
     #[serde(skip_serializing, skip_deserializing)]
@@ -54,7 +54,7 @@ impl RegisterEmitterAnimation for RegisterDiffusionAnimation {
 }
 
 impl DiffusionAnimation {
-    pub fn new(life_cycle: LifeCycle, diff_width_deg: SparVec2, diff_depth_deg: SparVec2) -> Self {
+    pub fn new(life_cycle: LifeCycle, diff_width_deg: Vec2, diff_depth_deg: Vec2) -> Self {
         let gui = Gui {
             diff_width: diff_width_deg,
             diff_depth: diff_depth_deg,

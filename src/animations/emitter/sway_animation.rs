@@ -1,5 +1,4 @@
 use crate::{
-    math::SparVec2,
     model::{Clock, EmitterUniform, GuiState, LifeCycle},
     traits::{EmitterAnimation, HandleAction, HandleAngles, RegisterEmitterAnimation},
     util::persistence::DynamicExport,
@@ -11,17 +10,17 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 struct Gui {
-    yaw: SparVec2,
-    pitch: SparVec2,
-    roll: SparVec2,
+    yaw: Vec2,
+    pitch: Vec2,
+    roll: Vec2,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SwayAnimation {
     life_cycle: LifeCycle,
-    yaw: SparVec2,
-    pitch: SparVec2,
-    roll: SparVec2,
+    yaw: Vec2,
+    pitch: Vec2,
+    roll: Vec2,
     gui: Gui,
 
     #[serde(skip_serializing, skip_deserializing)]

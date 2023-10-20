@@ -1,12 +1,8 @@
-use std::path::PathBuf;
-
 use super::Clock;
-use crate::{
-    math::{SparVec3, SparVec4},
-    traits::{FromRGB, HandleAngles},
-};
+use crate::traits::{FromRGB, HandleAngles};
 use glam::{Vec3, Vec4};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 const PARTICLE_BUFFER_SIZE: u64 = 14 * 4;
 
@@ -39,18 +35,18 @@ pub struct EmitterUniform {
     pub spawn_count: u32,
     pub spawn_delay_sec: f32,
 
-    pub box_pos: SparVec3,
+    pub box_pos: Vec3,
     /// width, height, depth
-    pub box_dimensions: SparVec3,
+    pub box_dimensions: Vec3,
     /// yaw, pitch, roll
-    pub box_rotation: SparVec3,
+    pub box_rotation: Vec3,
 
     /// Diffusion emission in radians
     pub diff_width: f32,
     /// Diffusion emission in radians
     pub diff_depth: f32,
 
-    pub particle_color: SparVec4,
+    pub particle_color: Vec4,
     pub particle_friction_coefficient: f32,
     pub particle_speed: Range,
     pub particle_size: Range,
@@ -127,8 +123,8 @@ impl EmitterUniform {
     }
 
     pub fn process_gui(&mut self, gui: &EmitterGuiState) {
-        *self.box_rotation = gui.box_rotation_deg.to_radians();
-        *self.box_dimensions = gui.box_dimensions;
+        self.box_rotation = gui.box_rotation_deg.to_radians();
+        self.box_dimensions = gui.box_dimensions;
 
         self.diff_width = gui.diff_width_deg.to_radians();
         self.diff_depth = gui.diff_depth_deg.to_radians();
@@ -152,8 +148,8 @@ impl EmitterUniform {
             spawn_delay_sec: self.spawn_delay_sec,
             particle_lifetime_sec: self.particle_lifetime_sec,
             recreate: false,
-            box_position: *self.box_rotation,
-            box_dimensions: *self.box_dimensions,
+            box_position: self.box_rotation,
+            box_dimensions: self.box_dimensions,
             box_rotation_deg: self.box_rotation.to_degrees(),
             diff_width_deg: self.diff_width.to_degrees(),
             diff_depth_deg: self.diff_depth.to_degrees(),

@@ -1,5 +1,4 @@
 use crate::{
-    math::SparVec3,
     model::{Clock, EmitterState, GfxState, GuiState, LifeCycle},
     traits::{CustomShader, HandleAction, ParticleAnimation, RegisterParticleAnimation},
     util::persistence::DynamicExport,
@@ -7,12 +6,13 @@ use crate::{
 };
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use egui_winit::egui::{DragValue, Ui};
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ForceUniform {
     pub life_cycle: LifeCycle,
-    pub velocity: SparVec3,
+    pub velocity: Vec3,
     /// Applied on a 1.0 particle size unit
     pub mass_per_unit: f32,
 }

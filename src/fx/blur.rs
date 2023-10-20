@@ -1,6 +1,5 @@
 use super::post_process::CreateFxOptions;
 use super::post_process::FxMetaUniform;
-use super::post_process::MetaUniformCompute;
 use super::FxState;
 use crate::model::GfxState;
 use crate::model::GuiState;
@@ -12,7 +11,6 @@ use crate::util::UniformCompute;
 use egui_wgpu::wgpu;
 use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
-use encase::private::WriteInto;
 use encase::ShaderType;
 use serde::Deserialize;
 use serde::Serialize;
@@ -135,6 +133,7 @@ impl PostFx for Blur {
 
         if self.blur_uniform != blur {
             self.blur_uniform = blur;
+            println!("updating blur");
             self.update_uniform = true;
         }
     }

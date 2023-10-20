@@ -7,7 +7,6 @@ use sparticles::{
         RegisterStrayAnimation, StrayUniform, SwayAnimation,
     },
     init::{AppSettings, JsonImportMode},
-    math::{SparVec3, SparVec4},
     model::{EmitterState, EmitterUniform, GfxState, LifeCycle, Range},
     traits::*,
 };
@@ -23,7 +22,7 @@ impl AppSettings for CustomSettings {
 
         emitter.box_pos.x = -3.;
         emitter.box_pos.y = -3.;
-        emitter.particle_color = SparVec4::from_rgb(175, 175, 255);
+        emitter.particle_color = Vec4::from_rgb(175, 175, 255);
         emitter.particle_size = Range::new(0.25, 0.25);
         emitter.particle_speed = Range::new(5., 7.);
         emitter.spawn_count = 1;

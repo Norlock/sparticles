@@ -1,4 +1,3 @@
-use crate::math::SparVec3;
 use crate::model::clock::Clock;
 use crate::model::{EmitterState, GfxState, GuiState, LifeCycle};
 use crate::traits::*;
@@ -17,9 +16,9 @@ pub struct GravityUniform {
     dead_zone: f32,
     mass: f32,
     should_animate: bool,
-    start_pos: SparVec3,
-    end_pos: SparVec3,
-    current_pos: SparVec3,
+    start_pos: Vec3,
+    end_pos: Vec3,
+    current_pos: Vec3,
 }
 
 impl Default for GravityUniform {
@@ -178,7 +177,7 @@ impl ParticleAnimation for GravityAnimation {
 
         if uniform.should_animate {
             let fraction = life_cycle.get_fraction(current_sec);
-            *uniform.current_pos = uniform.start_pos.lerp(*uniform.end_pos, fraction);
+            uniform.current_pos = uniform.start_pos.lerp(uniform.end_pos, fraction);
             let buffer_content = uniform.create_buffer_content();
 
             queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&buffer_content));
