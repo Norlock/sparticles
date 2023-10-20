@@ -32,6 +32,29 @@ pub struct Blur {
     selected_action: ListAction,
 }
 
+pub struct RegisterBlurFx;
+
+impl RegisterPostFx for RegisterBlurFx {
+    fn tag(&self) -> &str {
+        "blur"
+    }
+
+    fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
+        let settings = BlurSettings::new(FxMetaUniform {
+            in_idx: -1,
+            out_idx: -1,
+        });
+
+        Box::new(Blur::new(options, settings))
+    }
+
+    fn import(&self, options: &CreateFxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
+        let settings = serde_json::from_value(value).expect("Can't parse blur");
+
+        Box::new(Blur::new(options, settings))
+    }
+}
+
 #[derive(ShaderType, Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct BlurUniform {
     pub brightness_threshold: f32,
@@ -47,8 +70,8 @@ pub struct BlurUniform {
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct BlurSettings {
-    pub uniform: BlurUniform,
-    pub fx_meta: FxMetaUniform,
+    pub blur_uniform: BlurUniform,
+    pub meta_uniform: FxMetaUniform,
     pub passes: usize,
 }
 
@@ -122,9 +145,9 @@ impl PostFx for Blur {
                 .text("Downscale"),
         );
         ui.add(Slider::new(&mut blur.sigma, 0.1..=3.0).text("Blur sigma"));
-        ui.add(Slider::new(&mut blur.hdr_mul, 0.1..=15.0).text("HDR multiplication"));
+        ui.add(Slider::new(&mut blur.hdr_mul, 1.0..=50.0).text("HDR multiplication"));
         ui.add(Slider::new(&mut blur.radius, 2..=5).text("Blur radius"));
-        ui.add(Slider::new(&mut blur.intensity, 0.8..=1.2).text("Blur intensity"));
+        ui.add(Slider::new(&mut blur.intensity, 0.9..=1.1).text("Blur intensity"));
         ui.add(
             Slider::new(&mut self.passes, 2..=50)
                 .step_by(2.)
@@ -140,15 +163,24 @@ impl PostFx for Blur {
 
 impl HandleAction for Blur {
     fn selected_action(&mut self) -> &mut ListAction {
-        todo!()
+        &mut self.selected_action
     }
 
     fn reset_action(&mut self) {
-        todo!()
+        self.selected_action = ListAction::None;
     }
 
     fn export(&self) -> DynamicExport {
-        todo!()
+        let settings = BlurSettings {
+            meta_uniform: self.meta_uniform,
+            blur_uniform: self.blur_uniform,
+            passes: self.passes,
+        };
+
+        DynamicExport {
+            tag: RegisterBlurFx.tag().to_string(),
+            data: serde_json::to_value(settings).expect("Can't create export for blur fx"),
+        }
     }
 
     fn enabled(&self) -> bool {
@@ -159,8 +191,8 @@ impl HandleAction for Blur {
 impl BlurSettings {
     pub fn new(fx_meta: FxMetaUniform) -> Self {
         Self {
-            uniform: BlurUniform::default(),
-            fx_meta,
+            blur_uniform: BlurUniform::default(),
+            meta_uniform: fx_meta,
             passes: 8,
         }
     }
@@ -169,8 +201,8 @@ impl BlurSettings {
 impl Blur {
     pub fn export(&self) -> BlurSettings {
         BlurSettings {
-            uniform: self.blur_uniform,
-            fx_meta: self.meta_uniform,
+            blur_uniform: self.blur_uniform,
+            meta_uniform: self.meta_uniform,
             passes: self.passes,
         }
     }
@@ -183,9 +215,9 @@ impl Blur {
 
         let device = &gfx_state.device;
 
-        let blur_uniform = blur_settings.uniform;
+        let blur_uniform = blur_settings.blur_uniform;
         let passes = blur_settings.passes;
-        let meta_uniform = blur_settings.fx_meta;
+        let meta_uniform = blur_settings.meta_uniform;
 
         let blur_shader = device.create_shader("fx/gaussian_blur.wgsl", "Gaussian blur");
 
