@@ -45,6 +45,8 @@ impl PostFx for Blend {
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {}
+
+    fn update(&mut self, gfx_state: &GfxState) {}
 }
 
 impl HandleAction for Blend {

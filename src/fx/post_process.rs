@@ -1,7 +1,7 @@
 use crate::init::AppSettings;
 use crate::model::{GfxState, State};
 use crate::traits::*;
-use crate::util::CommonBuffer;
+use crate::util::{CommonBuffer, DynamicExport, ExportType, Persistence};
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::util::DeviceExt;
 use encase::ShaderType;
@@ -229,12 +229,35 @@ impl PostProcessState {
         }
     }
 
-    pub fn import_fx(&mut self, gfx_state: &GfxState) {
-        // TODO
+    pub fn import_fx(
+        &mut self,
+        gfx_state: &GfxState,
+        registered_effects: &Vec<Box<dyn RegisterPostFx>>,
+        to_export: Vec<DynamicExport>,
+    ) {
+        let options = CreateFxOptions {
+            gfx_state,
+            fx_state: &self.fx_state,
+        };
+
+        for item in to_export {
+            for reg in registered_effects {
+                if &item.tag == reg.tag() {
+                    self.effects.push(reg.import(&options, item.data));
+                    break;
+                }
+            }
+        }
     }
 
     pub fn export(pp: &PostProcessState) {
-        //Persistence::write_to_file(to_export, ExportType::PostFx);
+        let mut to_export = Vec::new();
+
+        for fx in pp.effects.iter() {
+            to_export.push(fx.export());
+        }
+
+        Persistence::write_to_file(to_export, ExportType::PostFx);
     }
 }
 

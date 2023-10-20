@@ -89,7 +89,7 @@ pub trait EmitterAnimation: HandleAction {
 
 // Post FX
 pub trait PostFx: HandleAction {
-    fn update(&mut self, gfx_state: &GfxState) {}
+    fn update(&mut self, gfx_state: &GfxState);
 
     fn compute<'a>(
         &'a self,

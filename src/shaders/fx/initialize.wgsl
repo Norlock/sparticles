@@ -1,4 +1,3 @@
-@group(0) @binding(0) var output: binding_array<texture_storage_2d<rgba8unorm, write>, 32>;
 @group(0) @binding(2) var fx_blend: texture_storage_2d<rgba8unorm, read_write>;
 @group(0) @binding(3) var frame_texture: texture_2d<f32>;
 

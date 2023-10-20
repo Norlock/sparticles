@@ -133,7 +133,6 @@ impl PostFx for Blur {
 
         if self.blur_uniform != blur {
             self.blur_uniform = blur;
-            println!("updating blur");
             self.update_uniform = true;
         }
     }

@@ -68,8 +68,9 @@ impl State {
             registered_par_anims,
         } = InitSettings::create_emitters(&app_settings, &gfx_state, &camera);
 
-        let post_process = PostProcessState::new(&gfx_state, &app_settings);
-        let registered_post_fx = InitSettings::create_post_fx(&app_settings);
+        let mut post_process = PostProcessState::new(&gfx_state, &app_settings);
+        let registered_post_fx =
+            InitSettings::create_post_fx(&app_settings, &gfx_state, &mut post_process);
 
         let gui = GuiState::new(app_settings.show_gui(), &mut gfx_state);
 

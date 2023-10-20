@@ -5,6 +5,7 @@ use super::post_process::FxMetaUniform;
 use super::Blend;
 use super::BlendType;
 use super::FxState;
+use crate::model::GfxState;
 use crate::model::GuiState;
 use crate::traits::*;
 use crate::util::DynamicExport;
@@ -75,6 +76,10 @@ impl PostFx for Bloom {
         if ui.button("Delete").clicked() {
             self.selected_action = ItemAction::Delete;
         }
+    }
+
+    fn update(&mut self, gfx_state: &GfxState) {
+        self.blur.update(gfx_state);
     }
 }
 

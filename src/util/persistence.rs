@@ -54,17 +54,17 @@ impl Persistence {
         serde_json::to_writer(&mut writer, &to_export).expect("Can't write export");
     }
 
-    pub fn import_post_fx() -> Result<Vec<ExportEmitter>, ImportError> {
+    pub fn import_post_fx() -> Result<Vec<DynamicExport>, ImportError> {
         let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         dir.push(format!("export/{}", ExportType::PostFx));
 
         let path = dir.to_str().expect("Path is not correct");
 
-        let file_res = fs::read_to_string(path);
+        let file_str = fs::read_to_string(path);
         let error_msg;
 
-        match file_res {
-            Ok(val) => match serde_json::from_str::<Vec<ExportEmitter>>(&val) {
+        match file_str {
+            Ok(file_str) => match serde_json::from_str::<Vec<DynamicExport>>(&file_str) {
                 Ok(val) => return Ok(val),
                 Err(err) => {
                     let filename = dir.file_name().unwrap().to_str().unwrap();

@@ -7,6 +7,7 @@ use crate::animations::{RegisterForceAnimation, RegisterGravityAnimation, Regist
 use crate::fx::bloom::RegisterBloomFx;
 use crate::fx::color_processing::RegisterColorProcessingFx;
 use crate::fx::post_process::CreateFxOptions;
+use crate::fx::PostProcessState;
 use crate::model::{Camera, CreateEmitterOptions, EmitterState, EmitterUniform, GfxState};
 use crate::traits::*;
 use crate::util::persistence::ExportEmitter;
@@ -113,7 +114,7 @@ impl InitSettings {
         emitters
     }
 
-    fn from_code(
+    fn code_emitters(
         app_settings: &impl AppSettings,
         gfx_state: &GfxState,
         camera: &Camera,
@@ -137,28 +138,25 @@ impl InitSettings {
         }
     }
 
-    pub fn create_post_fx(app_settings: &impl AppSettings) -> Vec<Box<dyn RegisterPostFx>> {
-        let mut registered_post_fx = app_settings.register_custom_post_fx();
-        registered_post_fx.push(Box::new(RegisterBloomFx));
-        registered_post_fx.push(Box::new(RegisterColorProcessingFx));
+    pub fn create_post_fx(
+        app_settings: &impl AppSettings,
+        gfx_state: &GfxState,
+        pp: &mut PostProcessState,
+    ) -> Vec<Box<dyn RegisterPostFx>> {
+        let mut registered_effects = app_settings.register_custom_post_fx();
+        registered_effects.push(Box::new(RegisterBloomFx));
+        registered_effects.push(Box::new(RegisterColorProcessingFx));
 
-        //for item in registered_post_fx.iter() {
-        //if registered_post_fx.iter().any(|fx| fx.tag() == item.tag()) {
-        //panic!(
-        //"There are two post fx registered with the same tag: {}",
-        //item.tag()
-        //);
-        //}
-        //}
+        match app_settings.import_mode() {
+            // TODO make from code possible
+            JsonImportMode::Ignore => {}
+            JsonImportMode::Replace => match Persistence::import_post_fx() {
+                Ok(val) => pp.import_fx(gfx_state, &registered_effects, val),
+                Err(err) => println!("{}", err.msg),
+            },
+        }
 
-        // TODO look at import type
-        //if let Ok(fx_types) = Persistence::import_post_fx() {
-        //post_process.import_fx(&gfx_state, fx_types);
-        //} else {
-        //post_process.add_default_fx(&gfx_state);
-        //}
-
-        registered_post_fx
+        registered_effects
     }
 
     pub fn create_emitters(
@@ -177,7 +175,7 @@ impl InitSettings {
         registered_em_anims.push(Box::new(RegisterDiffusionAnimation));
 
         match app_settings.import_mode() {
-            JsonImportMode::Ignore => Self::from_code(
+            JsonImportMode::Ignore => Self::code_emitters(
                 app_settings,
                 gfx_state,
                 camera,
@@ -185,7 +183,7 @@ impl InitSettings {
                 registered_em_anims,
             ),
             JsonImportMode::Replace => match Persistence::import_emitter_states() {
-                Ok(val) => Self::import(
+                Ok(val) => Self::json_emitters(
                     val,
                     gfx_state,
                     camera,
@@ -194,7 +192,7 @@ impl InitSettings {
                 ),
                 Err(err) => {
                     println!("{}", err.msg);
-                    Self::from_code(
+                    Self::code_emitters(
                         app_settings,
                         gfx_state,
                         camera,
@@ -206,7 +204,7 @@ impl InitSettings {
         }
     }
 
-    fn import(
+    fn json_emitters(
         mut import_emitters: Vec<ExportEmitter>,
         gfx_state: &GfxState,
         camera: &Camera,
