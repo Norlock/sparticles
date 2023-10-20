@@ -1,4 +1,5 @@
 use super::{Camera, EmitterGuiState, EmitterUniform, GfxState, GuiState, State};
+use crate::texture::DiffuseCtx;
 use crate::traits::{CalculateBufferSize, CustomShader};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
@@ -6,6 +7,7 @@ use crate::util::ListAction;
 use crate::util::Persistence;
 use egui_wgpu::wgpu;
 use egui_winit::egui::{ScrollArea, Ui};
+use std::path::PathBuf;
 use std::{
     fmt::{Debug, Formatter},
     num::NonZeroU64,
@@ -20,6 +22,7 @@ pub struct EmitterState {
     render_pipeline: wgpu::RenderPipeline,
     particle_animations: Vec<Box<dyn ParticleAnimation>>,
     emitter_animations: Vec<Box<dyn EmitterAnimation>>,
+    diffuse_ctx: DiffuseCtx,
 
     pub uniform: EmitterUniform,
     pub dispatch_x_count: u32,
@@ -178,20 +181,22 @@ impl<'a> EmitterState {
         // Light
         r_pass.set_pipeline(&lights.render_pipeline);
         r_pass.set_bind_group(0, &camera.bind_group, &[]);
-        r_pass.set_bind_group(1, &lights.bind_groups[nr], &[]);
+        r_pass.set_bind_group(1, &lights.diffuse_ctx.bind_group, &[]);
+        r_pass.set_bind_group(2, &lights.bind_groups[nr], &[]);
         r_pass.draw(0..4, 0..lights.particle_count() as u32);
 
         // Normal
-        for spawner in emitters.iter() {
-            r_pass.set_pipeline(&spawner.render_pipeline);
+        for emitter in emitters.iter() {
+            r_pass.set_pipeline(&emitter.render_pipeline);
             r_pass.set_bind_group(0, &camera.bind_group, &[]);
-            r_pass.set_bind_group(1, &spawner.bind_groups[nr], &[]);
-            r_pass.set_bind_group(2, &lights.bind_groups[nr], &[]);
-            r_pass.draw(0..4, 0..spawner.particle_count() as u32);
+            r_pass.set_bind_group(1, &emitter.diffuse_ctx.bind_group, &[]);
+            r_pass.set_bind_group(2, &emitter.bind_groups[nr], &[]);
+            r_pass.set_bind_group(3, &lights.bind_groups[nr], &[]);
+            r_pass.draw(0..4, 0..emitter.particle_count() as u32);
         }
     }
 
-    pub fn recreate_spawner(
+    pub fn recreate_emitter(
         &mut self,
         gfx_state: &GfxState,
         light_layout: Option<&wgpu::BindGroupLayout>,
@@ -231,7 +236,7 @@ impl<'a> EmitterState {
         self.uniform.process_gui(&self.gui);
 
         if self.gui.recreate {
-            self.recreate_spawner(gfx_state, layout, camera);
+            self.recreate_emitter(gfx_state, layout, camera);
         }
     }
 
@@ -261,6 +266,14 @@ impl<'a> EmitterState {
                     });
                 }
             });
+    }
+
+    pub fn update_diffuse(&mut self, gfx_state: &GfxState, path: &mut PathBuf) {
+        self.diffuse_ctx = gfx_state.create_diffuse_context(
+            path.as_os_str()
+                .to_str()
+                .expect("failed to convert to str from ostr"),
+        );
     }
 
     pub fn particle_count(&self) -> u64 {
@@ -318,7 +331,7 @@ impl GfxState {
         let surface_config = &self.surface_config;
 
         let emitter_buf_content = uniform.create_buffer_content();
-        let diffuse_texture = self.create_diffuse_texture(uniform.texture_image.to_str().unwrap());
+        let diffuse_ctx = self.create_diffuse_context(uniform.texture_image.to_str().unwrap());
 
         let particle_buffer_size = NonZeroU64::new(uniform.particle_buffer_size());
         let emitter_buffer_size = emitter_buf_content.cal_buffer_size();
@@ -365,22 +378,6 @@ impl GfxState {
                     },
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
             ],
             label: None,
         });
@@ -419,14 +416,6 @@ impl GfxState {
                         binding: 2,
                         resource: emitter_buffer.as_entire_binding(),
                     },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 4,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                    },
                 ],
                 label: None,
             }));
@@ -461,7 +450,12 @@ impl GfxState {
             shader = device.create_shader("particle.wgsl", "Particle render");
             pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Particle render Pipeline Layout"),
-                bind_group_layouts: &[&camera.bind_group_layout, &bind_group_layout, light_layout],
+                bind_group_layouts: &[
+                    &camera.bind_group_layout,
+                    &diffuse_ctx.bind_group_layout,
+                    &bind_group_layout,
+                    light_layout,
+                ],
                 push_constant_ranges: &[],
             });
         } else {
@@ -469,7 +463,11 @@ impl GfxState {
             shader = device.create_shader("light_particle.wgsl", "Light particle render");
             pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Light particle render Pipeline Layout"),
-                bind_group_layouts: &[&camera.bind_group_layout, &bind_group_layout],
+                bind_group_layouts: &[
+                    &camera.bind_group_layout,
+                    &diffuse_ctx.bind_group_layout,
+                    &bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
         }
@@ -528,6 +526,7 @@ impl GfxState {
             dispatch_x_count,
             particle_animations: vec![],
             emitter_animations: vec![],
+            diffuse_ctx,
             is_light,
             gui,
         }

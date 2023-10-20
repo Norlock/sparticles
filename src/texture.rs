@@ -8,9 +8,11 @@ use image::GenericImageView;
 use rand::{rngs::ThreadRng, Rng};
 use std::fs;
 
-pub struct DiffuseTexture {
+pub struct DiffuseCtx {
     pub sampler: wgpu::Sampler,
     pub view: wgpu::TextureView,
+    pub bind_group: wgpu::BindGroup,
+    pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
 pub struct IconTexture;
@@ -127,7 +129,7 @@ impl GfxState {
             .default_view()
     }
 
-    pub fn create_diffuse_texture(&self, texture_path: &str) -> DiffuseTexture {
+    pub fn create_diffuse_context(&self, texture_path: &str) -> DiffuseCtx {
         let device = &self.device;
 
         let bytes = fs::read(texture_path).expect("Can't read texture image");
@@ -176,7 +178,49 @@ impl GfxState {
             ..Default::default()
         });
 
-        DiffuseTexture { sampler, view }
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+            label: None,
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+            label: None,
+        });
+
+        DiffuseCtx {
+            sampler,
+            view,
+            bind_group,
+            bind_group_layout,
+        }
     }
 
     pub fn create_noise_view(&self) -> wgpu::TextureView {

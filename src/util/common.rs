@@ -29,13 +29,13 @@ impl Display for ListAction {
     }
 }
 
-pub struct UniformCompute {
+pub struct UniformContext {
     pub buffers: Vec<wgpu::Buffer>,
     pub bind_group: wgpu::BindGroup,
     pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
-impl UniformCompute {
+impl UniformContext {
     pub fn new(
         // TODO array of uniform in case of more meta + global
         buffer_contents: &[&[u8]],
@@ -85,7 +85,7 @@ impl UniformCompute {
             entries: &entries,
         });
 
-        UniformCompute {
+        UniformContext {
             buffers,
             bind_group,
             bind_group_layout,

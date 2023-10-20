@@ -367,12 +367,20 @@ impl GuiState {
                 .text("Particle size max"),
             );
 
-            ComboBox::from_label("select-texture").show_index(
-                ui,
-                &mut gui.selected_texture,
-                gui.texture_paths.len(),
-                |i| gui.texture_paths[i].rich_text(),
-            );
+            if ComboBox::from_label("Select texture")
+                .show_index(
+                    ui,
+                    &mut gui.selected_texture,
+                    gui.texture_paths.len(),
+                    |i| gui.texture_paths[i].rich_text(),
+                )
+                .changed()
+            {
+                emitter.update_diffuse(
+                    &state.gfx_state,
+                    &mut gui.texture_paths[gui.selected_texture],
+                );
+            };
         }
     }
 

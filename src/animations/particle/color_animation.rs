@@ -1,7 +1,7 @@
 use crate::{
     model::{Clock, EmitterState, GfxState, GuiState},
     traits::*,
-    util::{persistence::DynamicExport, ListAction, UniformCompute},
+    util::{persistence::DynamicExport, ListAction, UniformContext},
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::{
@@ -195,11 +195,11 @@ impl ColorAnimation {
 
         let buffer_content = uniform.create_buffer_content();
 
-        let UniformCompute {
+        let UniformContext {
             mut buffers,
             bind_group,
             bind_group_layout,
-        } = UniformCompute::new(&[&buffer_content], device, "Color animation");
+        } = UniformContext::new(&[&buffer_content], device, "Color animation");
 
         let buffer = buffers.pop().unwrap();
 

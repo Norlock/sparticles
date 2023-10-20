@@ -5,7 +5,7 @@ use super::{
 use crate::{
     model::{GfxState, GuiState},
     traits::{CustomShader, HandleAction, PostFx},
-    util::{DynamicExport, ListAction, UniformCompute},
+    util::{DynamicExport, ListAction, UniformContext},
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
@@ -84,11 +84,11 @@ impl Blend {
 
         let content = meta_uniform.create_content();
 
-        let UniformCompute {
+        let UniformContext {
             bind_group,
             bind_group_layout,
             ..
-        } = UniformCompute::new(&[&content], device, "Blend");
+        } = UniformContext::new(&[&content], device, "Blend");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Blend layout"),

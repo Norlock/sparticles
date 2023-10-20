@@ -1,10 +1,10 @@
 @group(0) @binding(0) 
 var<uniform> camera: CameraUniform;
 
-@group(1) @binding(0) 
+@group(2) @binding(0) 
 var<storage, read> particles: array<Particle>;
 
-@group(1) @binding(2) var<uniform> em: Emitter; 
+@group(2) @binding(2) var<uniform> em: Emitter; 
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -12,6 +12,7 @@ struct VertexOutput {
     @location(0) color: vec4<f32>,
     @location(1) world_space: vec4<f32>,
     @location(2) v_pos: vec4<f32>,
+    @location(3) uv: vec2<f32>,
 };
 
 @vertex
@@ -44,14 +45,22 @@ fn vs_main(
     out.color = p.color;
     out.clip_position = camera.view_proj * world_space;
     out.world_space = world_space;
+    out.uv = uvs[vert_idx];
 
     return out;
 }
+
+@group(1) @binding(0)
+var base_texture: texture_2d<f32>;
+@group(1) @binding(1)
+var base_sampler: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let v_pos = in.v_pos.xy;
     let len = length(v_pos);
+
+    let texture_color = textureSample(base_texture, base_sampler, in.uv);
 
     if 1.0 < len {
         discard;
@@ -70,5 +79,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     effect *= 1. - 0.02 / color.rgb;
     effect += 0.5;
 
-    return vec4<f32>(effect, 1.0);
+    return vec4<f32>(effect * texture_color.rgb, 1.0);
 }

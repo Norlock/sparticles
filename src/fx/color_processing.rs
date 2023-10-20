@@ -5,7 +5,7 @@ use super::{
 use crate::{
     model::{GfxState, GuiState},
     traits::{CustomShader, HandleAction, PostFx, RegisterPostFx},
-    util::{CommonBuffer, DynamicExport, ListAction, UniformCompute},
+    util::{CommonBuffer, DynamicExport, ListAction, UniformContext},
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::{self, Slider};
@@ -157,11 +157,11 @@ impl ColorProcessing {
         let color_content = CommonBuffer::uniform_content(&settings.color_uniform);
         let meta_content = CommonBuffer::uniform_content(&settings.meta_uniform);
 
-        let UniformCompute {
+        let UniformContext {
             mut buffers,
             bind_group,
             bind_group_layout,
-        } = UniformCompute::new(&[&color_content, &meta_content], device, "Color processing");
+        } = UniformContext::new(&[&color_content, &meta_content], device, "Color processing");
 
         let shader = device.create_shader("fx/color_processing.wgsl", "Color correction");
 

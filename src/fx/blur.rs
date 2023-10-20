@@ -7,7 +7,7 @@ use crate::traits::*;
 use crate::util::CommonBuffer;
 use crate::util::DynamicExport;
 use crate::util::ListAction;
-use crate::util::UniformCompute;
+use crate::util::UniformContext;
 use egui_wgpu::wgpu;
 use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
@@ -224,11 +224,11 @@ impl Blur {
         let blur_content = CommonBuffer::uniform_content(&blur_uniform);
         let meta_content = CommonBuffer::uniform_content(&meta_uniform);
 
-        let UniformCompute {
+        let UniformContext {
             mut buffers,
             bind_group,
             bind_group_layout,
-        } = UniformCompute::new(&[&blur_content, &meta_content], device, "Gaussian blur");
+        } = UniformContext::new(&[&blur_content, &meta_content], device, "Gaussian blur");
 
         let meta_buffer = buffers.pop().unwrap();
         let blur_buffer = buffers.pop().unwrap();
