@@ -1,6 +1,6 @@
 use egui_winit::winit;
 use init::AppSettings;
-use model::{GfxState, State};
+use model::State;
 use winit::event::Event::*;
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{self, WindowId};

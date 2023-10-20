@@ -58,9 +58,9 @@ impl GravityUniform {
             dead_zone: props.dead_zone,
             mass: props.mass,
             life_cycle: props.life_cycle,
-            start_pos: props.start_pos.into(),
-            end_pos: props.end_pos.into(),
-            current_pos: props.start_pos.into(),
+            start_pos: props.start_pos,
+            end_pos: props.end_pos,
+            current_pos: props.start_pos,
             should_animate: false,
         }
     }

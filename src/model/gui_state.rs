@@ -1,16 +1,13 @@
 use super::{EmitterState, GfxState, State};
 use crate::{
     fx::{post_process::CreateFxOptions, PostProcessState},
-    texture::CustomTexture,
+    texture::IconTexture,
     util::ListAction,
     util::Persistence,
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
 use egui_wgpu::wgpu;
-use egui_winit::egui::{
-    self, epaint::TextureManager, load::SizedTexture, ComboBox, ImageButton, ImageData,
-    TextureHandle, TextureId,
-};
+use egui_winit::egui::{self, load::SizedTexture, ComboBox, ImageButton, TextureId};
 use std::{collections::HashMap, path::PathBuf};
 
 pub struct GuiState {
@@ -221,9 +218,9 @@ impl GuiState {
             icon_path.push(filename);
             let path_str = icon_path
                 .to_str()
-                .expect(&format!("File doesn't exist: {}", filename));
+                .unwrap_or_else(|| panic!("File doesn't exist: {}", filename));
 
-            let view = CustomTexture::new(device, queue, path_str);
+            let view = IconTexture::create_view(device, queue, path_str);
 
             let texture_id =
                 renderer.register_native_texture(device, &view, wgpu::FilterMode::Nearest);

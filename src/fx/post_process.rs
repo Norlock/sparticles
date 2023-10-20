@@ -3,7 +3,6 @@ use crate::model::{GfxState, State};
 use crate::traits::*;
 use crate::util::{CommonBuffer, DynamicExport, ExportType, ListAction, Persistence};
 use egui_wgpu::wgpu;
-use egui_wgpu::wgpu::util::DeviceExt;
 use encase::ShaderType;
 use serde::{Deserialize, Serialize};
 use std::num::{NonZeroU32, NonZeroU64};
@@ -214,7 +213,7 @@ impl PostProcessState {
 
         for item in to_export {
             for reg in registered_effects {
-                if &item.tag == reg.tag() {
+                if item.tag == reg.tag() {
                     self.effects.push(reg.import(&options, item.data));
                     break;
                 }
@@ -257,67 +256,63 @@ impl FxState {
 
         let array_count = 16;
 
-        let mut layout_entries = Vec::new();
-
-        // Fx write
-        layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::StorageTexture {
-                view_dimension: wgpu::TextureViewDimension::D2,
-                format: PostProcessState::TEXTURE_FORMAT,
-                access: wgpu::StorageTextureAccess::WriteOnly,
+        let layout_entries = vec![
+            // Fx write
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::StorageTexture {
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    format: PostProcessState::TEXTURE_FORMAT,
+                    access: wgpu::StorageTextureAccess::WriteOnly,
+                },
+                count: NonZeroU32::new(array_count),
             },
-            count: NonZeroU32::new(array_count),
-        });
-
-        // Fx Read
-        layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 1,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                view_dimension: wgpu::TextureViewDimension::D2,
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                multisampled: false,
+            // Fx read
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                    multisampled: false,
+                },
+                count: NonZeroU32::new(array_count),
             },
-            count: NonZeroU32::new(array_count),
-        });
-
-        // Fx Blend READ_WRITE
-        layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 2,
-            visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
-            ty: wgpu::BindingType::StorageTexture {
-                view_dimension: wgpu::TextureViewDimension::D2,
-                format: PostProcessState::TEXTURE_FORMAT,
-                access: wgpu::StorageTextureAccess::ReadWrite,
+            // Fx Blend READ_WRITE
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::StorageTexture {
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    format: PostProcessState::TEXTURE_FORMAT,
+                    access: wgpu::StorageTextureAccess::ReadWrite,
+                },
+                count: None,
             },
-            count: None,
-        });
-
-        // Frame
-        layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 3,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                view_dimension: wgpu::TextureViewDimension::D2,
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                multisampled: false,
+            // Frame
+            wgpu::BindGroupLayoutEntry {
+                binding: 3,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                    multisampled: false,
+                },
+                count: None,
             },
-            count: None,
-        });
-
-        // Depth
-        layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 4,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                view_dimension: wgpu::TextureViewDimension::D2,
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                multisampled: false,
+            // Depth
+            wgpu::BindGroupLayoutEntry {
+                binding: 4,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                    multisampled: false,
+                },
+                count: None,
             },
-            count: None,
-        });
+        ];
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Post process layout"),
@@ -335,8 +330,8 @@ impl FxState {
         let mut bind_groups = Vec::new();
         let blend_view = gfx_state.create_fx_view();
 
-        let ping_refs: Vec<&wgpu::TextureView> = ping_views.iter().map(|v| v).collect();
-        let pong_refs: Vec<&wgpu::TextureView> = pong_views.iter().map(|v| v).collect();
+        let ping_refs: Vec<&wgpu::TextureView> = ping_views.iter().collect();
+        let pong_refs: Vec<&wgpu::TextureView> = pong_views.iter().collect();
         let all_refs = [&ping_refs, &pong_refs];
 
         for i in 0..2 {

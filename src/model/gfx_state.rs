@@ -52,9 +52,11 @@ impl GfxState {
             .unwrap();
 
         // Higher limits for Post FX
-        let mut limits = wgpu::Limits::default();
-        limits.max_sampled_textures_per_shader_stage = 64;
-        limits.max_storage_textures_per_shader_stage = 64;
+        let limits = wgpu::Limits {
+            max_sampled_textures_per_shader_stage: 64,
+            max_storage_textures_per_shader_stage: 64,
+            ..Default::default()
+        };
 
         let (device, queue) = adapter
             .request_device(

@@ -83,7 +83,7 @@ impl EmitterUniform {
 
         let spawn_batches_count = (particle_lifetime_sec / spawn_delay_sec).ceil() as u32;
 
-        let box_pos = Vec3::ZERO.into();
+        let box_pos = Vec3::ZERO;
         let box_dimensions = [1., 0.5, 1.].into();
         let box_rotation = [45f32.to_radians(), 0., 0.].into();
 
@@ -113,7 +113,7 @@ impl EmitterUniform {
             particle_speed: Range(10., 15.),
             particle_size: Range(0.1, 0.15),
             particle_friction_coefficient: 0.99,
-            particle_color: Vec4::from_rgb(0, 255, 0).into(),
+            particle_color: Vec4::from_rgb(0, 255, 0),
 
             iteration: 1000,
             elapsed_sec: 0.,

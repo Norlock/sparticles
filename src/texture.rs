@@ -1,5 +1,3 @@
-use std::{fs, path::PathBuf};
-
 use crate::{
     fx::PostProcessState,
     model::gfx_state::GfxState,
@@ -8,16 +6,17 @@ use crate::{
 use egui_wgpu::wgpu::{self, util::align_to};
 use image::GenericImageView;
 use rand::{rngs::ThreadRng, Rng};
+use std::fs;
 
 pub struct DiffuseTexture {
     pub sampler: wgpu::Sampler,
     pub view: wgpu::TextureView,
 }
 
-pub struct CustomTexture;
+pub struct IconTexture;
 
-impl CustomTexture {
-    pub fn new(
+impl IconTexture {
+    pub fn create_view(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         texture_path: &str,

@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, FxMetaUniform, MetaUniformCompute},
+    post_process::{CreateFxOptions, FxMetaUniform},
     FxState,
 };
 use crate::{
@@ -14,8 +14,6 @@ pub struct Blend {
     additive_pipeline: wgpu::ComputePipeline,
     blend_type: BlendType,
     bind_group: wgpu::BindGroup,
-    bind_group_layout: wgpu::BindGroupLayout,
-    buffer: wgpu::Buffer,
     pub meta_uniform: FxMetaUniform,
 }
 
@@ -49,7 +47,7 @@ impl PostFx for Blend {
 
     fn create_ui(&mut self, _ui: &mut Ui, _ui_state: &GuiState) {}
 
-    fn update(&mut self, gfx_state: &GfxState) {}
+    fn update(&mut self, _gfx_state: &GfxState) {}
 }
 
 impl HandleAction for Blend {
@@ -87,9 +85,9 @@ impl Blend {
         let content = meta_uniform.create_content();
 
         let UniformCompute {
-            mut buffers,
             bind_group,
             bind_group_layout,
+            ..
         } = UniformCompute::new(&[&content], device, "Blend");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -109,9 +107,7 @@ impl Blend {
         Self {
             additive_pipeline,
             blend_type,
-            buffer: buffers.swap_remove(0),
             bind_group,
-            bind_group_layout,
             meta_uniform,
         }
     }

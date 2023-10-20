@@ -67,10 +67,10 @@ impl UniformCompute {
             );
         }
 
-        for i in 0..buffers.len() {
+        for (i, buffer) in buffers.iter().enumerate() {
             entries.push(wgpu::BindGroupEntry {
                 binding: i as u32,
-                resource: buffers[i].as_entire_binding(),
+                resource: buffer.as_entire_binding(),
             });
         }
 

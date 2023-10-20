@@ -50,12 +50,7 @@ impl<'a> EmitterState {
         } = state;
 
         let mut all_emitters: Vec<&mut EmitterState> = vec![lights];
-        all_emitters.append(
-            &mut emitters
-                .iter_mut()
-                .map(|em| em)
-                .collect::<Vec<&mut EmitterState>>(),
-        );
+        all_emitters.append(&mut emitters.iter_mut().collect::<Vec<&mut EmitterState>>());
 
         for emitter in all_emitters.iter_mut() {
             let queue = &mut gfx_state.queue;

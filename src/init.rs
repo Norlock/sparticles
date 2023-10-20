@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::animations::color_animation::RegisterColorAnimation;
 use crate::animations::diffusion_animation::RegisterDiffusionAnimation;
 use crate::animations::sway_animation::RegisterSwayAnimation;
@@ -21,6 +19,7 @@ pub enum JsonImportMode {
     Ignore,
 }
 
+#[allow(unused)]
 pub trait AppSettings {
     fn show_gui(&self) -> bool;
     fn light(&self) -> EmitterUniform;

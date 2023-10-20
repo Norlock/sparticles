@@ -59,16 +59,16 @@ impl RegisterEmitterAnimation for RegisterSwayAnimation {
 impl SwayAnimation {
     pub fn new(life_cycle: LifeCycle, yaw_deg: Vec2, pitch_deg: Vec2, roll_deg: Vec2) -> Self {
         let gui = Gui {
-            yaw: yaw_deg.into(),
-            pitch: pitch_deg.into(),
-            roll: roll_deg.into(),
+            yaw: yaw_deg,
+            pitch: pitch_deg,
+            roll: roll_deg,
         };
 
         Self {
             life_cycle,
-            yaw: yaw_deg.to_radians().into(),
-            pitch: pitch_deg.to_radians().into(),
-            roll: roll_deg.to_radians().into(),
+            yaw: yaw_deg.to_radians(),
+            pitch: pitch_deg.to_radians(),
+            roll: roll_deg.to_radians(),
             selected_action: ListAction::None,
             gui,
         }
