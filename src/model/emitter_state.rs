@@ -269,10 +269,10 @@ impl<'a> EmitterState {
     }
 
     pub fn update_diffuse(&mut self, gfx_state: &GfxState, path: &mut PathBuf) {
+        self.uniform.texture_image = path.to_path_buf();
         self.diffuse_ctx = gfx_state.create_diffuse_context(
-            path.as_os_str()
-                .to_str()
-                .expect("failed to convert to str from ostr"),
+            path.to_str()
+                .expect("failed to convert to str from pathbuf"),
         );
     }
 
@@ -331,7 +331,8 @@ impl GfxState {
         let surface_config = &self.surface_config;
 
         let emitter_buf_content = uniform.create_buffer_content();
-        let diffuse_ctx = self.create_diffuse_context(uniform.texture_image.to_str().unwrap());
+        let diffuse_ctx =
+            self.create_diffuse_context(uniform.texture_image.to_str().expect("Texture not found"));
 
         let particle_buffer_size = NonZeroU64::new(uniform.particle_buffer_size());
         let emitter_buffer_size = emitter_buf_content.cal_buffer_size();
