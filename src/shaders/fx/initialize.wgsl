@@ -1,5 +1,5 @@
-@group(0) @binding(2) var fx_blend: texture_storage_2d<rgba8unorm, read_write>;
-@group(0) @binding(3) var frame_texture: texture_2d<f32>;
+@group(0) @binding(0) var write_fx: binding_array<texture_storage_2d<rgba8unorm, write>, 32>;
+@group(0) @binding(2) var frame_texture: texture_2d<f32>;
 
 @compute
 @workgroup_size(8, 8, 1)
@@ -11,7 +11,7 @@ fn init(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    let out = textureLoad(frame_texture, vec2<i32>(pos.xy), 0);
+    let out = textureLoad(frame_texture, vec2<i32>(pos), 0);
 
-    textureStore(fx_blend, pos, out);
+    textureStore(write_fx[0], pos, out);
 }

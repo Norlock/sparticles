@@ -1,5 +1,5 @@
 use crate::{
-    fx::post_process::{CreateFxOptions, FxState},
+    fx::post_process::{CreateFxOptions, FxState, PingPongState},
     model::{Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
     util::persistence::DynamicExport,
     util::ListAction,
@@ -93,7 +93,7 @@ pub trait PostFx: HandleAction {
 
     fn compute<'a>(
         &'a self,
-        ping_pong_idx: &mut usize,
+        ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     );

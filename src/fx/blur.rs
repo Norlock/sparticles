@@ -1,5 +1,6 @@
 use super::post_process::CreateFxOptions;
 use super::post_process::FxMetaUniform;
+use super::post_process::PingPongState;
 use super::FxState;
 use crate::model::GfxState;
 use crate::model::GuiState;
@@ -30,20 +31,19 @@ pub struct Blur {
     pub update_uniform: bool,
 
     selected_action: ListAction,
+    enabled: bool,
 }
 
 pub struct RegisterBlurFx;
 
+// Create default is used as single fx
 impl RegisterPostFx for RegisterBlurFx {
     fn tag(&self) -> &str {
         "blur"
     }
 
     fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
-        let settings = BlurSettings::new(FxMetaUniform {
-            in_idx: -1,
-            out_idx: -1,
-        });
+        let settings = BlurSettings::new(FxMetaUniform::zero());
 
         Box::new(Blur::new(options, settings))
     }
@@ -101,7 +101,7 @@ impl PostFx for Blur {
 
     fn compute<'a>(
         &'a self,
-        ping_pong_idx: &mut usize,
+        ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
@@ -110,28 +110,28 @@ impl PostFx for Blur {
 
         // Splits parts to fx tex
         c_pass.set_pipeline(&self.split_pipeline);
-        c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
+        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
         c_pass.set_bind_group(1, &self.bind_group, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        *ping_pong_idx += 1;
+        ping_pong.swap(&self.meta_uniform);
 
         // Smoothen downscaled texture
         for _ in 0..self.passes {
             c_pass.set_pipeline(&self.blur_pipeline);
-            c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
+            c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
             c_pass.set_bind_group(1, &self.bind_group, &[]);
             c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-            *ping_pong_idx += 1;
+            ping_pong.swap(&self.meta_uniform);
         }
 
         c_pass.set_pipeline(&self.upscale_pipeline);
-        c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
+        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
         c_pass.set_bind_group(1, &self.bind_group, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
 
-        *ping_pong_idx += 1;
+        ping_pong.swap(&self.meta_uniform);
     }
 
     fn create_ui(&mut self, ui: &mut Ui, _: &GuiState) {
@@ -184,7 +184,7 @@ impl HandleAction for Blur {
     }
 
     fn enabled(&self) -> bool {
-        todo!()
+        self.enabled
     }
 }
 
@@ -266,6 +266,7 @@ impl Blur {
             meta_uniform,
             passes,
             update_uniform: false,
+            enabled: true,
             upscale_pipeline,
             selected_action: ListAction::None,
         }

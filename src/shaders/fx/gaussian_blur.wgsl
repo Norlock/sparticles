@@ -1,6 +1,5 @@
 @group(0) @binding(0) var write_fx: binding_array<texture_storage_2d<rgba8unorm, write>, 32>;
 @group(0) @binding(1) var read_fx: binding_array<texture_2d<f32>, 32>;
-@group(0) @binding(2) var fx_blend: texture_storage_2d<rgba8unorm, read_write>;
 
 @group(1) @binding(0) var<uniform> globals: GaussianBlur; 
 @group(1) @binding(1) var<uniform> fx_meta: FxMeta; 
@@ -48,14 +47,7 @@ fn apply_blur(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let pos = global_invocation_id.xy;
 
-    var frame_size: vec2<u32>;
-
-    if fx_meta.in_idx == -1 {
-        frame_size = vec2<u32>(textureDimensions(fx_blend));
-    } else {
-        frame_size = vec2<u32>(textureDimensions(read_fx[fx_meta.in_idx]));
-    }
-
+    var frame_size = vec2<u32>(textureDimensions(read_fx[fx_meta.in_idx]));
     let fx_size_f32 = ceil(vec2<f32>(frame_size) / f32(globals.downscale));
     let fx_size = vec2<u32>(fx_size_f32);
 
@@ -74,11 +66,7 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     for (var x = start_x; x < end_x; x++) {
         for (var y = start_y; y < end_y; y++) {
             if x < frame_size.x && y < frame_size.y {
-                if fx_meta.in_idx == -1 {
-                    result += textureLoad(fx_blend, vec2<u32>(x, y)).rgb;
-                } else {
-                    result += textureLoad(read_fx[fx_meta.in_idx], vec2<u32>(x, y), 0).rgb;
-                }
+                result += textureLoad(read_fx[fx_meta.in_idx], vec2<u32>(x, y), 0).rgb;
                 weight++;
             }
         }
@@ -184,7 +172,7 @@ fn get_neighbour_y(pos: vec2<f32>, color: vec3<f32>, scale: f32, max_y: f32) -> 
 @compute
 @workgroup_size(8, 8, 1)
 fn upscale(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-    let fx_size = vec2<f32>(textureDimensions(fx_blend));
+    let fx_size = vec2<f32>(textureDimensions(read_fx[0]));
     let pos = vec2<f32>(global_invocation_id.xy);
 
     if any(fx_size < pos) {

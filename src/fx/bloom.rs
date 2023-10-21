@@ -2,6 +2,7 @@ use super::blur::Blur;
 use super::blur::BlurSettings;
 use super::post_process::CreateFxOptions;
 use super::post_process::FxMetaUniform;
+use super::post_process::PingPongState;
 use super::Blend;
 use super::BlendType;
 use super::FxState;
@@ -31,8 +32,8 @@ pub struct BloomSettings {
 impl Default for BloomSettings {
     fn default() -> Self {
         Self {
-            blur: BlurSettings::new(FxMetaUniform::new(-1, 0)),
-            blend: FxMetaUniform::new(0, -1),
+            blur: BlurSettings::new(FxMetaUniform::new(0, 1)),
+            blend: FxMetaUniform::new(1, 0),
         }
     }
 }
@@ -57,12 +58,12 @@ impl RegisterPostFx for RegisterBloomFx {
 impl PostFx for Bloom {
     fn compute<'a>(
         &'a self,
-        ping_pong_idx: &mut usize,
+        ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        self.blur.compute(ping_pong_idx, fx_state, c_pass);
-        self.blend.compute(ping_pong_idx, fx_state, c_pass);
+        self.blur.compute(ping_pong, fx_state, c_pass);
+        self.blend.compute(ping_pong, fx_state, c_pass);
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {

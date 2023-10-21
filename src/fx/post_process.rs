@@ -15,15 +15,53 @@ pub struct PostProcessState {
     finalize_pipeline: wgpu::RenderPipeline,
 }
 
+pub struct PingPongState {
+    fx_idx: usize,
+    blend_idx: usize,
+}
+
+impl PingPongState {
+    fn new() -> Self {
+        Self {
+            fx_idx: 0,
+            blend_idx: 0,
+        }
+    }
+
+    fn idx(&self) -> usize {
+        self.blend_idx * 2 + self.fx_idx
+    }
+
+    fn swap_fx(&mut self) {
+        self.fx_idx = (self.fx_idx + 1) % 2;
+    }
+
+    fn swap_blend(&mut self) {
+        self.blend_idx = (self.blend_idx + 1) % 2;
+    }
+
+    pub fn swap(&mut self, meta_uniform: &FxMetaUniform) {
+        if meta_uniform.out_idx == 0 {
+            self.swap_blend();
+        } else {
+            self.swap_fx();
+        }
+    }
+}
+
 #[derive(ShaderType, Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct FxMetaUniform {
-    pub in_idx: i32,  // -1 == fx_blend
-    pub out_idx: i32, // -1 == fx_blend
+    in_idx: u32,
+    out_idx: u32,
 }
 
 impl FxMetaUniform {
-    pub fn new(in_idx: i32, out_idx: i32) -> Self {
+    pub fn new(in_idx: u32, out_idx: u32) -> Self {
         Self { in_idx, out_idx }
+    }
+
+    pub fn zero() -> Self {
+        Self::new(0, 0)
     }
 }
 
@@ -35,13 +73,6 @@ pub struct CreateFxOptions<'a> {
 pub struct BufferInfo {
     pub buffer: wgpu::Buffer,
     pub binding_size: Option<NonZeroU64>,
-}
-
-pub struct MetaUniformCompute {
-    pub buffer: wgpu::Buffer,
-    pub uniform: FxMetaUniform,
-    pub bind_group: wgpu::BindGroup,
-    pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl FxMetaUniform {
@@ -85,32 +116,35 @@ impl PostProcessState {
         }
     }
 
-    pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) -> usize {
+    pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) -> PingPongState {
         let pp = &mut state.post_process;
+        let fx_state = &mut pp.fx_state;
 
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Post process pipeline"),
             timestamp_writes: None,
         });
 
-        c_pass.set_pipeline(&pp.initialize_pipeline);
-        c_pass.set_bind_group(0, pp.fx_state.bind_group(1), &[]);
-        c_pass.dispatch_workgroups(pp.fx_state.count_x, pp.fx_state.count_y, 1);
+        let mut ping_pong = PingPongState::new();
 
-        let mut ping_pong_idx = 0;
+        c_pass.set_pipeline(&pp.initialize_pipeline);
+        c_pass.set_bind_group(0, fx_state.bind_group(&mut ping_pong), &[]);
+        c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
+
+        ping_pong.swap_blend();
 
         for fx in pp.effects.iter().filter(|fx| fx.enabled()) {
-            fx.compute(&mut ping_pong_idx, &pp.fx_state, &mut c_pass);
+            fx.compute(&mut ping_pong, &fx_state, &mut c_pass);
         }
 
-        ping_pong_idx
+        ping_pong
     }
 
     pub fn render(
         state: &mut State,
         output_view: wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
-        ping_pong_idx: usize,
+        mut ping_pong: PingPongState,
     ) {
         let clipped_primitives = GfxState::draw_gui(state, encoder);
 
@@ -131,7 +165,7 @@ impl PostProcessState {
 
         let pp = &mut state.post_process;
         r_pass.set_pipeline(&pp.finalize_pipeline);
-        r_pass.set_bind_group(0, pp.fx_state.bind_group(ping_pong_idx), &[]);
+        r_pass.set_bind_group(0, pp.fx_state.bind_group(&mut ping_pong), &[]);
         r_pass.draw(0..3, 0..1);
 
         state.gfx_state.renderer.render(
@@ -244,8 +278,8 @@ pub struct FxState {
 pub type Dimensions = [u32; 2];
 
 impl FxState {
-    pub fn bind_group(&self, idx: usize) -> &wgpu::BindGroup {
-        &self.bind_groups[idx % 2]
+    pub fn bind_group(&self, ping_pong: &mut PingPongState) -> &wgpu::BindGroup {
+        &self.bind_groups[ping_pong.idx()]
     }
 
     fn new(gfx_state: &GfxState) -> Self {
@@ -271,7 +305,7 @@ impl FxState {
             // Fx read
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
-                visibility: wgpu::ShaderStages::COMPUTE,
+                visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Texture {
                     view_dimension: wgpu::TextureViewDimension::D2,
                     sample_type: wgpu::TextureSampleType::Float { filterable: false },
@@ -279,20 +313,9 @@ impl FxState {
                 },
                 count: NonZeroU32::new(array_count),
             },
-            // Fx Blend READ_WRITE
-            wgpu::BindGroupLayoutEntry {
-                binding: 2,
-                visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::StorageTexture {
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    format: PostProcessState::TEXTURE_FORMAT,
-                    access: wgpu::StorageTextureAccess::ReadWrite,
-                },
-                count: None,
-            },
             // Frame
             wgpu::BindGroupLayoutEntry {
-                binding: 3,
+                binding: 2,
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::Texture {
                     view_dimension: wgpu::TextureViewDimension::D2,
@@ -303,7 +326,7 @@ impl FxState {
             },
             // Depth
             wgpu::BindGroupLayoutEntry {
-                binding: 4,
+                binding: 3,
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::Texture {
                     view_dimension: wgpu::TextureViewDimension::D2,
@@ -322,41 +345,60 @@ impl FxState {
         let mut ping_views = Vec::new();
         let mut pong_views = Vec::new();
 
-        for _ in 0..array_count {
+        for _ in 0..(array_count - 1) {
             ping_views.push(gfx_state.create_fx_view());
             pong_views.push(gfx_state.create_fx_view());
         }
 
         let mut bind_groups = Vec::new();
-        let blend_view = gfx_state.create_fx_view();
 
-        let ping_refs: Vec<&wgpu::TextureView> = ping_views.iter().collect();
-        let pong_refs: Vec<&wgpu::TextureView> = pong_views.iter().collect();
-        let all_refs = [&ping_refs, &pong_refs];
+        let blend_view_1 = gfx_state.create_fx_view();
+        let blend_view_2 = gfx_state.create_fx_view();
 
-        for i in 0..2 {
+        // Make 4 bind groups
+        for i in 0..4 {
+            let blend_view_ping;
+            let blend_view_pong;
+
+            if i < 2 {
+                blend_view_ping = &blend_view_1;
+                blend_view_pong = &blend_view_2;
+            } else {
+                blend_view_ping = &blend_view_2;
+                blend_view_pong = &blend_view_1;
+            };
+
+            let mut ping_refs = vec![blend_view_ping];
+            let mut pong_refs = vec![blend_view_pong];
+
+            for ping_ref in ping_views.iter() {
+                ping_refs.push(ping_ref);
+            }
+
+            for pong_ref in pong_views.iter() {
+                pong_refs.push(pong_ref);
+            }
+
+            let all_refs = [ping_refs, pong_refs];
+
             bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Fx bindgroup"),
                 layout: &bind_group_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::TextureViewArray(all_refs[i % 2]),
+                        resource: wgpu::BindingResource::TextureViewArray(&all_refs[i % 2]),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::TextureViewArray(all_refs[(i + 1) % 2]),
+                        resource: wgpu::BindingResource::TextureViewArray(&all_refs[(i + 1) % 2]),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: wgpu::BindingResource::TextureView(&blend_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
                         resource: wgpu::BindingResource::TextureView(&frame_view),
                     },
                     wgpu::BindGroupEntry {
-                        binding: 4,
+                        binding: 3,
                         resource: wgpu::BindingResource::TextureView(&depth_view),
                     },
                 ],

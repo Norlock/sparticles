@@ -53,8 +53,8 @@ struct GaussianBlur {
 }
 
 struct FxMeta {
-    in_idx: i32,
-    out_idx: i32,
+    in_idx: u32,
+    out_idx: u32,
 }
 
 fn pi() -> f32 {

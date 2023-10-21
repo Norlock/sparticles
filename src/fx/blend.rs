@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, FxMetaUniform},
+    post_process::{CreateFxOptions, FxMetaUniform, PingPongState},
     FxState,
 };
 use crate::{
@@ -26,7 +26,7 @@ pub enum BlendType {
 impl PostFx for Blend {
     fn compute<'a>(
         &'a self,
-        ping_pong_idx: &mut usize,
+        ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
@@ -38,11 +38,11 @@ impl PostFx for Blend {
             BlendType::REPLACE => {}
         }
 
-        c_pass.set_bind_group(0, fx_state.bind_group(*ping_pong_idx), &[]);
+        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
         c_pass.set_bind_group(1, &self.bind_group, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
 
-        *ping_pong_idx += 1;
+        ping_pong.swap(&self.meta_uniform);
     }
 
     fn create_ui(&mut self, _ui: &mut Ui, _ui_state: &GuiState) {}
