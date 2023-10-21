@@ -97,23 +97,7 @@ impl PostProcessState {
             fx.update(&state.gfx_state);
         }
 
-        // TODO make function in item action to handle all cases like this
-        let mut i = 0;
-
-        while i < effects.len() {
-            if effects[i].selected_action() == &mut ListAction::Delete {
-                effects.remove(i);
-                continue;
-            } else if 0 < i && effects[i].selected_action() == &mut ListAction::MoveUp {
-                effects[i].reset_action();
-                effects.swap(i, i - 1);
-            } else if 0 < i && effects[i - 1].selected_action() == &mut ListAction::MoveDown {
-                effects[i - 1].reset_action();
-                effects.swap(i, i - 1);
-            }
-
-            i += 1;
-        }
+        ListAction::update_list(effects);
     }
 
     pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) -> PingPongState {

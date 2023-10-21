@@ -32,6 +32,7 @@ pub struct Blur {
 
     selected_action: ListAction,
     enabled: bool,
+    standalone: bool,
 }
 
 pub struct RegisterBlurFx;
@@ -43,7 +44,7 @@ impl RegisterPostFx for RegisterBlurFx {
     }
 
     fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
-        let settings = BlurSettings::new(FxMetaUniform::zero());
+        let settings = BlurSettings::new(FxMetaUniform::zero(), true);
 
         Box::new(Blur::new(options, settings))
     }
@@ -73,6 +74,8 @@ pub struct BlurSettings {
     pub blur_uniform: BlurUniform,
     pub meta_uniform: FxMetaUniform,
     pub passes: usize,
+    /// True if this is a standalone effect, false if its added inside another effect
+    pub standalone: bool,
 }
 
 impl Default for BlurUniform {
@@ -134,10 +137,15 @@ impl PostFx for Blur {
         ping_pong.swap(&self.meta_uniform);
     }
 
-    fn create_ui(&mut self, ui: &mut Ui, _: &GuiState) {
+    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
         let mut blur = self.blur_uniform;
 
-        ui.label("Gaussian blur");
+        if self.standalone {
+            self.selected_action = ui_state.create_li_header(ui, "Gaussian blur");
+        } else {
+            ui.label("Gaussian blur");
+        }
+
         ui.add(Slider::new(&mut blur.brightness_threshold, 0.0..=1.0).text("Brightness threshold"));
         ui.add(
             Slider::new(&mut blur.downscale, 4..=32)
@@ -175,6 +183,7 @@ impl HandleAction for Blur {
             meta_uniform: self.meta_uniform,
             blur_uniform: self.blur_uniform,
             passes: self.passes,
+            standalone: self.standalone,
         };
 
         DynamicExport {
@@ -189,11 +198,13 @@ impl HandleAction for Blur {
 }
 
 impl BlurSettings {
-    pub fn new(fx_meta: FxMetaUniform) -> Self {
+    /// Standalone should only be true if not inside another effect
+    pub fn new(fx_meta: FxMetaUniform, standalone: bool) -> Self {
         Self {
             blur_uniform: BlurUniform::default(),
             meta_uniform: fx_meta,
             passes: 8,
+            standalone,
         }
     }
 }
@@ -204,6 +215,7 @@ impl Blur {
             blur_uniform: self.blur_uniform,
             meta_uniform: self.meta_uniform,
             passes: self.passes,
+            standalone: self.standalone,
         }
     }
 
@@ -215,9 +227,12 @@ impl Blur {
 
         let device = &gfx_state.device;
 
-        let blur_uniform = blur_settings.blur_uniform;
-        let passes = blur_settings.passes;
-        let meta_uniform = blur_settings.meta_uniform;
+        let BlurSettings {
+            blur_uniform,
+            meta_uniform,
+            passes,
+            standalone,
+        } = blur_settings;
 
         let blur_shader = device.create_shader("fx/gaussian_blur.wgsl", "Gaussian blur");
 
@@ -267,6 +282,7 @@ impl Blur {
             passes,
             update_uniform: false,
             enabled: true,
+            standalone,
             upscale_pipeline,
             selected_action: ListAction::None,
         }

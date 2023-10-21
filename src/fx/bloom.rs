@@ -32,7 +32,7 @@ pub struct BloomSettings {
 impl Default for BloomSettings {
     fn default() -> Self {
         Self {
-            blur: BlurSettings::new(FxMetaUniform::new(0, 1)),
+            blur: BlurSettings::new(FxMetaUniform::new(0, 1), false),
             blend: FxMetaUniform::new(1, 0),
         }
     }
@@ -96,6 +96,7 @@ impl HandleAction for Bloom {
                 meta_uniform: self.blur.meta_uniform,
                 blur_uniform: self.blur.blur_uniform,
                 passes: self.blur.passes,
+                standalone: false,
             },
         };
 

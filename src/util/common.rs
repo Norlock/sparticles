@@ -7,6 +7,8 @@ use egui_wgpu::wgpu::{self, util::DeviceExt};
 use encase::{private::WriteInto, ShaderType, UniformBuffer};
 use serde::{Deserialize, Serialize};
 
+use crate::traits::HandleAction;
+
 #[derive(PartialEq, Serialize, Deserialize, Default)]
 pub enum ListAction {
     #[default]
@@ -25,6 +27,27 @@ impl Display for ListAction {
             Self::MoveDown => f.write_str("Move down"),
             Self::Delete => f.write_str("Delete"),
             Self::None => f.write_str("None"),
+        }
+    }
+}
+
+impl ListAction {
+    pub fn update_list<T: HandleAction + ?Sized>(list: &mut Vec<Box<T>>) {
+        let mut i = 0;
+
+        while i < list.len() {
+            if list[i].selected_action() == &mut ListAction::Delete {
+                list.remove(i);
+                continue;
+            } else if 0 < i && list[i].selected_action() == &mut ListAction::MoveUp {
+                list[i].reset_action();
+                list.swap(i, i - 1);
+            } else if 0 < i && list[i - 1].selected_action() == &mut ListAction::MoveDown {
+                list[i - 1].reset_action();
+                list.swap(i, i - 1);
+            }
+
+            i += 1;
         }
     }
 }
