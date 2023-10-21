@@ -60,24 +60,7 @@ impl<'a> EmitterState {
 
             emitter.uniform.update(clock);
 
-            let mut i = 0;
-
-            while i < emitter.emitter_animations.len() {
-                let anims = &mut emitter.emitter_animations;
-
-                if anims[i].selected_action() == &mut ListAction::Delete {
-                    anims.remove(i);
-                    continue;
-                } else if 0 < i && anims[i].selected_action() == &mut ListAction::MoveUp {
-                    anims[i].reset_action();
-                    anims.swap(i, i - 1);
-                } else if 0 < i && anims[i - 1].selected_action() == &mut ListAction::MoveDown {
-                    anims[i - 1].reset_action();
-                    anims.swap(i, i - 1);
-                }
-
-                i += 1;
-            }
+            ListAction::update_list(&mut emitter.emitter_animations);
 
             for anim in emitter.emitter_animations.iter_mut() {
                 anim.animate(&mut emitter.uniform, clock);
@@ -88,24 +71,7 @@ impl<'a> EmitterState {
 
             queue.write_buffer(&emitter.emitter_buffer, 0, buffer_content);
 
-            let mut i = 0;
-
-            while i < emitter.particle_animations.len() {
-                let anims = &mut emitter.particle_animations;
-
-                if anims[i].selected_action() == &mut ListAction::Delete {
-                    anims.remove(i);
-                    continue;
-                } else if 0 < i && anims[i].selected_action() == &mut ListAction::MoveUp {
-                    anims[i].reset_action();
-                    anims.swap(i, i - 1);
-                } else if 0 < i && anims[i - 1].selected_action() == &mut ListAction::MoveDown {
-                    anims[i - 1].reset_action();
-                    anims.swap(i, i - 1);
-                }
-
-                i += 1;
-            }
+            ListAction::update_list(&mut emitter.particle_animations);
 
             for anim in emitter.particle_animations.iter_mut() {
                 anim.update(clock, gfx_state);
