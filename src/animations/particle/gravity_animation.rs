@@ -151,7 +151,7 @@ impl HandleAction for GravityAnimation {
 impl ParticleAnimation for GravityAnimation {
     fn compute<'a>(
         &'a self,
-        spawner: &'a EmitterState,
+        emitter: &'a EmitterState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     ) {
@@ -162,9 +162,9 @@ impl ParticleAnimation for GravityAnimation {
         let nr = clock.get_bindgroup_nr();
 
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &spawner.bind_groups[nr], &[]);
+        compute_pass.set_bind_group(0, &emitter.bind_groups[nr], &[]);
         compute_pass.set_bind_group(1, &self.bind_group, &[]);
-        compute_pass.dispatch_workgroups(spawner.dispatch_x_count, 1, 1);
+        compute_pass.dispatch_workgroups(emitter.dispatch_x_count, 1, 1);
     }
 
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState) {
@@ -187,9 +187,9 @@ impl ParticleAnimation for GravityAnimation {
     fn recreate(
         self: Box<Self>,
         gfx_state: &GfxState,
-        spawner: &EmitterState,
+        emitter: &EmitterState,
     ) -> Box<dyn ParticleAnimation> {
-        Box::new(Self::new(self.uniform, spawner, gfx_state))
+        Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {

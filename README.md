@@ -4,7 +4,7 @@ Particle system written in rust + WGPU + EGUI
 ## Roadmap
 - [ ] Performance test gpu
 - [x] Export (Post fx / animation settings).
-- [ ] Seperate post fx settings per spawner
+- [ ] Seperate post fx settings per emitter
 - [ ] Create noise texture for effects
   - [ ] Create these textures in gui
 

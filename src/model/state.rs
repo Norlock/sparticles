@@ -18,11 +18,6 @@ pub struct State {
     pub registered_post_fx: Vec<Box<dyn RegisterPostFx>>,
 }
 
-pub enum Messages {
-    ResetCamera,
-    RemovePostFx,
-}
-
 impl State {
     pub fn update(&mut self) {
         self.clock.update();

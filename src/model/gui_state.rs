@@ -26,6 +26,7 @@ pub struct GuiState {
     selected_new_em_anim: usize,
     selected_new_post_fx: usize,
     selected_emitter_id: usize,
+    new_emitter_tag: String,
 }
 
 const CHEVRON_UP_ID: &str = "chevron-up";
@@ -34,7 +35,7 @@ const TRASH_ID: &str = "trash";
 
 #[derive(PartialEq)]
 enum Tab {
-    SpawnSettings,
+    EmitterSettings,
     PostFxSettings,
     ParticleAnimations,
     EmitterAnimations,
@@ -49,8 +50,8 @@ impl GuiState {
         Window::new("Sparticles settings").show(&state.gfx_state.ctx.clone(), |ui| {
             let State {
                 clock,
-                emitters,
                 lights,
+                emitters,
                 gui,
                 post_process,
                 ..
@@ -73,6 +74,8 @@ impl GuiState {
             create_label(ui, &gui.elapsed_text);
             create_label(ui, &gui.particle_count_text);
 
+            let mut create_emitter = false;
+
             gui.reset_camera = ui.button("Reset camera").clicked();
             ui.add_space(5.0);
 
@@ -82,12 +85,24 @@ impl GuiState {
                 .chain([lights.id()])
                 .collect();
 
-            ComboBox::from_id_source("sel-spawner").show_index(
-                ui,
-                &mut gui.selected_emitter_id,
-                emitters.len() + 1,
-                |i| emitter_txts[i],
-            );
+            ui.horizontal(|ui| {
+                ComboBox::from_label("Select emitter").show_index(
+                    ui,
+                    &mut gui.selected_emitter_id,
+                    emitter_txts.len(),
+                    |i| emitter_txts[i],
+                );
+
+                ui.add(egui::TextEdit::singleline(&mut gui.new_emitter_tag));
+
+                let is_enabled = 3 <= gui.new_emitter_tag.len()
+                    && emitters.iter().all(|em| em.id() != &gui.new_emitter_tag)
+                    && lights.id() != &gui.new_emitter_tag;
+
+                create_emitter = ui
+                    .add_enabled(is_enabled, egui::Button::new("Add emitter"))
+                    .clicked();
+            });
 
             ui.add_space(5.0);
 
@@ -101,7 +116,11 @@ impl GuiState {
             ui.separator();
 
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut gui.selected_tab, Tab::SpawnSettings, "Spawn settings");
+                ui.selectable_value(
+                    &mut gui.selected_tab,
+                    Tab::EmitterSettings,
+                    "Spawn settings",
+                );
                 ui.selectable_value(&mut gui.selected_tab, Tab::PostFxSettings, "Post FX");
                 ui.selectable_value(
                     &mut gui.selected_tab,
@@ -118,11 +137,16 @@ impl GuiState {
             ui.separator();
 
             match gui.selected_tab {
-                Tab::SpawnSettings => GuiState::emitter_settings_tab(state, ui),
+                Tab::EmitterSettings => GuiState::emitter_settings_tab(state, ui),
                 Tab::PostFxSettings => GuiState::post_fx_tab(state, ui),
                 Tab::ParticleAnimations => GuiState::particle_animations_tab(state, ui),
                 Tab::EmitterAnimations => GuiState::emitter_animations_tab(state, ui),
             };
+
+            if create_emitter {
+                let tag = state.gui.new_emitter_tag.to_string();
+                EmitterState::append(state, tag);
+            }
         });
     }
 
@@ -246,7 +270,7 @@ impl GuiState {
             fps_text: "".to_string(),
             elapsed_text: "".to_string(),
             particle_count_text: "".to_string(),
-            selected_tab: Tab::SpawnSettings,
+            selected_tab: Tab::EmitterSettings,
             texture_paths,
             selected_emitter_id: 0,
             selected_new_par_anim: 0,
@@ -254,6 +278,7 @@ impl GuiState {
             selected_new_post_fx: 0,
             selected_texture: 0,
             icon_textures,
+            new_emitter_tag: String::from(""),
         }
     }
 
@@ -393,13 +418,11 @@ impl GuiState {
             ..
         } = state;
 
-        let post_fx = &mut post_process.effects;
-
-        post_fx.retain_mut(|fx| {
+        let effects = &mut post_process.effects;
+        for fx in effects.iter_mut() {
             fx.create_ui(ui, gui);
             ui.separator();
-            fx.selected_action() != &mut ListAction::Delete
-        });
+        }
 
         ui.separator();
 
@@ -414,7 +437,7 @@ impl GuiState {
             );
 
             if ui.button("Add post fx").clicked() {
-                post_fx.push(
+                effects.push(
                     registered_post_fx[*sel_post_fx].create_default(&CreateFxOptions {
                         fx_state: &post_process.fx_state,
                         gfx_state,

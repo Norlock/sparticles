@@ -67,7 +67,7 @@ impl PartialEq for dyn RegisterParticleAnimation {
 pub trait ParticleAnimation: HandleAction {
     fn compute<'a>(
         &'a self,
-        spawner: &'a EmitterState,
+        emitter: &'a EmitterState,
         clock: &Clock,
         compute_pass: &mut wgpu::ComputePass<'a>,
     );
@@ -75,7 +75,7 @@ pub trait ParticleAnimation: HandleAction {
     fn recreate(
         self: Box<Self>,
         gfx_state: &GfxState,
-        spawner: &EmitterState,
+        emitter: &EmitterState,
     ) -> Box<dyn ParticleAnimation>;
 
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState);

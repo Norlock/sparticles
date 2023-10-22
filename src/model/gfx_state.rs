@@ -163,35 +163,38 @@ impl GfxState {
 
         state.gfx_state.ctx.begin_frame(input);
         GuiState::update_gui(state);
-        let full_output = state.gfx_state.ctx.end_frame();
 
-        let clipped_primitives = state.gfx_state.ctx.tessellate(full_output.shapes);
+        let State { gfx_state, .. } = state;
 
-        state.gfx_state.winit.handle_platform_output(
-            &state.gfx_state.window,
-            &state.gfx_state.ctx,
+        let full_output = gfx_state.ctx.end_frame();
+
+        let clipped_primitives = gfx_state.ctx.tessellate(full_output.shapes);
+
+        gfx_state.winit.handle_platform_output(
+            &gfx_state.window,
+            &gfx_state.ctx,
             full_output.platform_output,
         );
 
         for (tex_id, img_delta) in full_output.textures_delta.set {
-            state.gfx_state.renderer.update_texture(
-                &state.gfx_state.device,
-                &state.gfx_state.queue,
+            gfx_state.renderer.update_texture(
+                &gfx_state.device,
+                &gfx_state.queue,
                 tex_id,
                 &img_delta,
             );
         }
 
         for tex_id in full_output.textures_delta.free {
-            state.gfx_state.renderer.free_texture(&tex_id);
+            gfx_state.renderer.free_texture(&tex_id);
         }
 
-        state.gfx_state.renderer.update_buffers(
-            &state.gfx_state.device,
-            &state.gfx_state.queue,
+        gfx_state.renderer.update_buffers(
+            &gfx_state.device,
+            &gfx_state.queue,
             encoder,
             &clipped_primitives,
-            &state.gfx_state.screen_descriptor,
+            &gfx_state.screen_descriptor,
         );
 
         clipped_primitives

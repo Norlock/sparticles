@@ -106,9 +106,27 @@ impl<'a> EmitterState {
 
         compute(lights);
 
-        for spawner in emitters.iter() {
-            compute(spawner);
+        for emitter in emitters.iter() {
+            compute(emitter);
         }
+    }
+
+    pub fn append(state: &mut State, tag: String) {
+        let State {
+            camera,
+            lights,
+            emitters,
+            gfx_state,
+            ..
+        } = state;
+
+        let emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
+            camera,
+            emitter_uniform: EmitterUniform::new(tag),
+            light_layout: Some(&lights.bind_group_layout),
+        });
+
+        emitters.push(emitter);
     }
 
     pub fn render_particles(state: &State, encoder: &mut wgpu::CommandEncoder) {

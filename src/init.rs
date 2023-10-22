@@ -66,7 +66,7 @@ pub struct InitEmitters {
 pub struct InitSettings;
 
 impl InitSettings {
-    fn create_light_spawner(
+    fn create_light_emitter(
         app_settings: &impl AppSettings,
         gfx_state: &GfxState,
         camera: &Camera,
@@ -83,7 +83,7 @@ impl InitSettings {
         lights
     }
 
-    fn create_spawners(
+    fn create_emitter(
         app_settings: &impl AppSettings,
         gfx_state: &GfxState,
         light_layout: &wgpu::BindGroupLayout,
@@ -121,9 +121,9 @@ impl InitSettings {
         registered_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
         registered_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
     ) -> InitEmitters {
-        let lights = InitSettings::create_light_spawner(app_settings, gfx_state, camera);
+        let lights = InitSettings::create_light_emitter(app_settings, gfx_state, camera);
 
-        let emitters = InitSettings::create_spawners(
+        let emitters = InitSettings::create_emitter(
             app_settings,
             gfx_state,
             &lights.bind_group_layout,
