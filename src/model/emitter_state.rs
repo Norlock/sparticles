@@ -111,15 +111,17 @@ impl<'a> EmitterState {
         }
     }
 
-    pub fn append(state: &mut State, tag: String) {
+    pub fn append(state: &mut State) {
         let State {
             camera,
             lights,
             emitters,
             gfx_state,
+            gui,
             ..
         } = state;
 
+        let tag = gui.new_emitter_tag.to_string();
         let emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
             camera,
             emitter_uniform: EmitterUniform::new(tag),

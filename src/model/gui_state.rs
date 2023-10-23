@@ -13,6 +13,7 @@ use std::{collections::HashMap, path::PathBuf};
 pub struct GuiState {
     pub enabled: bool,
     pub reset_camera: bool,
+    pub new_emitter_tag: String,
 
     fps_text: String,
     cpu_time_text: String,
@@ -26,7 +27,6 @@ pub struct GuiState {
     selected_new_em_anim: usize,
     selected_new_post_fx: usize,
     selected_emitter_id: usize,
-    new_emitter_tag: String,
 }
 
 const CHEVRON_UP_ID: &str = "chevron-up";
@@ -144,8 +144,7 @@ impl GuiState {
             };
 
             if create_emitter {
-                let tag = state.gui.new_emitter_tag.to_string();
-                EmitterState::append(state, tag);
+                EmitterState::append(state);
             }
         });
     }
@@ -338,6 +337,15 @@ impl GuiState {
             });
 
             ui.add_space(5.0);
+            create_label(ui, "Box position");
+
+            ui.horizontal(|ui| {
+                ui.add(egui::DragValue::new(&mut emitter_gui.box_position.x).speed(0.1));
+                ui.add(egui::DragValue::new(&mut emitter_gui.box_position.y).speed(0.1));
+                ui.add(egui::DragValue::new(&mut emitter_gui.box_position.z).speed(0.1));
+            });
+
+            ui.add_space(5.0);
             ui.add(
                 Slider::new(&mut emitter_gui.particle_speed_min, 0.0..=50.0)
                     .text("Particle emit speed min"),
@@ -381,7 +389,7 @@ impl GuiState {
             ui.add_space(5.0);
 
             ui.add(
-                Slider::new(&mut emitter_gui.particle_size_min, 0.1..=2.0)
+                Slider::new(&mut emitter_gui.particle_size_min, 0.01..=2.0)
                     .text("Particle size min"),
             );
             ui.add(

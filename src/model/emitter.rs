@@ -125,6 +125,7 @@ impl EmitterUniform {
     pub fn process_gui(&mut self, gui: &EmitterGuiState) {
         self.box_rotation = gui.box_rotation_deg.to_radians();
         self.box_dimensions = gui.box_dimensions;
+        self.box_pos = gui.box_position;
 
         self.diff_width = gui.diff_width_deg.to_radians();
         self.diff_depth = gui.diff_depth_deg.to_radians();
@@ -147,8 +148,7 @@ impl EmitterUniform {
             spawn_count: self.spawn_count,
             spawn_delay_sec: self.spawn_delay_sec,
             particle_lifetime_sec: self.particle_lifetime_sec,
-            recreate: false,
-            box_position: self.box_rotation,
+            box_position: self.box_pos,
             box_dimensions: self.box_dimensions,
             box_rotation_deg: self.box_rotation.to_degrees(),
             diff_width_deg: self.diff_width.to_degrees(),
@@ -157,6 +157,7 @@ impl EmitterUniform {
             particle_speed_max: self.particle_speed.1,
             particle_size_min: self.particle_size.0,
             particle_size_max: self.particle_size.1,
+            recreate: false,
         }
     }
 
