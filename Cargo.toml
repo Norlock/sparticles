@@ -6,8 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egui-winit = { path = "../egui/crates/egui-winit" }
-egui-wgpu = { path = "../egui/crates/egui-wgpu" }
 glam = { version = "0.24.2", features = ["serde", "bytemuck"] }
 pollster = "0.3.0"
 image = { version = "0.24.7", features = ["png", "jpeg"] }
@@ -17,4 +15,6 @@ rand = "0.8.5"
 encase = "0.6.1"
 serde_json = "1.0.107"
 serde = { version = "1.0.189", features = ["derive"] }
+egui-winit = {git = "https://github.com/Norlock/egui.git"} 
+egui-wgpu = {git = "https://github.com/Norlock/egui.git"} 
 

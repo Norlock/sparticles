@@ -4,11 +4,7 @@
 @group(1) @binding(0) var<uniform> globals: GaussianBlur; 
 @group(1) @binding(1) var<uniform> fx_meta: FxMeta; 
 
-@compute
-@workgroup_size(8, 8, 1)
-fn apply_blur(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-    // TODO hor ver
-    let pos = vec2<i32>(global_invocation_id.xy);
+fn apply_blur(pos: vec2<i32>, offset: vec2<i32>) {
     let size = vec2<i32>(textureDimensions(read_fx[fx_meta.out_idx]));
 
     if any(size < pos) {
@@ -17,29 +13,37 @@ fn apply_blur(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     let edge = globals.radius;
     let two_ss = 2. * globals.sigma * globals.sigma;
+    let lhs = 1. / sqrt(two_ss * pi());
     var result = vec3<f32>(0.);
 
-    for (var x = -edge; x <= edge; x++) {
-        for (var y =  -edge; y <= edge; y++) {
-            var offset = vec2<i32>(x, y);
-            var nb_pos = pos + offset;
+    for (var i = -edge; i < edge; i++) {
+        var tex_offset = offset * i;
+        var tex_pos = pos + tex_offset;
 
-            if all(vec2<i32>(0) < nb_pos) && all(nb_pos < size) {
-                var xf = f32(x);
-                var yf = f32(y);
+        if (all(vec2<i32>(0) < tex_pos) && all(tex_pos < size)) {
+            var t_off = vec2<f32>(tex_offset * tex_offset);
+            var rhs = exp(-(t_off.x + t_off.y) / two_ss);
 
-                var rhs = exp(-(xf * xf + yf * yf) / two_ss);
-                var lhs = 1. / (two_ss * pi());
+            var coeff = lhs * rhs * globals.intensity;
+            var col = textureLoad(read_fx[fx_meta.out_idx], tex_pos, 0).rgb;
 
-                var coeff = lhs * rhs * globals.intensity;
-                var nb_col = textureLoad(read_fx[fx_meta.out_idx], nb_pos, 0).rgb;
-
-                result += nb_col * coeff;
-            }
+            result += col * coeff;
         }
     }
 
     textureStore(write_fx[fx_meta.out_idx], pos, vec4<f32>(result, 1.0));
+}
+
+@compute
+@workgroup_size(8, 8, 1)
+fn apply_blur_x(@builtin(global_invocation_id) pos: vec3<u32>) {
+    apply_blur(vec2<i32>(pos.xy), vec2<i32>(1, 0));
+}
+
+@compute
+@workgroup_size(8, 8, 1)
+fn apply_blur_y(@builtin(global_invocation_id) pos: vec3<u32>) {
+    apply_blur(vec2<i32>(pos.xy), vec2<i32>(0, 1));
 }
 
 @compute

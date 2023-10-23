@@ -35,7 +35,7 @@ pub struct EmitterUniform {
     pub spawn_count: u32,
     pub spawn_delay_sec: f32,
 
-    pub box_pos: Vec3,
+    pub box_position: Vec3,
     /// width, height, depth
     pub box_dimensions: Vec3,
     /// yaw, pitch, roll
@@ -101,7 +101,7 @@ impl EmitterUniform {
             spawn_count,
             spawn_batches_count,
 
-            box_pos,
+            box_position: box_pos,
             box_dimensions,
             box_rotation,
 
@@ -125,7 +125,7 @@ impl EmitterUniform {
     pub fn process_gui(&mut self, gui: &EmitterGuiState) {
         self.box_rotation = gui.box_rotation_deg.to_radians();
         self.box_dimensions = gui.box_dimensions;
-        self.box_pos = gui.box_position;
+        self.box_position = gui.box_position;
 
         self.diff_width = gui.diff_width_deg.to_radians();
         self.diff_depth = gui.diff_depth_deg.to_radians();
@@ -148,7 +148,7 @@ impl EmitterUniform {
             spawn_count: self.spawn_count,
             spawn_delay_sec: self.spawn_delay_sec,
             particle_lifetime_sec: self.particle_lifetime_sec,
-            box_position: self.box_pos,
+            box_position: self.box_position,
             box_dimensions: self.box_dimensions,
             box_rotation_deg: self.box_rotation.to_degrees(),
             diff_width_deg: self.diff_width.to_degrees(),
@@ -193,9 +193,9 @@ impl EmitterUniform {
             self.elapsed_sec,
             self.spawn_from as f32,
             self.spawn_until as f32,
-            self.box_pos.x,
-            self.box_pos.y,
-            self.box_pos.z,
+            self.box_position.x,
+            self.box_position.y,
+            self.box_position.z,
             self.box_dimensions.x,
             self.box_dimensions.y,
             self.box_dimensions.z,

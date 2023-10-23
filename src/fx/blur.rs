@@ -17,7 +17,8 @@ use serde::Deserialize;
 use serde::Serialize;
 
 pub struct Blur {
-    blur_pipeline: wgpu::ComputePipeline,
+    blur_pipeline_x: wgpu::ComputePipeline,
+    blur_pipeline_y: wgpu::ComputePipeline,
     split_pipeline: wgpu::ComputePipeline,
     upscale_pipeline: wgpu::ComputePipeline,
     bind_group: wgpu::BindGroup,
@@ -120,8 +121,13 @@ impl PostFx for Blur {
         ping_pong.swap(&self.meta_uniform);
 
         // Smoothen downscaled texture
-        for _ in 0..self.passes {
-            c_pass.set_pipeline(&self.blur_pipeline);
+        for i in 0..self.passes {
+            if i % 2 == 0 {
+                c_pass.set_pipeline(&self.blur_pipeline_x);
+            } else {
+                c_pass.set_pipeline(&self.blur_pipeline_y);
+            }
+
             c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
             c_pass.set_bind_group(1, &self.bind_group, &[]);
             c_pass.dispatch_workgroups(count_x, count_y, 1);
@@ -266,12 +272,14 @@ impl Blur {
             })
         };
 
-        let blur_pipeline = new_pipeline("apply_blur");
+        let blur_pipeline_x = new_pipeline("apply_blur_x");
+        let blur_pipeline_y = new_pipeline("apply_blur_y");
         let split_pipeline = new_pipeline("split_bloom");
         let upscale_pipeline = new_pipeline("upscale");
 
         Self {
-            blur_pipeline,
+            blur_pipeline_x,
+            blur_pipeline_y,
             bind_group_layout,
             bind_group,
             blur_buffer,
