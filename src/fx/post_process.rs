@@ -84,7 +84,7 @@ impl FxMetaUniform {
 pub const WORK_GROUP_SIZE: [f32; 2] = [8., 8.];
 
 impl PostProcessState {
-    pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+    pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
     pub fn resize(&mut self, gfx_state: &GfxState) {
         self.fx_state = FxState::new(gfx_state);

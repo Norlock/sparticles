@@ -1,4 +1,4 @@
-@group(0) @binding(0) var write_fx: binding_array<texture_storage_2d<rgba8unorm, write>, 32>;
+@group(0) @binding(0) var write_fx: binding_array<texture_storage_2d<rgba16float, write>, 32>;
 @group(0) @binding(1) var read_fx: binding_array<texture_2d<f32>, 32>;
 
 @group(1) @binding(0) var<uniform> fx_meta: FxMeta; 
