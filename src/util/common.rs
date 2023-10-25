@@ -53,49 +53,38 @@ impl ListAction {
 }
 
 pub struct UniformContext {
-    pub buffers: Vec<wgpu::Buffer>,
-    pub bind_group: wgpu::BindGroup,
-    pub bind_group_layout: wgpu::BindGroupLayout,
+    pub buf: wgpu::Buffer,
+    pub bg: wgpu::BindGroup,
+    pub bg_layout: wgpu::BindGroupLayout,
 }
 
 impl UniformContext {
-    pub fn new(
-        // TODO array of uniform in case of more meta + global
-        buffer_contents: &[&[u8]],
-        device: &wgpu::Device,
-        label: &str,
-    ) -> Self {
+    pub fn from_content(buffer_content: &[u8], device: &wgpu::Device, label: &str) -> Self {
         let mut layout_entries = Vec::new();
         let mut entries = Vec::new();
-        let mut buffers = Vec::new();
 
-        for (i, contents) in buffer_contents.iter().enumerate() {
-            layout_entries.push(wgpu::BindGroupLayoutEntry {
-                binding: i as u32,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: NonZeroU64::new(contents.len() as u64),
-                },
-                count: None,
-            });
+        // TODO pass as arg
+        layout_entries.push(wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: NonZeroU64::new(buffer_content.len() as u64),
+            },
+            count: None,
+        });
 
-            buffers.push(
-                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                    label: Some(label),
-                    contents,
-                }),
-            );
-        }
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            label: Some(label),
+            contents: &buffer_content,
+        });
 
-        for (i, buffer) in buffers.iter().enumerate() {
-            entries.push(wgpu::BindGroupEntry {
-                binding: i as u32,
-                resource: buffer.as_entire_binding(),
-            });
-        }
+        entries.push(wgpu::BindGroupEntry {
+            binding: 0,
+            resource: buffer.as_entire_binding(),
+        });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some(&format!("{} uniform layout", label)),
@@ -108,11 +97,20 @@ impl UniformContext {
             entries: &entries,
         });
 
-        UniformContext {
-            buffers,
-            bind_group,
-            bind_group_layout,
+        Self {
+            buf: buffer,
+            bg: bind_group,
+            bg_layout: bind_group_layout,
         }
+    }
+
+    pub fn from_uniform(
+        uniform: &(impl ShaderType + WriteInto),
+        device: &wgpu::Device,
+        label: &str,
+    ) -> Self {
+        let buffer_contents = CommonBuffer::uniform_content(uniform);
+        Self::from_content(&buffer_contents, device, label)
     }
 }
 

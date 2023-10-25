@@ -1,41 +1,52 @@
-use super::blur::Blur;
-use super::blur::BlurSettings;
+use super::blur::BlurUniform;
+use super::blur_pass::BlurPass;
+use super::blur_pass::BlurPassSettings;
 use super::post_process::CreateFxOptions;
-use super::post_process::FxMetaUniform;
+use super::post_process::FxIOUniform;
 use super::post_process::PingPongState;
 use super::Blend;
-use super::BlendType;
+use super::Downscale;
 use super::FxState;
 use crate::model::GfxState;
 use crate::model::GuiState;
 use crate::traits::*;
+use crate::util::CommonBuffer;
 use crate::util::DynamicExport;
 use crate::util::ListAction;
+use crate::util::UniformContext;
 use egui_wgpu::wgpu;
+use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
 use serde::Deserialize;
 use serde::Serialize;
 
 pub struct Bloom {
-    blur: Blur,
-    blend: Blend,
     enabled: bool,
+    update_uniform: bool,
     selected_action: ListAction,
+
+    blur_bg: wgpu::BindGroup,
+    blur_uniform: BlurUniform,
+    blur_buf: wgpu::Buffer,
+
+    split_pass: BlurPass,
+    downscale_passes: Vec<DownscalePass>,
+    upscale_passes: Vec<UpscalePass>,
+    blend: Blend,
+}
+
+struct DownscalePass {
+    downscale: Downscale,
+    blur: BlurPass,
+}
+
+struct UpscalePass {
+    blend: Blend,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BloomSettings {
-    pub blur: BlurSettings,
-    pub blend: FxMetaUniform,
-}
-
-impl Default for BloomSettings {
-    fn default() -> Self {
-        Self {
-            blur: BlurSettings::new(FxMetaUniform::new(0, 1), false),
-            blend: FxMetaUniform::new(1, 0),
-        }
-    }
+    pub blur_uniform: BlurUniform,
 }
 
 pub struct RegisterBloomFx;
@@ -51,7 +62,12 @@ impl RegisterPostFx for RegisterBloomFx {
     }
 
     fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
-        Box::new(Bloom::new(options, BloomSettings::default()))
+        Box::new(Bloom::new(
+            options,
+            BloomSettings {
+                blur_uniform: BlurUniform::default(),
+            },
+        ))
     }
 }
 
@@ -62,21 +78,53 @@ impl PostFx for Bloom {
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        self.blur.compute(ping_pong, fx_state, c_pass);
-        self.blend.compute(ping_pong, fx_state, c_pass);
+        self.split_pass
+            .compute_split(ping_pong, fx_state, &self.blur_bg, c_pass);
+
+        for down in self.downscale_passes.iter() {
+            down.downscale.compute(ping_pong, fx_state, c_pass);
+            down.blur
+                .compute_hor_ver(ping_pong, fx_state, &self.blur_bg, c_pass);
+        }
+
+        for up in self.upscale_passes.iter() {
+            up.blend.compute_additive(ping_pong, fx_state, c_pass);
+        }
+
+        self.blend.compute_additive(ping_pong, fx_state, c_pass);
+        // TODO tonemapping
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
         self.selected_action = ui_state.create_li_header(ui, "Bloom settings");
         ui.add_space(5.0);
 
-        self.blur.create_ui(ui, ui_state);
+        let mut blur = self.blur_uniform;
+
+        GuiState::create_title(ui, "Gaussian blur");
+
+        ui.add(Slider::new(&mut blur.brightness_threshold, 0.0..=1.0).text("Brightness threshold"));
+        ui.add(Slider::new(&mut blur.sigma, 0.1..=3.0).text("Blur sigma"));
+        ui.add(Slider::new(&mut blur.hdr_mul, 1.0..=50.0).text("HDR multiplication"));
+        ui.add(Slider::new(&mut blur.radius, 2..=6).text("Blur radius"));
+        ui.add(Slider::new(&mut blur.intensity, 0.9..=1.1).text("Blur intensity"));
 
         ui.checkbox(&mut self.enabled, "Enabled");
+
+        if self.blur_uniform != blur {
+            self.blur_uniform = blur;
+            self.update_uniform = true;
+        }
     }
 
     fn update(&mut self, gfx_state: &GfxState) {
-        self.blur.update(gfx_state);
+        if self.update_uniform {
+            let queue = &gfx_state.queue;
+            let buffer_content = CommonBuffer::uniform_content(&self.blur_uniform);
+
+            queue.write_buffer(&self.blur_buf, 0, &buffer_content);
+            self.update_uniform = false;
+        }
     }
 }
 
@@ -90,20 +138,20 @@ impl HandleAction for Bloom {
     }
 
     fn export(&self) -> DynamicExport {
-        let bloom_settings = BloomSettings {
-            blend: self.blend.meta_uniform,
-            blur: BlurSettings {
-                meta_uniform: self.blur.meta_uniform,
-                blur_uniform: self.blur.blur_uniform,
-                passes: self.blur.passes,
-                standalone: false,
-            },
-        };
+        todo!()
+        // TODO opbouwen
+        //let bloom_settings = BloomSettings {
+        //blur_settings: BlurSettings {
+        //blur_uniform: self.blur_uniform,
+        //blur_type: BlurType::GaussianHorVer,
+        //standalone: false,
+        //},
+        //};
 
-        DynamicExport {
-            tag: RegisterBloomFx.tag().to_string(),
-            data: serde_json::to_value(bloom_settings).unwrap(),
-        }
+        //DynamicExport {
+        //tag: RegisterBloomFx.tag().to_string(),
+        //data: serde_json::to_value(bloom_settings).unwrap(),
+        //}
     }
 
     fn enabled(&self) -> bool {
@@ -115,14 +163,98 @@ impl Bloom {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
     pub fn new(options: &CreateFxOptions, bloom_settings: BloomSettings) -> Self {
-        let blur = Blur::new(options, bloom_settings.blur);
-        let blend = Blend::new(options, BlendType::ADDITIVE, bloom_settings.blend);
+        let CreateFxOptions { gfx_state, .. } = options;
+
+        let device = &gfx_state.device;
+
+        let blur_uniform = bloom_settings.blur_uniform;
+        let blur_ctx = UniformContext::from_uniform(&blur_uniform, device, "Blur");
+
+        let split_pass = BlurPass::new(
+            options,
+            BlurPassSettings {
+                io_uniform: FxIOUniform::asymetric_unscaled(0, 1),
+                blur_layout: &blur_ctx.bg_layout,
+            },
+        );
+
+        let mut width = gfx_state.surface_config.width;
+        let mut height = gfx_state.surface_config.height;
+
+        let mut add_downscale_pass = true;
+        let mut idx = 1;
+        let mut downscale = 1.0;
+
+        let mut downscale_passes = Vec::new();
+        let mut upscale_passes = Vec::new();
+
+        while add_downscale_pass {
+            let in_idx = idx;
+            let out_idx = idx + 1;
+            let out_downscale = downscale * 2.;
+
+            let downscale_io = FxIOUniform {
+                in_idx,
+                in_downscale: downscale,
+                out_idx,
+                out_downscale,
+            };
+
+            downscale = out_downscale;
+
+            println!("downscale: {:?}", &downscale_io);
+            let downscale = Downscale::new(options, downscale_io);
+
+            let blur_io = FxIOUniform::symetric_downscaled(out_idx, out_downscale);
+            println!("blur: {:?}", &blur_io);
+
+            let blur = BlurPass::new(
+                options,
+                BlurPassSettings {
+                    io_uniform: blur_io,
+                    blur_layout: &blur_ctx.bg_layout,
+                },
+            );
+
+            downscale_passes.push(DownscalePass { downscale, blur });
+
+            width = (width as f32 / 2.).ceil() as u32;
+            height = (height as f32 / 2.).ceil() as u32;
+
+            idx += 1;
+            add_downscale_pass = 10 < width && 10 < height;
+            add_downscale_pass = idx <= 3;
+        }
+
+        println!("");
+
+        for i in (1..=downscale_passes.len()).rev() {
+            let blend_io = FxIOUniform {
+                in_idx: (i + 1) as u32,
+                in_downscale: 2f32.powi(i as i32),
+                out_idx: i as u32,
+                out_downscale: 2f32.powi(i as i32 - 1),
+            };
+
+            println!("blend {:?}", &blend_io);
+            let blend = Blend::new(options, blend_io);
+
+            upscale_passes.push(UpscalePass { blend });
+        }
+
+        let blend = Blend::new(options, FxIOUniform::asymetric_unscaled(1, 0));
 
         Self {
-            blur,
-            blend,
+            split_pass,
+            downscale_passes,
+            upscale_passes,
+            blur_bg: blur_ctx.bg,
+            blur_buf: blur_ctx.buf,
+            blur_uniform,
             selected_action: ListAction::None,
             enabled: true,
+            update_uniform: false,
+            blend,
         }
     }
 }

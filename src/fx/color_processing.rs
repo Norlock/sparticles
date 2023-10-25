@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, FxMetaUniform, PingPongState},
+    post_process::{CreateFxOptions, FxIOUniform, PingPongState},
     FxState,
 };
 use crate::{
@@ -15,10 +15,10 @@ use serde::{Deserialize, Serialize};
 #[allow(unused)]
 pub struct ColorProcessing {
     color_uniform: ColorProcessingUniform,
-    meta_uniform: FxMetaUniform,
-    buffer: wgpu::Buffer,
-    bind_group_layout: wgpu::BindGroupLayout,
-    bind_group: wgpu::BindGroup,
+    color_buffer: wgpu::Buffer,
+    io_uniform: FxIOUniform,
+    io_bg: wgpu::BindGroup,
+    color_bg: wgpu::BindGroup,
     pipeline: wgpu::ComputePipeline,
     enabled: bool,
     selected_action: ListAction,
@@ -38,14 +38,14 @@ impl Default for ColorProcessingUniform {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct ColorProcessingSettings {
     pub color_uniform: ColorProcessingUniform,
-    pub meta_uniform: FxMetaUniform,
+    pub io_uniform: FxIOUniform,
 }
 
 impl Default for ColorProcessingSettings {
     fn default() -> Self {
         Self {
             color_uniform: ColorProcessingUniform::default(),
-            meta_uniform: FxMetaUniform::zero(),
+            io_uniform: FxIOUniform::zero(),
         }
     }
 }
@@ -87,10 +87,10 @@ impl PostFx for ColorProcessing {
     ) {
         c_pass.set_pipeline(&self.pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-        c_pass.set_bind_group(1, &self.bind_group, &[]);
+        c_pass.set_bind_group(1, &self.io_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
 
-        ping_pong.swap(&self.meta_uniform);
+        ping_pong.swap(&self.io_uniform);
     }
 
     fn update(&mut self, gfx_state: &GfxState) {
@@ -98,7 +98,7 @@ impl PostFx for ColorProcessing {
             let queue = &gfx_state.queue;
 
             let color_content = CommonBuffer::uniform_content(&self.color_uniform);
-            queue.write_buffer(&self.buffer, 0, &color_content);
+            queue.write_buffer(&self.color_buffer, 0, &color_content);
             self.update_uniform = false;
         }
     }
@@ -131,7 +131,7 @@ impl HandleAction for ColorProcessing {
     fn export(&self) -> DynamicExport {
         let settings = ColorProcessingSettings {
             color_uniform: self.color_uniform,
-            meta_uniform: self.meta_uniform,
+            io_uniform: self.io_uniform,
         };
 
         DynamicExport {
@@ -154,23 +154,23 @@ impl ColorProcessing {
 
         let device = &gfx_state.device;
 
-        let color_content = CommonBuffer::uniform_content(&settings.color_uniform);
-        let meta_content = CommonBuffer::uniform_content(&settings.meta_uniform);
+        let UniformContext {
+            bg: io_bg,
+            bg_layout: io_bg_layout,
+            ..
+        } = UniformContext::from_uniform(&settings.io_uniform, device, "IO");
 
         let UniformContext {
-            mut buffers,
-            bind_group,
-            bind_group_layout,
-        } = UniformContext::new(&[&color_content, &meta_content], device, "Color processing");
+            buf: color_buffer,
+            bg: color_bg,
+            bg_layout: color_bg_layout,
+        } = UniformContext::from_uniform(&settings.color_uniform, device, "Color processing");
 
         let shader = device.create_shader("fx/color_processing.wgsl", "Color correction");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Color pipeline layout"),
-            bind_group_layouts: &[
-                &fx_state.bind_group_layout, // input & output
-                &bind_group_layout,          // uniform
-            ],
+            bind_group_layouts: &[&fx_state.bind_group_layout, &io_bg_layout, &color_bg_layout],
             push_constant_ranges: &[],
         });
 
@@ -183,10 +183,10 @@ impl ColorProcessing {
 
         Self {
             color_uniform: settings.color_uniform,
-            meta_uniform: settings.meta_uniform,
-            buffer: buffers.swap_remove(0),
-            bind_group_layout,
-            bind_group,
+            color_buffer,
+            io_uniform: settings.io_uniform,
+            io_bg,
+            color_bg,
             pipeline,
             enabled: true,
             update_uniform: false,

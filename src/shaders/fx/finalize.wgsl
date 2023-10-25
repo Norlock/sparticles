@@ -18,9 +18,9 @@ struct Offset {
 }
 
 @group(0) @binding(1) var read_fx: binding_array<texture_2d<f32>, 32>;
+@group(1) @binding(0) var<uniform> fx_io: FxIO; 
 
 @fragment
 fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
-    // todo from fx_meta
-    return textureLoad(read_fx[0], vec2<i32>(pos.xy), 0);
+    return textureLoad(read_fx[fx_io.out_idx], vec2<i32>(pos.xy), 0);
 }

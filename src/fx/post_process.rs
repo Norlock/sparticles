@@ -1,11 +1,13 @@
 use crate::init::AppSettings;
 use crate::model::{GfxState, State};
 use crate::traits::*;
-use crate::util::{CommonBuffer, DynamicExport, ExportType, ListAction, Persistence};
+use crate::util::{
+    CommonBuffer, DynamicExport, ExportType, ListAction, Persistence, UniformContext,
+};
 use egui_wgpu::wgpu;
 use encase::ShaderType;
 use serde::{Deserialize, Serialize};
-use std::num::{NonZeroU32, NonZeroU64};
+use std::num::NonZeroU32;
 
 pub struct PostProcessState {
     pub effects: Vec<Box<dyn PostFx>>,
@@ -13,72 +15,100 @@ pub struct PostProcessState {
 
     initialize_pipeline: wgpu::ComputePipeline,
     finalize_pipeline: wgpu::RenderPipeline,
+
+    pub io_uniform: FxIOUniform,
+    pub io_buf: wgpu::Buffer,
+    pub io_bg: wgpu::BindGroup,
 }
 
 pub struct PingPongState {
     fx_idx: usize,
-    blend_idx: usize,
 }
 
 impl PingPongState {
     fn new() -> Self {
-        Self {
-            fx_idx: 0,
-            blend_idx: 0,
-        }
+        Self { fx_idx: 0 }
     }
 
     fn idx(&self) -> usize {
-        self.blend_idx * 2 + self.fx_idx
+        self.fx_idx
     }
 
     fn swap_fx(&mut self) {
         self.fx_idx = (self.fx_idx + 1) % 2;
     }
 
-    fn swap_blend(&mut self) {
-        self.blend_idx = (self.blend_idx + 1) % 2;
-    }
-
-    pub fn swap(&mut self, meta_uniform: &FxMetaUniform) {
-        if meta_uniform.out_idx == 0 {
-            self.swap_blend();
-        } else {
-            self.swap_fx();
-        }
+    pub fn swap(&mut self, io_uniform: &FxIOUniform) {
+        self.swap_fx();
+        //if io_uniform.out_idx == 0 {
+        //self.swap_blend();
+        //} else {
+        //self.swap_fx();
+        //}
     }
 }
 
 #[derive(ShaderType, Clone, Copy, Serialize, Deserialize, Debug)]
-pub struct FxMetaUniform {
-    in_idx: u32,
-    out_idx: u32,
+pub struct FxIOUniform {
+    pub in_idx: u32,
+    pub in_downscale: f32,
+    pub out_idx: u32,
+    pub out_downscale: f32,
 }
 
-impl FxMetaUniform {
-    pub fn new(in_idx: u32, out_idx: u32) -> Self {
-        Self { in_idx, out_idx }
+impl FxIOUniform {
+    pub fn asymetric_unscaled(in_idx: u32, out_idx: u32) -> Self {
+        Self {
+            in_idx,
+            in_downscale: 1.,
+            out_idx,
+            out_downscale: 1.,
+        }
+    }
+
+    pub fn asymetric_downscaled(in_idx: u32, out_idx: u32, downscale: f32) -> Self {
+        assert!(1. <= downscale, "Downscale needs to be 1 or higher");
+
+        Self {
+            in_idx,
+            in_downscale: downscale,
+            out_idx,
+            out_downscale: downscale,
+        }
+    }
+
+    pub fn symetric_unscaled(in_out_idx: u32) -> Self {
+        Self {
+            in_idx: in_out_idx,
+            in_downscale: 1.,
+            out_idx: in_out_idx,
+            out_downscale: 1.,
+        }
+    }
+
+    pub fn symetric_downscaled(in_out_idx: u32, downscale: f32) -> Self {
+        assert!(1. <= downscale, "Downscale needs to be 1 or higher");
+
+        Self {
+            in_idx: in_out_idx,
+            in_downscale: downscale,
+            out_idx: in_out_idx,
+            out_downscale: downscale,
+        }
     }
 
     pub fn zero() -> Self {
-        Self::new(0, 0)
+        Self::asymetric_unscaled(0, 0)
+    }
+
+    pub fn create_content(&self) -> Vec<u8> {
+        CommonBuffer::uniform_content(self)
     }
 }
 
 pub struct CreateFxOptions<'a> {
     pub gfx_state: &'a GfxState,
     pub fx_state: &'a FxState,
-}
-
-pub struct BufferInfo {
-    pub buffer: wgpu::Buffer,
-    pub binding_size: Option<NonZeroU64>,
-}
-
-impl FxMetaUniform {
-    pub fn create_content(&self) -> Vec<u8> {
-        CommonBuffer::uniform_content(self)
-    }
 }
 
 pub const WORK_GROUP_SIZE: [f32; 2] = [8., 8.];
@@ -112,9 +142,10 @@ impl PostProcessState {
 
         c_pass.set_pipeline(&pp.initialize_pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(&mut ping_pong), &[]);
+        c_pass.set_bind_group(1, &pp.io_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
 
-        ping_pong.swap_blend();
+        ping_pong.swap_fx();
 
         for fx in pp.effects.iter().filter(|fx| fx.enabled()) {
             fx.compute(&mut ping_pong, &fx_state, &mut c_pass);
@@ -146,7 +177,15 @@ impl PostProcessState {
 
         let pp = &mut state.post_process;
         r_pass.set_pipeline(&pp.finalize_pipeline);
-        r_pass.set_bind_group(0, pp.fx_state.bind_group(&mut ping_pong), &[]);
+
+        let gui = &state.gui;
+
+        if gui.preview_enabled {
+            r_pass.set_bind_group(0, &pp.fx_state.bind_groups[gui.selected_bind_group], &[]);
+        } else {
+            r_pass.set_bind_group(0, &pp.fx_state.bind_group(&ping_pong), &[]);
+        }
+        r_pass.set_bind_group(1, &pp.io_bg, &[]);
         r_pass.draw(0..3, 0..1);
 
         state.gfx_state.renderer.render(
@@ -165,9 +204,12 @@ impl PostProcessState {
 
         let fx_state = FxState::new(gfx_state);
 
+        let io_uniform = FxIOUniform::zero();
+        let io_ctx = UniformContext::from_uniform(&io_uniform, device, "IO");
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post fx layout"),
-            bind_group_layouts: &[&fx_state.bind_group_layout],
+            bind_group_layouts: &[&fx_state.bind_group_layout, &io_ctx.bg_layout],
             push_constant_ranges: &[],
         });
 
@@ -212,6 +254,10 @@ impl PostProcessState {
             effects,
             initialize_pipeline,
             finalize_pipeline,
+
+            io_uniform,
+            io_buf: io_ctx.buf,
+            io_bg: io_ctx.bg,
         }
     }
 
@@ -259,8 +305,26 @@ pub struct FxState {
 pub type Dimensions = [u32; 2];
 
 impl FxState {
-    pub fn bind_group(&self, ping_pong: &mut PingPongState) -> &wgpu::BindGroup {
+    pub fn bind_group(&self, ping_pong: &PingPongState) -> &wgpu::BindGroup {
         &self.bind_groups[ping_pong.idx()]
+    }
+
+    pub fn count_out(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
+        let div = io_uniform.out_downscale as f32;
+
+        let count_x = (self.count_x as f32 / div).ceil() as u32;
+        let count_y = (self.count_y as f32 / div).ceil() as u32;
+
+        (count_x, count_y)
+    }
+
+    pub fn count_in(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
+        let div = io_uniform.in_downscale as f32;
+
+        let count_x = (self.count_x as f32 / div).ceil() as u32;
+        let count_y = (self.count_y as f32 / div).ceil() as u32;
+
+        (count_x, count_y)
     }
 
     fn new(gfx_state: &GfxState) -> Self {
@@ -326,42 +390,19 @@ impl FxState {
         let mut ping_views = Vec::new();
         let mut pong_views = Vec::new();
 
-        for _ in 0..(array_count - 1) {
+        for _ in 0..array_count {
             ping_views.push(gfx_state.create_fx_view());
             pong_views.push(gfx_state.create_fx_view());
         }
 
         let mut bind_groups = Vec::new();
 
-        let blend_view_1 = gfx_state.create_fx_view();
-        let blend_view_2 = gfx_state.create_fx_view();
+        let ping_refs: Vec<&wgpu::TextureView> = ping_views.iter().collect();
+        let pong_refs: Vec<&wgpu::TextureView> = pong_views.iter().collect();
 
-        // Make 4 bind groups
-        for i in 0..4 {
-            let blend_view_ping;
-            let blend_view_pong;
+        let all_refs: [&[&wgpu::TextureView]; 2] = [&ping_refs, &pong_refs];
 
-            if i < 2 {
-                blend_view_ping = &blend_view_1;
-                blend_view_pong = &blend_view_2;
-            } else {
-                blend_view_ping = &blend_view_2;
-                blend_view_pong = &blend_view_1;
-            };
-
-            let mut ping_refs = vec![blend_view_ping];
-            let mut pong_refs = vec![blend_view_pong];
-
-            for ping_ref in ping_views.iter() {
-                ping_refs.push(ping_ref);
-            }
-
-            for pong_ref in pong_views.iter() {
-                pong_refs.push(pong_ref);
-            }
-
-            let all_refs = [ping_refs, pong_refs];
-
+        for i in 0..2 {
             bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Fx bindgroup"),
                 layout: &bind_group_layout,

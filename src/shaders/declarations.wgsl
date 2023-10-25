@@ -45,16 +45,17 @@ struct CameraUniform {
 
 struct GaussianBlur {
     br_treshold: f32,
-    downscale: u32,
     radius: i32,
     sigma: f32,
     hdr_mul: f32,
     intensity: f32,
 }
 
-struct FxMeta {
+struct FxIO {
     in_idx: u32,
+    in_downscale: f32,
     out_idx: u32,
+    out_downscale: f32,
 }
 
 fn pi() -> f32 {

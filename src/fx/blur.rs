@@ -1,5 +1,6 @@
+use super::blur_pass::BlurPass;
 use super::post_process::CreateFxOptions;
-use super::post_process::FxMetaUniform;
+use super::post_process::FxIOUniform;
 use super::post_process::PingPongState;
 use super::FxState;
 use crate::model::GfxState;
@@ -16,24 +17,29 @@ use encase::ShaderType;
 use serde::Deserialize;
 use serde::Serialize;
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub enum BlurType {
+    GaussianHorVer,
+    Box,
+    Sharpen,
+}
+
 pub struct Blur {
     blur_pipeline_x: wgpu::ComputePipeline,
     blur_pipeline_y: wgpu::ComputePipeline,
-    split_pipeline: wgpu::ComputePipeline,
-    upscale_pipeline: wgpu::ComputePipeline,
-    bind_group: wgpu::BindGroup,
 
-    pub bind_group_layout: wgpu::BindGroupLayout,
-    pub blur_uniform: BlurUniform,
-    pub blur_buffer: wgpu::Buffer,
-    pub meta_uniform: FxMetaUniform,
-    pub meta_buffer: wgpu::Buffer,
-    pub passes: usize,
-    pub update_uniform: bool,
+    io_uniform: FxIOUniform,
+    io_bg: wgpu::BindGroup,
+
+    blur_uniform: BlurUniform,
+    blur_bg: wgpu::BindGroup,
+
+    blur_buffer: wgpu::Buffer,
+    blur_type: BlurType,
+    update_uniform: bool,
 
     selected_action: ListAction,
     enabled: bool,
-    standalone: bool,
 }
 
 pub struct RegisterBlurFx;
@@ -45,7 +51,7 @@ impl RegisterPostFx for RegisterBlurFx {
     }
 
     fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
-        let settings = BlurSettings::new(FxMetaUniform::zero(), true);
+        let settings = BlurSettings::new(BlurType::GaussianHorVer);
 
         Box::new(Blur::new(options, settings))
     }
@@ -61,8 +67,6 @@ impl RegisterPostFx for RegisterBlurFx {
 pub struct BlurUniform {
     pub brightness_threshold: f32,
 
-    pub downscale: u32,
-
     // How far to look
     pub radius: i32,
     pub sigma: f32,
@@ -73,17 +77,13 @@ pub struct BlurUniform {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct BlurSettings {
     pub blur_uniform: BlurUniform,
-    pub meta_uniform: FxMetaUniform,
-    pub passes: usize,
-    /// True if this is a standalone effect, false if its added inside another effect
-    pub standalone: bool,
+    pub blur_type: BlurType,
 }
 
 impl Default for BlurUniform {
     fn default() -> Self {
         Self {
             brightness_threshold: 0.6,
-            downscale: 8,
             radius: 4,
             sigma: 1.3,
             hdr_mul: 25.,
@@ -109,64 +109,41 @@ impl PostFx for Blur {
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        let count_x = (fx_state.count_x as f32 / self.blur_uniform.downscale as f32).ceil() as u32;
-        let count_y = (fx_state.count_y as f32 / self.blur_uniform.downscale as f32).ceil() as u32;
+        let count_x =
+            (fx_state.count_x as f32 / self.io_uniform.out_downscale as f32).ceil() as u32;
+        let count_y =
+            (fx_state.count_y as f32 / self.io_uniform.out_downscale as f32).ceil() as u32;
 
-        // Splits parts to fx tex
-        c_pass.set_pipeline(&self.split_pipeline);
-        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-        c_pass.set_bind_group(1, &self.bind_group, &[]);
-        c_pass.dispatch_workgroups(count_x, count_y, 1);
-
-        ping_pong.swap(&self.meta_uniform);
-
-        // Smoothen downscaled texture
-        for i in 0..self.passes {
-            if i % 2 == 0 {
-                c_pass.set_pipeline(&self.blur_pipeline_x);
-            } else {
-                c_pass.set_pipeline(&self.blur_pipeline_y);
-            }
-
+        let mut dispatch = |pipeline: &'a wgpu::ComputePipeline| {
+            c_pass.set_pipeline(pipeline);
             c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-            c_pass.set_bind_group(1, &self.bind_group, &[]);
+            c_pass.set_bind_group(1, &self.io_bg, &[]);
+            c_pass.set_bind_group(2, &self.blur_bg, &[]);
             c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-            ping_pong.swap(&self.meta_uniform);
+            ping_pong.swap(&self.io_uniform);
+        };
+
+        match self.blur_type {
+            BlurType::GaussianHorVer => {
+                // TODO use pass this will become just for gui API.
+                dispatch(&self.blur_pipeline_x);
+                dispatch(&self.blur_pipeline_y);
+            }
+            _ => {}
         }
-
-        c_pass.set_pipeline(&self.upscale_pipeline);
-        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-        c_pass.set_bind_group(1, &self.bind_group, &[]);
-        c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
-
-        ping_pong.swap(&self.meta_uniform);
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
         let mut blur = self.blur_uniform;
 
-        if self.standalone {
-            self.selected_action = ui_state.create_li_header(ui, "Gaussian blur");
-        } else {
-            ui.label("Gaussian blur");
-        }
+        self.selected_action = ui_state.create_li_header(ui, "Gaussian blur");
 
         ui.add(Slider::new(&mut blur.brightness_threshold, 0.0..=1.0).text("Brightness threshold"));
-        ui.add(
-            Slider::new(&mut blur.downscale, 4..=32)
-                .step_by(2.)
-                .text("Downscale"),
-        );
         ui.add(Slider::new(&mut blur.sigma, 0.1..=3.0).text("Blur sigma"));
         ui.add(Slider::new(&mut blur.hdr_mul, 1.0..=50.0).text("HDR multiplication"));
         ui.add(Slider::new(&mut blur.radius, 2..=5).text("Blur radius"));
         ui.add(Slider::new(&mut blur.intensity, 0.9..=1.1).text("Blur intensity"));
-        ui.add(
-            Slider::new(&mut self.passes, 2..=50)
-                .step_by(2.)
-                .text("Amount of passes"),
-        );
 
         if self.blur_uniform != blur {
             self.blur_uniform = blur;
@@ -186,10 +163,8 @@ impl HandleAction for Blur {
 
     fn export(&self) -> DynamicExport {
         let settings = BlurSettings {
-            meta_uniform: self.meta_uniform,
             blur_uniform: self.blur_uniform,
-            passes: self.passes,
-            standalone: self.standalone,
+            blur_type: self.blur_type,
         };
 
         DynamicExport {
@@ -205,26 +180,15 @@ impl HandleAction for Blur {
 
 impl BlurSettings {
     /// Standalone should only be true if not inside another effect
-    pub fn new(fx_meta: FxMetaUniform, standalone: bool) -> Self {
+    pub fn new(blur_type: BlurType) -> Self {
         Self {
             blur_uniform: BlurUniform::default(),
-            meta_uniform: fx_meta,
-            passes: 8,
-            standalone,
+            blur_type,
         }
     }
 }
 
 impl Blur {
-    pub fn export(&self) -> BlurSettings {
-        BlurSettings {
-            blur_uniform: self.blur_uniform,
-            meta_uniform: self.meta_uniform,
-            passes: self.passes,
-            standalone: self.standalone,
-        }
-    }
-
     pub fn new(options: &CreateFxOptions, blur_settings: BlurSettings) -> Self {
         let CreateFxOptions {
             gfx_state,
@@ -235,37 +199,28 @@ impl Blur {
 
         let BlurSettings {
             blur_uniform,
-            meta_uniform,
-            passes,
-            standalone,
+            blur_type,
         } = blur_settings;
 
+        let io_uniform = FxIOUniform::symetric_unscaled(0);
         let blur_shader = device.create_shader("fx/gaussian_blur.wgsl", "Gaussian blur");
 
-        let blur_content = CommonBuffer::uniform_content(&blur_uniform);
-        let meta_content = CommonBuffer::uniform_content(&meta_uniform);
-
-        let UniformContext {
-            mut buffers,
-            bind_group,
-            bind_group_layout,
-        } = UniformContext::new(&[&blur_content, &meta_content], device, "Gaussian blur");
-
-        let meta_buffer = buffers.pop().unwrap();
-        let blur_buffer = buffers.pop().unwrap();
+        let io_ctx = UniformContext::from_uniform(&io_uniform, device, "IO");
+        let blur_ctx = UniformContext::from_uniform(&blur_uniform, device, "Blur");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Split layout"),
+            label: Some("Blur layout"),
             bind_group_layouts: &[
-                &fx_state.bind_group_layout, // input
-                &bind_group_layout,          // blur + meta
+                &fx_state.bind_group_layout,
+                &io_ctx.bg_layout,
+                &blur_ctx.bg_layout,
             ],
             push_constant_ranges: &[],
         });
 
         let new_pipeline = |entry_point: &str| -> wgpu::ComputePipeline {
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Gaussian blur pipeline"),
+                label: Some("Blur pipeline"),
                 layout: Some(&pipeline_layout),
                 module: &blur_shader,
                 entry_point,
@@ -274,24 +229,20 @@ impl Blur {
 
         let blur_pipeline_x = new_pipeline("apply_blur_x");
         let blur_pipeline_y = new_pipeline("apply_blur_y");
-        let split_pipeline = new_pipeline("split_bloom");
-        let upscale_pipeline = new_pipeline("upscale");
 
         Self {
             blur_pipeline_x,
             blur_pipeline_y,
-            bind_group_layout,
-            bind_group,
-            blur_buffer,
+
+            blur_buffer: blur_ctx.buf,
             blur_uniform,
-            split_pipeline,
-            meta_buffer,
-            meta_uniform,
-            passes,
+            blur_bg: blur_ctx.bg,
+
+            io_uniform,
+            io_bg: io_ctx.bg,
+            blur_type,
             update_uniform: false,
             enabled: true,
-            standalone,
-            upscale_pipeline,
             selected_action: ListAction::None,
         }
     }

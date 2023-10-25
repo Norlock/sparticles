@@ -195,17 +195,11 @@ impl ColorAnimation {
 
         let buffer_content = uniform.create_buffer_content();
 
-        let UniformContext {
-            mut buffers,
-            bind_group,
-            bind_group_layout,
-        } = UniformContext::new(&[&buffer_content], device, "Color animation");
-
-        let buffer = buffers.pop().unwrap();
+        let color_ctx = UniformContext::from_content(&buffer_content, device, "Color animation");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Compute layout"),
-            bind_group_layouts: &[&emitter.bind_group_layout, &bind_group_layout],
+            bind_group_layouts: &[&emitter.bind_group_layout, &color_ctx.bg_layout],
             push_constant_ranges: &[],
         });
 
@@ -218,8 +212,8 @@ impl ColorAnimation {
 
         Self {
             pipeline,
-            bind_group,
-            buffer,
+            bind_group: color_ctx.bg,
+            buffer: color_ctx.buf,
             uniform,
             update_uniform: false,
             selected_action: ListAction::None,

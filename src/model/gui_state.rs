@@ -2,8 +2,8 @@ use super::{EmitterState, GfxState, State};
 use crate::{
     fx::{post_process::CreateFxOptions, PostProcessState},
     texture::IconTexture,
-    util::ListAction,
     util::Persistence,
+    util::{CommonBuffer, ListAction},
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
 use egui_wgpu::wgpu;
@@ -14,6 +14,7 @@ pub struct GuiState {
     pub enabled: bool,
     pub reset_camera: bool,
     pub new_emitter_tag: String,
+    pub preview_enabled: bool,
 
     fps_text: String,
     cpu_time_text: String,
@@ -26,6 +27,8 @@ pub struct GuiState {
     selected_new_par_anim: usize,
     selected_new_em_anim: usize,
     selected_new_post_fx: usize,
+    pub selected_bind_group: usize,
+    selected_texture_output: usize,
     selected_emitter_id: usize,
 }
 
@@ -264,6 +267,7 @@ impl GuiState {
 
         Self {
             enabled: show_gui,
+            preview_enabled: false,
             reset_camera: false,
             cpu_time_text: "".to_string(),
             fps_text: "".to_string(),
@@ -276,6 +280,8 @@ impl GuiState {
             selected_new_em_anim: 0,
             selected_new_post_fx: 0,
             selected_texture: 0,
+            selected_bind_group: 0,
+            selected_texture_output: 0,
             icon_textures,
             new_emitter_tag: String::from(""),
         }
@@ -400,15 +406,14 @@ impl GuiState {
                 .text("Particle size max"),
             );
 
-            if ComboBox::from_label("Select texture")
-                .show_index(
-                    ui,
-                    &mut gui.selected_texture,
-                    gui.texture_paths.len(),
-                    |i| gui.texture_paths[i].rich_text(),
-                )
-                .changed()
-            {
+            let combo_texture = ComboBox::from_label("Select texture").show_index(
+                ui,
+                &mut gui.selected_texture,
+                gui.texture_paths.len(),
+                |i| gui.texture_paths[i].rich_text(),
+            );
+
+            if combo_texture.changed() {
                 emitter.update_diffuse(
                     &state.gfx_state,
                     &mut gui.texture_paths[gui.selected_texture],
@@ -453,6 +458,52 @@ impl GuiState {
                 );
             }
         });
+
+        let mut new_tex_output = gui.selected_texture_output;
+        let mut new_preview_enabled = gui.preview_enabled;
+
+        ui.add_space(10.);
+        ui.horizontal(|ui| {
+            // TODO connect to real len
+            egui::ComboBox::from_id_source("select-bind-group")
+                .selected_text("Select bind group")
+                .show_index(ui, &mut gui.selected_bind_group, 2, |i| {
+                    format!("bind group: {}", i)
+                });
+
+            // TODO connect to real len
+            egui::ComboBox::from_id_source("select-tex-output")
+                .selected_text("Select texture output")
+                .show_index(ui, &mut new_tex_output, 16, |i| {
+                    format!("Texture output: {}", i)
+                });
+
+            ui.checkbox(&mut new_preview_enabled, "Preview enabled");
+        });
+
+        if new_preview_enabled != gui.preview_enabled {
+            gui.preview_enabled = new_preview_enabled;
+
+            if new_preview_enabled {
+                post_process.io_uniform.out_idx = new_tex_output as u32;
+            } else {
+                post_process.io_uniform.out_idx = 0;
+            }
+
+            let contents = CommonBuffer::uniform_content(&post_process.io_uniform);
+            gfx_state
+                .queue
+                .write_buffer(&post_process.io_buf, 0, &contents);
+        } else if gui.preview_enabled && gui.selected_texture_output != new_tex_output {
+            gui.selected_texture_output = new_tex_output;
+
+            post_process.io_uniform.out_idx = new_tex_output as u32;
+
+            let contents = CommonBuffer::uniform_content(&post_process.io_uniform);
+            gfx_state
+                .queue
+                .write_buffer(&post_process.io_buf, 0, &contents);
+        }
     }
 
     pub fn create_title(ui: &mut Ui, str: &str) {
