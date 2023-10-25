@@ -42,7 +42,6 @@ pub struct Bloom {
     blend_uniform: BlendUniform,
     blend_buf: wgpu::Buffer,
     blend_bg: wgpu::BindGroup,
-    blend_bg_layout: wgpu::BindGroupLayout,
     blend: BlendPass,
 }
 
@@ -58,6 +57,7 @@ struct UpscalePass {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BloomSettings {
     pub blur_uniform: BlurUniform,
+    pub blend_uniform: BlendUniform,
 }
 
 pub struct RegisterBloomFx;
@@ -77,6 +77,7 @@ impl RegisterPostFx for RegisterBloomFx {
             options,
             BloomSettings {
                 blur_uniform: BlurUniform::default(),
+                blend_uniform: BlendUniform { io_mix: 0.5 },
             },
         ))
     }
@@ -157,20 +158,15 @@ impl HandleAction for Bloom {
     }
 
     fn export(&self) -> DynamicExport {
-        todo!()
-        // TODO opbouwen
-        //let bloom_settings = BloomSettings {
-        //blur_settings: BlurSettings {
-        //blur_uniform: self.blur_uniform,
-        //blur_type: BlurType::GaussianHorVer,
-        //standalone: false,
-        //},
-        //};
+        let bloom_settings = BloomSettings {
+            blur_uniform: self.blur_uniform,
+            blend_uniform: self.blend_uniform,
+        };
 
-        //DynamicExport {
-        //tag: RegisterBloomFx.tag().to_string(),
-        //data: serde_json::to_value(bloom_settings).unwrap(),
-        //}
+        DynamicExport {
+            tag: RegisterBloomFx.tag().to_string(),
+            data: serde_json::to_value(bloom_settings).unwrap(),
+        }
     }
 
     fn enabled(&self) -> bool {
@@ -181,12 +177,12 @@ impl HandleAction for Bloom {
 impl Bloom {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-    pub fn new(options: &CreateFxOptions, bloom_settings: BloomSettings) -> Self {
+    pub fn new(options: &CreateFxOptions, settings: BloomSettings) -> Self {
         let CreateFxOptions { gfx_state, .. } = options;
 
         let device = &gfx_state.device;
 
-        let blur_uniform = bloom_settings.blur_uniform;
+        let blur_uniform = settings.blur_uniform;
         let blur_ctx = UniformContext::from_uniform(&blur_uniform, device, "Blur");
 
         let split_pass = BlurPass::new(
@@ -246,8 +242,7 @@ impl Bloom {
 
         println!("");
 
-        let blend_uniform = BlendUniform { io_mix: 0.1 };
-
+        let blend_uniform = settings.blend_uniform;
         let blend_ctx = UniformContext::from_uniform(&blend_uniform, device, "blend");
 
         for i in (1..=downscale_passes.len()).rev() {
@@ -299,7 +294,6 @@ impl Bloom {
             blend,
             blend_buf: blend_ctx.buf,
             blend_bg: blend_ctx.bg,
-            blend_bg_layout: blend_ctx.bg_layout,
             blend_uniform,
             color,
         }
