@@ -4,10 +4,12 @@ use super::blur_pass::BlurPassSettings;
 use super::post_process::CreateFxOptions;
 use super::post_process::FxIOUniform;
 use super::post_process::PingPongState;
-use super::Blend;
+use super::BlendPass;
 use super::ColorFx;
 use super::Downscale;
 use super::FxState;
+use crate::fx::blend::BlendSettings;
+use crate::fx::blend::BlendUniform;
 use crate::fx::ColorFxSettings;
 use crate::fx::ColorFxUniform;
 use crate::model::GfxState;
@@ -36,7 +38,12 @@ pub struct Bloom {
     downscale_passes: Vec<DownscalePass>,
     upscale_passes: Vec<UpscalePass>,
     color: ColorFx,
-    blend: Blend,
+
+    blend_uniform: BlendUniform,
+    blend_buf: wgpu::Buffer,
+    blend_bg: wgpu::BindGroup,
+    blend_bg_layout: wgpu::BindGroupLayout,
+    blend: BlendPass,
 }
 
 struct DownscalePass {
@@ -45,7 +52,7 @@ struct DownscalePass {
 }
 
 struct UpscalePass {
-    blend: Blend,
+    blend: BlendPass,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -92,11 +99,13 @@ impl PostFx for Bloom {
         }
 
         for up in self.upscale_passes.iter() {
-            up.blend.compute_additive(ping_pong, fx_state, c_pass);
+            up.blend
+                .compute_additive(ping_pong, fx_state, &self.blend_bg, c_pass);
         }
 
         self.color.compute_tonemap(ping_pong, fx_state, c_pass);
-        self.blend.compute_additive(ping_pong, fx_state, c_pass);
+        self.blend
+            .compute_additive(ping_pong, fx_state, &self.blend_bg, c_pass);
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
@@ -113,6 +122,9 @@ impl PostFx for Bloom {
         ui.add(Slider::new(&mut blur.radius, 2..=6).text("Blur radius"));
         ui.add(Slider::new(&mut blur.intensity, 0.9..=1.1).text("Blur intensity"));
 
+        GuiState::create_title(ui, "Blend");
+        ui.add(Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0).text("IO mix"));
+
         ui.checkbox(&mut self.enabled, "Enabled");
 
         if self.blur_uniform != blur {
@@ -122,8 +134,11 @@ impl PostFx for Bloom {
     }
 
     fn update(&mut self, gfx_state: &GfxState) {
+        let queue = &gfx_state.queue;
+        let io_content = CommonBuffer::uniform_content(&self.blend_uniform);
+        queue.write_buffer(&self.blend_buf, 0, &io_content);
+
         if self.update_uniform {
-            let queue = &gfx_state.queue;
             let buffer_content = CommonBuffer::uniform_content(&self.blur_uniform);
 
             queue.write_buffer(&self.blur_buf, 0, &buffer_content);
@@ -231,6 +246,10 @@ impl Bloom {
 
         println!("");
 
+        let blend_uniform = BlendUniform { io_mix: 0.1 };
+
+        let blend_ctx = UniformContext::from_uniform(&blend_uniform, device, "blend");
+
         for i in (1..=downscale_passes.len()).rev() {
             let blend_io = FxIOUniform {
                 in_idx: (i + 1) as u32,
@@ -240,7 +259,13 @@ impl Bloom {
             };
 
             println!("blend {:?}", &blend_io);
-            let blend = Blend::new(options, blend_io);
+            let blend = BlendPass::new(
+                options,
+                BlendSettings {
+                    blend_layout: &blend_ctx.bg_layout,
+                    io_uniform: blend_io,
+                },
+            );
 
             upscale_passes.push(UpscalePass { blend });
         }
@@ -253,7 +278,13 @@ impl Bloom {
             },
         );
 
-        let blend = Blend::new(options, FxIOUniform::asymetric_unscaled(1, 0));
+        let blend = BlendPass::new(
+            options,
+            BlendSettings {
+                io_uniform: FxIOUniform::asymetric_unscaled(1, 0),
+                blend_layout: &blend_ctx.bg_layout,
+            },
+        );
 
         Self {
             split_pass,
@@ -266,6 +297,10 @@ impl Bloom {
             enabled: true,
             update_uniform: false,
             blend,
+            blend_buf: blend_ctx.buf,
+            blend_bg: blend_ctx.bg,
+            blend_bg_layout: blend_ctx.bg_layout,
+            blend_uniform,
             color,
         }
     }
