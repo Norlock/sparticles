@@ -4,9 +4,9 @@ use crate::animations::sway_animation::RegisterSwayAnimation;
 use crate::animations::{RegisterForceAnimation, RegisterGravityAnimation, RegisterStrayAnimation};
 use crate::fx::bloom::RegisterBloomFx;
 use crate::fx::blur::RegisterBlurFx;
-use crate::fx::color_processing::RegisterColorProcessingFx;
 use crate::fx::post_process::CreateFxOptions;
 use crate::fx::PostProcessState;
+use crate::fx::RegisterColorFx;
 use crate::model::{Camera, CreateEmitterOptions, EmitterState, EmitterUniform, GfxState};
 use crate::traits::*;
 use crate::util::persistence::ExportEmitter;
@@ -147,7 +147,7 @@ impl InitSettings {
     ) -> Vec<Box<dyn RegisterPostFx>> {
         let mut registered_effects = app_settings.register_custom_post_fx();
         registered_effects.push(Box::new(RegisterBloomFx));
-        registered_effects.push(Box::new(RegisterColorProcessingFx));
+        registered_effects.push(Box::new(RegisterColorFx));
         registered_effects.push(Box::new(RegisterBlurFx));
 
         match app_settings.import_mode() {

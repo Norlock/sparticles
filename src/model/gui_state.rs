@@ -15,6 +15,7 @@ pub struct GuiState {
     pub reset_camera: bool,
     pub new_emitter_tag: String,
     pub preview_enabled: bool,
+    pub selected_bind_group: usize,
 
     fps_text: String,
     cpu_time_text: String,
@@ -27,7 +28,6 @@ pub struct GuiState {
     selected_new_par_anim: usize,
     selected_new_em_anim: usize,
     selected_new_post_fx: usize,
-    pub selected_bind_group: usize,
     selected_texture_output: usize,
     selected_emitter_id: usize,
 }

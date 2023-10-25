@@ -13,20 +13,66 @@ use encase::ShaderType;
 use serde::{Deserialize, Serialize};
 
 #[allow(unused)]
-pub struct ColorProcessing {
-    color_uniform: ColorProcessingUniform,
+pub struct ColorFx {
+    color_uniform: ColorFxUniform,
     color_buffer: wgpu::Buffer,
     io_uniform: FxIOUniform,
     io_bg: wgpu::BindGroup,
     color_bg: wgpu::BindGroup,
-    pipeline: wgpu::ComputePipeline,
+    general_pipeline: wgpu::ComputePipeline,
+    tonemap_pipeline: wgpu::ComputePipeline,
     enabled: bool,
     selected_action: ListAction,
     update_uniform: bool,
 }
 
-impl Default for ColorProcessingUniform {
-    fn default() -> Self {
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct ColorFxSettings {
+    pub color_uniform: ColorFxUniform,
+    pub io_uniform: FxIOUniform,
+}
+
+pub struct RegisterColorFx;
+
+impl RegisterPostFx for RegisterColorFx {
+    fn tag(&self) -> &str {
+        "color-processing"
+    }
+
+    fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
+        let settings = ColorFxSettings {
+            color_uniform: ColorFxUniform::default_rgb(),
+            io_uniform: FxIOUniform::zero(),
+        };
+
+        Box::new(ColorFx::new(options, settings))
+    }
+
+    fn import(&self, options: &CreateFxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
+        let settings = serde_json::from_value(value).expect("Can't parse color processing Fx");
+
+        Box::new(ColorFx::new(options, settings))
+    }
+}
+
+#[derive(ShaderType, Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+pub struct ColorFxUniform {
+    pub gamma: f32,
+    pub contrast: f32,
+    pub brightness: f32,
+}
+
+impl ColorFxUniform {
+    pub fn default_srgb() -> Self {
+        Self {
+            gamma: 2.2,
+            contrast: 2.5,
+            brightness: 0.3,
+        }
+    }
+
+    pub fn default_rgb() -> Self {
+        // TODO find neutral settings
         Self {
             gamma: 1.0,
             contrast: 2.5,
@@ -35,59 +81,17 @@ impl Default for ColorProcessingUniform {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-pub struct ColorProcessingSettings {
-    pub color_uniform: ColorProcessingUniform,
-    pub io_uniform: FxIOUniform,
-}
-
-impl Default for ColorProcessingSettings {
-    fn default() -> Self {
-        Self {
-            color_uniform: ColorProcessingUniform::default(),
-            io_uniform: FxIOUniform::zero(),
-        }
-    }
-}
-
-pub struct RegisterColorProcessingFx;
-
-impl RegisterPostFx for RegisterColorProcessingFx {
-    fn tag(&self) -> &str {
-        "color-processing"
-    }
-
-    fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
-        Box::new(ColorProcessing::new(
-            options,
-            ColorProcessingSettings::default(),
-        ))
-    }
-
-    fn import(&self, options: &CreateFxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
-        let settings = serde_json::from_value(value).expect("Can't parse color processing Fx");
-
-        Box::new(ColorProcessing::new(options, settings))
-    }
-}
-
-#[derive(ShaderType, Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-pub struct ColorProcessingUniform {
-    pub gamma: f32,
-    pub contrast: f32,
-    pub brightness: f32,
-}
-
-impl PostFx for ColorProcessing {
+impl PostFx for ColorFx {
     fn compute<'a>(
         &'a self,
         ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        c_pass.set_pipeline(&self.pipeline);
+        c_pass.set_pipeline(&self.general_pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
         c_pass.set_bind_group(1, &self.io_bg, &[]);
+        c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
 
         ping_pong.swap(&self.io_uniform);
@@ -119,7 +123,7 @@ impl PostFx for ColorProcessing {
     }
 }
 
-impl HandleAction for ColorProcessing {
+impl HandleAction for ColorFx {
     fn selected_action(&mut self) -> &mut ListAction {
         &mut self.selected_action
     }
@@ -129,13 +133,13 @@ impl HandleAction for ColorProcessing {
     }
 
     fn export(&self) -> DynamicExport {
-        let settings = ColorProcessingSettings {
+        let settings = ColorFxSettings {
             color_uniform: self.color_uniform,
             io_uniform: self.io_uniform,
         };
 
         DynamicExport {
-            tag: RegisterColorProcessingFx.tag().to_string(),
+            tag: RegisterColorFx.tag().to_string(),
             data: serde_json::to_value(settings).expect("Can't unwrap color processing"),
         }
     }
@@ -145,8 +149,25 @@ impl HandleAction for ColorProcessing {
     }
 }
 
-impl ColorProcessing {
-    pub fn new(options: &CreateFxOptions, settings: ColorProcessingSettings) -> Self {
+impl ColorFx {
+    pub fn compute_tonemap<'a>(
+        &'a self,
+        ping_pong: &mut PingPongState,
+        fx_state: &'a FxState,
+        c_pass: &mut wgpu::ComputePass<'a>,
+    ) {
+        let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
+
+        c_pass.set_pipeline(&self.tonemap_pipeline);
+        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
+        c_pass.set_bind_group(1, &self.io_bg, &[]);
+        c_pass.set_bind_group(2, &self.color_bg, &[]);
+        c_pass.dispatch_workgroups(count_x, count_y, 1);
+
+        ping_pong.swap(&self.io_uniform);
+    }
+
+    pub fn new(options: &CreateFxOptions, settings: ColorFxSettings) -> Self {
         let CreateFxOptions {
             gfx_state,
             fx_state,
@@ -154,40 +175,41 @@ impl ColorProcessing {
 
         let device = &gfx_state.device;
 
-        let UniformContext {
-            bg: io_bg,
-            bg_layout: io_bg_layout,
-            ..
-        } = UniformContext::from_uniform(&settings.io_uniform, device, "IO");
-
-        let UniformContext {
-            buf: color_buffer,
-            bg: color_bg,
-            bg_layout: color_bg_layout,
-        } = UniformContext::from_uniform(&settings.color_uniform, device, "Color processing");
+        let io_ctx = UniformContext::from_uniform(&settings.io_uniform, device, "IO");
+        let col_ctx = UniformContext::from_uniform(&settings.color_uniform, device, "Color Fx");
 
         let shader = device.create_shader("fx/color_processing.wgsl", "Color correction");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Color pipeline layout"),
-            bind_group_layouts: &[&fx_state.bind_group_layout, &io_bg_layout, &color_bg_layout],
+            bind_group_layouts: &[
+                &fx_state.bind_group_layout,
+                &io_ctx.bg_layout,
+                &col_ctx.bg_layout,
+            ],
             push_constant_ranges: &[],
         });
 
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Color processing pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: "main",
-        });
+        let create_pipeline = |entry_point: &str| -> wgpu::ComputePipeline {
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Color processing pipeline"),
+                layout: Some(&pipeline_layout),
+                module: &shader,
+                entry_point,
+            })
+        };
+
+        let general_pipeline = create_pipeline("general");
+        let tonemap_pipeline = create_pipeline("tonemap");
 
         Self {
             color_uniform: settings.color_uniform,
-            color_buffer,
+            color_buffer: col_ctx.buf,
             io_uniform: settings.io_uniform,
-            io_bg,
-            color_bg,
-            pipeline,
+            io_bg: io_ctx.bg,
+            color_bg: col_ctx.bg,
+            general_pipeline,
+            tonemap_pipeline,
             enabled: true,
             update_uniform: false,
             selected_action: ListAction::None,

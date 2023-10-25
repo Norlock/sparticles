@@ -14,8 +14,10 @@ fn additive(@builtin(global_invocation_id) pos: vec3<u32>) {
     }
 
     let blend_pos = pos.xy;
-    //let fx_pos = vec2<u32>(vec2<f32>(pos.xy) / f32(fx_io.in_downscale));
-    let fx_pos = vec2<u32>(vec2<f32>(blend_pos) / 2.0);
+
+    // TODO check if downscale is below 1.0
+    let fx_downscale = fx_io.in_downscale / fx_io.out_downscale;
+    let fx_pos = vec2<u32>(vec2<f32>(blend_pos) / fx_downscale);
 
     let blend_color = textureLoad(read_fx[fx_io.out_idx], blend_pos, 0).rgb;
     let fx_color = textureLoad(read_fx[fx_io.in_idx], fx_pos, 0).rgb;

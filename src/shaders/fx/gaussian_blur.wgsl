@@ -59,11 +59,17 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    var result = textureLoad(read_fx[fx_io.in_idx], pos, 0).rgb;
+    let copy = textureLoad(read_fx[fx_io.in_idx], pos, 0);
+    let hdr = copy.rgb * globals.hdr_mul;
 
-    if any(vec3<f32>(globals.br_treshold) < result) {
+    // Ping pong asymetric
+    if fx_io.in_idx != fx_io.out_idx {
+        textureStore(write_fx[fx_io.in_idx], pos, copy);
+    }
+
+    if any(vec3<f32>(globals.br_treshold) < hdr) {
         // Convert to HDR
-        textureStore(write_fx[fx_io.out_idx], pos, vec4<f32>(result * globals.hdr_mul, 1.0));
+        textureStore(write_fx[fx_io.out_idx], pos, vec4<f32>(hdr, 1.0));
     } else {
         textureStore(write_fx[fx_io.out_idx], pos, vec4<f32>(0.0));
     }

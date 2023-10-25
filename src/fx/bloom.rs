@@ -5,8 +5,11 @@ use super::post_process::CreateFxOptions;
 use super::post_process::FxIOUniform;
 use super::post_process::PingPongState;
 use super::Blend;
+use super::ColorFx;
 use super::Downscale;
 use super::FxState;
+use crate::fx::ColorFxSettings;
+use crate::fx::ColorFxUniform;
 use crate::model::GfxState;
 use crate::model::GuiState;
 use crate::traits::*;
@@ -32,6 +35,7 @@ pub struct Bloom {
     split_pass: BlurPass,
     downscale_passes: Vec<DownscalePass>,
     upscale_passes: Vec<UpscalePass>,
+    color: ColorFx,
     blend: Blend,
 }
 
@@ -91,8 +95,8 @@ impl PostFx for Bloom {
             up.blend.compute_additive(ping_pong, fx_state, c_pass);
         }
 
+        self.color.compute_tonemap(ping_pong, fx_state, c_pass);
         self.blend.compute_additive(ping_pong, fx_state, c_pass);
-        // TODO tonemapping
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
@@ -223,7 +227,6 @@ impl Bloom {
 
             idx += 1;
             add_downscale_pass = 10 < width && 10 < height;
-            add_downscale_pass = idx <= 3;
         }
 
         println!("");
@@ -242,6 +245,14 @@ impl Bloom {
             upscale_passes.push(UpscalePass { blend });
         }
 
+        let color = ColorFx::new(
+            options,
+            ColorFxSettings {
+                io_uniform: FxIOUniform::symetric_unscaled(1),
+                color_uniform: ColorFxUniform::default_srgb(),
+            },
+        );
+
         let blend = Blend::new(options, FxIOUniform::asymetric_unscaled(1, 0));
 
         Self {
@@ -255,6 +266,7 @@ impl Bloom {
             enabled: true,
             update_uniform: false,
             blend,
+            color,
         }
     }
 }

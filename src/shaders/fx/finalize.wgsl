@@ -11,16 +11,11 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> @builtin(position) vec4<
     }
 }
 
-struct Offset {
-    offset: i32,
-    view_width: f32,
-    view_height: f32,
-}
-
 @group(0) @binding(1) var read_fx: binding_array<texture_2d<f32>, 32>;
 @group(1) @binding(0) var<uniform> fx_io: FxIO; 
 
 @fragment
 fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
-    return textureLoad(read_fx[fx_io.out_idx], vec2<i32>(pos.xy), 0);
+    var out = textureLoad(read_fx[fx_io.out_idx], vec2<i32>(pos.xy), 0).rgb;
+    return vec4<f32>(out, 1.0);
 }

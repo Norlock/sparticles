@@ -75,6 +75,15 @@ fn gen_dyn_range(unique: f32, value: f32, elapsed_sec: f32) -> f32 {
     return sin(random(unique, elapsed_sec) * 60.) * value;
 }
 
+fn acesFilm(x: vec3<f32>) -> vec3<f32> {
+    let a = 2.51f;
+    let b = 0.03f;
+    let c = 2.43f;
+    let d = 0.59f;
+    let e = 0.14f;
+    return saturate((x*(a*x+b)) / (x*(c*x+d)+e));
+}
+
 fn yaw_matrix(yaw: f32) -> mat3x3<f32> {
     let s = sin(yaw);
     let c = cos(yaw);
