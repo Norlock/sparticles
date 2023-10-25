@@ -8,7 +8,8 @@ use encase::ShaderType;
 use serde::{Deserialize, Serialize};
 
 pub struct BlendPass {
-    additive_pipeline: wgpu::ComputePipeline,
+    add_pipeline: wgpu::ComputePipeline,
+    blend_pipeline: wgpu::ComputePipeline,
 
     io_bg: wgpu::BindGroup,
     io_uniform: FxIOUniform,
@@ -26,7 +27,7 @@ pub struct BlendSettings<'a> {
 }
 
 impl BlendPass {
-    pub fn compute_additive<'a>(
+    pub fn compute_add<'a>(
         &'a self,
         ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
@@ -35,7 +36,25 @@ impl BlendPass {
     ) {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
-        c_pass.set_pipeline(&self.additive_pipeline);
+        c_pass.set_pipeline(&self.add_pipeline);
+        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
+        c_pass.set_bind_group(1, &self.io_bg, &[]);
+        c_pass.set_bind_group(2, blend_bg, &[]);
+        c_pass.dispatch_workgroups(count_x, count_y, 1);
+
+        ping_pong.swap(&self.io_uniform);
+    }
+
+    pub fn compute_blend<'a>(
+        &'a self,
+        ping_pong: &mut PingPongState,
+        fx_state: &'a FxState,
+        blend_bg: &'a wgpu::BindGroup,
+        c_pass: &mut wgpu::ComputePass<'a>,
+    ) {
+        let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
+
+        c_pass.set_pipeline(&self.blend_pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
         c_pass.set_bind_group(1, &self.io_bg, &[]);
         c_pass.set_bind_group(2, blend_bg, &[]);
@@ -65,16 +84,21 @@ impl BlendPass {
             push_constant_ranges: &[],
         });
 
-        // TODO multiple entry points for different types of blend
-        let additive_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Blend pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &blend_shader,
-            entry_point: "additive",
-        });
+        let create_pipeline = |entry_point: &str| -> wgpu::ComputePipeline {
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Blend pipeline"),
+                layout: Some(&pipeline_layout),
+                module: &blend_shader,
+                entry_point,
+            })
+        };
+
+        let add_pipeline = create_pipeline("add");
+        let blend_pipeline = create_pipeline("blend");
 
         Self {
-            additive_pipeline,
+            add_pipeline,
+            blend_pipeline,
             io_bg: io_ctx.bg,
             io_uniform: settings.io_uniform,
         }

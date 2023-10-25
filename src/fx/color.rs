@@ -192,7 +192,7 @@ impl ColorFx {
 
         let create_pipeline = |entry_point: &str| -> wgpu::ComputePipeline {
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Color processing pipeline"),
+                label: Some("Color fx pipeline"),
                 layout: Some(&pipeline_layout),
                 module: &shader,
                 entry_point,

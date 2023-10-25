@@ -7,23 +7,24 @@ Particle system written in rust + WGPU + EGUI
 - [ ] Seperate post fx settings per emitter
 - [ ] Create noise texture for effects
   - [ ] Create these textures in gui
+- [ ] Export shader to file
+- [ ] Use rust-gpu
 
 ## Gui
-- [ ] Show all possible diffuse textures in map
-- [ ] Preview mode of textures
+- [x] Show all possible diffuse textures in map
+- [x] Preview mode of textures
 
 ## Post fx
 - [ ] Depth of view
 - [ ] Motion blur
-- [ ] Being able to extend Fx State bind groups as long as the order is preserved so you have more
-flexibility 
-- [ ] Create preview texture and register with egui to display post fx 
 
 ## Post fx overhaul
-- [ ] Create one bindgrouplayout + 2 (ping pong) bindgroups
-- [ ] Textures are stored in the bind group and determined how many have available
-- [ ] Downscaled is just the same fx texture but uses only top left
-- [ ] Simplify API and make only one post fx trait + register trait
+- [x] Create one bindgrouplayout + 2 (ping pong) bindgroups
+- [x] Textures are stored in the bind group texture arrays 
+- [x] Downscaled is just the same fx texture but uses only top left
+  - [ ] Downscale maybe just in one texture but use offset
+
+- [x] Simplify API and make only one post fx trait + register trait
 - [ ] Noise textures are updated once in a while
-- [ ] Split gaussian again in hor ver
+- [x] Split gaussian again in hor ver
 
