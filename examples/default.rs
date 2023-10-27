@@ -39,7 +39,7 @@ impl AppSettings for CustomSettings {
     }
 
     fn show_gui(&self) -> bool {
-        true
+        false
     }
 
     fn import_mode(&self) -> JsonImportMode {

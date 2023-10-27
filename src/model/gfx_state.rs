@@ -11,6 +11,7 @@ use egui_winit::winit;
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::EventResponse;
 use std::iter;
+use wgpu_profiler::GpuProfiler;
 use winit::dpi::PhysicalSize;
 use winit::window;
 
@@ -63,7 +64,8 @@ impl GfxState {
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::TIMESTAMP_QUERY
                         | wgpu::Features::TEXTURE_BINDING_ARRAY
-                        | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY,
+                        | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY
+                        | GpuProfiler::ALL_WGPU_TIMER_FEATURES,
                     limits,
                     label: None,
                 },

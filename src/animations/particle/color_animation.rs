@@ -165,8 +165,10 @@ impl ParticleAnimation for ColorAnimation {
             ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
         });
 
-        let mut from_color = Rgba(gui.from_color.to_array());
-        let mut to_color = Rgba(gui.to_color.to_array());
+        let f_col = gui.from_color;
+        let t_col = gui.to_color;
+        let mut from_color = Rgba::from_rgba_unmultiplied(f_col.x, f_col.y, f_col.z, f_col.w);
+        let mut to_color = Rgba::from_rgba_unmultiplied(t_col.x, t_col.y, t_col.z, t_col.w);
 
         ui.horizontal(|ui| {
             ui.label("From color: ");
@@ -178,8 +180,8 @@ impl ParticleAnimation for ColorAnimation {
             color_edit_button_rgba(ui, &mut to_color, Alpha::Opaque);
         });
 
-        gui.from_color = from_color.0.into();
-        gui.to_color = to_color.0.into();
+        gui.from_color = from_color.to_array().into();
+        gui.to_color = to_color.to_array().into();
 
         if self.uniform != gui {
             self.update_uniform = true;
