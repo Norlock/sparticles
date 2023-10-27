@@ -144,11 +144,13 @@ impl<'a> EmitterState {
         emitters.push(emitter);
     }
 
-    pub fn render_particles(state: &State, encoder: &mut wgpu::CommandEncoder) {
+    pub fn render_particles(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
+        let pp = &state.post_process;
+
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: state.frame_view(),
+                view: pp.frame_view(),
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -156,7 +158,7 @@ impl<'a> EmitterState {
                 },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: state.depth_view(),
+                view: pp.depth_view(),
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: wgpu::StoreOp::Store,
@@ -167,31 +169,42 @@ impl<'a> EmitterState {
             occlusion_query_set: None,
         });
 
-        let State {
-            camera,
-            clock,
-            lights,
-            emitters,
-            ..
-        } = state;
+        let profiler = &mut state.gfx_state.profiler;
+        let clock = &state.clock;
+        let lights = &state.lights;
+        let emitters = &state.emitters;
+        let camera = &state.camera;
+        let device = &state.gfx_state.device;
 
         let nr = clock.get_alt_bindgroup_nr();
 
         // Light
+        profiler.begin_scope(
+            &format!("Render (l) emitter: {}", lights.id()),
+            &mut r_pass,
+            &device,
+        );
         r_pass.set_pipeline(&lights.render_pipeline);
         r_pass.set_bind_group(0, &camera.bind_group, &[]);
         r_pass.set_bind_group(1, &lights.diffuse_ctx.bind_group, &[]);
         r_pass.set_bind_group(2, &lights.bind_groups[nr], &[]);
         r_pass.draw(0..4, 0..lights.particle_count() as u32);
+        profiler.end_scope(&mut r_pass).unwrap();
 
         // Normal
         for emitter in emitters.iter() {
+            profiler.begin_scope(
+                &format!("Render (n) emitter: {}", emitter.id()),
+                &mut r_pass,
+                &device,
+            );
             r_pass.set_pipeline(&emitter.render_pipeline);
             r_pass.set_bind_group(0, &camera.bind_group, &[]);
             r_pass.set_bind_group(1, &emitter.diffuse_ctx.bind_group, &[]);
             r_pass.set_bind_group(2, &emitter.bind_groups[nr], &[]);
             r_pass.set_bind_group(3, &lights.bind_groups[nr], &[]);
             r_pass.draw(0..4, 0..emitter.particle_count() as u32);
+            profiler.end_scope(&mut r_pass).unwrap();
         }
     }
 

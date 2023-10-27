@@ -2,7 +2,6 @@ use super::{Camera, Clock, EmitterState, GfxState, GuiState};
 use crate::init::{InitEmitters, InitSettings};
 use crate::traits::*;
 use crate::{fx::PostProcessState, AppSettings};
-use egui_wgpu::wgpu;
 use egui_winit::winit::{dpi::PhysicalSize, event::KeyboardInput, window::Window};
 
 pub struct State {
@@ -40,14 +39,6 @@ impl State {
 
     pub fn process_events(&mut self, input: KeyboardInput) {
         self.camera.process_input(input);
-    }
-
-    pub fn frame_view(&self) -> &wgpu::TextureView {
-        &self.post_process.fx_state.frame_view
-    }
-
-    pub fn depth_view(&self) -> &wgpu::TextureView {
-        &self.post_process.fx_state.depth_view
     }
 
     pub fn new(app_settings: impl AppSettings, window: Window) -> Self {

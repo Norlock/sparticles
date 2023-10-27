@@ -130,6 +130,14 @@ impl PostProcessState {
         ListAction::update_list(effects);
     }
 
+    pub fn frame_view(&self) -> &wgpu::TextureView {
+        &self.fx_state.frame_view
+    }
+
+    pub fn depth_view(&self) -> &wgpu::TextureView {
+        &self.fx_state.depth_view
+    }
+
     pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) -> PingPongState {
         let pp = &mut state.post_process;
         let fx_state = &mut pp.fx_state;
