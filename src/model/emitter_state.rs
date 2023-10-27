@@ -13,6 +13,7 @@ use std::{
     num::NonZeroU64,
 };
 use wgpu::util::DeviceExt;
+use wgpu_profiler::*;
 
 #[allow(unused)]
 pub struct EmitterState {
@@ -79,13 +80,17 @@ impl<'a> EmitterState {
         }
     }
 
-    pub fn compute_particles(state: &'a State, encoder: &'a mut wgpu::CommandEncoder) {
+    pub fn compute_particles(state: &'a mut State, encoder: &'a mut wgpu::CommandEncoder) {
         let State {
             clock,
             lights,
             emitters,
+            gfx_state,
             ..
         } = state;
+
+        let profiler = &mut gfx_state.profiler;
+        let device = &gfx_state.device;
 
         let nr = clock.get_bindgroup_nr();
 
@@ -95,13 +100,21 @@ impl<'a> EmitterState {
         });
 
         let mut compute = |emitter: &'a EmitterState| {
+            profiler.begin_scope(
+                &format!("Compute emitter: {}", emitter.id()),
+                &mut c_pass,
+                &device,
+            );
             c_pass.set_pipeline(&emitter.pipeline);
             c_pass.set_bind_group(0, &emitter.bind_groups[nr], &[]);
             c_pass.dispatch_workgroups(emitter.dispatch_x_count, 1, 1);
+            profiler.end_scope(&mut c_pass).unwrap();
 
+            profiler.begin_scope("Compute particle animations", &mut c_pass, &device);
             for anim in emitter.particle_animations.iter() {
                 anim.compute(emitter, clock, &mut c_pass);
             }
+            profiler.end_scope(&mut c_pass).unwrap();
         };
 
         compute(lights);

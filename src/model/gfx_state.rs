@@ -11,7 +11,10 @@ use egui_winit::winit;
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::EventResponse;
 use std::iter;
+use wgpu_profiler::CreationError;
 use wgpu_profiler::GpuProfiler;
+use wgpu_profiler::GpuProfilerSettings;
+use wgpu_profiler::GpuTimerScopeResult;
 use winit::dpi::PhysicalSize;
 use winit::window;
 
@@ -29,6 +32,7 @@ pub struct GfxState {
     pub window: window::Window,
     pub renderer: Renderer,
     pub screen_descriptor: ScreenDescriptor,
+    pub profiler: GpuProfiler,
     winit: egui_winit::State,
     surface: wgpu::Surface,
 }
@@ -119,6 +123,23 @@ impl GfxState {
             pixels_per_point: window.scale_factor() as f32,
         };
 
+        let profiler = GpuProfiler::new_with_tracy_client(
+            GpuProfilerSettings::default(),
+            adapter.get_info().backend,
+            &device,
+            &queue,
+        )
+        .unwrap_or_else(|err| match err {
+            CreationError::TracyClientNotRunning
+            | CreationError::TracyGpuContextCreationError(_) => {
+                println!("Failed to connect to Tracy. Continuing without Tracy integration.");
+                GpuProfiler::new(GpuProfilerSettings::default()).expect("Failed to create profiler")
+            }
+            _ => {
+                panic!("Failed to create profiler: {}", err);
+            }
+        });
+
         Self {
             surface,
             window,
@@ -129,6 +150,7 @@ impl GfxState {
             winit,
             ctx,
             screen_descriptor,
+            profiler,
         }
     }
 
@@ -237,10 +259,46 @@ impl GfxState {
         // Post processing render
         PostProcessState::render(state, output_view, &mut encoder, ping_pong_idx);
 
+        let GfxState {
+            queue, profiler, ..
+        } = &mut state.gfx_state;
+
+        profiler.resolve_queries(&mut encoder);
+
         // Submit the commands.
-        state.gfx_state.queue.submit(iter::once(encoder.finish()));
+        queue.submit(Some(encoder.finish()));
 
         // Redraw egui
         output_frame.present();
+
+        // Signal to the profiler that the frame is finished.
+        profiler.end_frame().unwrap();
+
+        // Query for oldest finished frame (this is almost certainly not the one we just submitted!) and display results in the command line.
+        if state.clock.frame() % 20 == 0 {
+            if let Some(results) = profiler.process_finished_frame(queue.get_timestamp_period()) {
+                print!("\x1B[2J\x1B[1;1H"); // Clear terminal and put cursor to first row first column
+                println!();
+                scopes_to_console_recursive(&results, 2);
+            }
+        }
+    }
+}
+
+fn scopes_to_console_recursive(results: &[GpuTimerScopeResult], indentation: u32) {
+    for scope in results {
+        if indentation > 0 {
+            print!("{:<width$}", "|", width = 4);
+        }
+
+        println!(
+            "{:.3}μs - {}",
+            (scope.time.end - scope.time.start) * 1000.0 * 1000.0,
+            scope.label
+        );
+
+        if !scope.nested_scopes.is_empty() {
+            scopes_to_console_recursive(&scope.nested_scopes, indentation + 1);
+        }
     }
 }

@@ -42,6 +42,10 @@ impl AppSettings for CustomSettings {
         false
     }
 
+    fn use_tracy(&self) -> bool {
+        true
+    }
+
     fn import_mode(&self) -> JsonImportMode {
         JsonImportMode::Replace
     }
