@@ -158,7 +158,7 @@ impl PostProcessState {
         state: &mut State,
         output_view: wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
-        mut ping_pong: PingPongState,
+        ping_pong: PingPongState,
     ) {
         let clipped_primitives = GfxState::draw_gui(state, encoder);
 

@@ -106,7 +106,7 @@ impl PostFx for Bloom {
 
         self.color.compute_tonemap(ping_pong, fx_state, c_pass);
         self.blend
-            .compute_add(ping_pong, fx_state, &self.blend_bg, c_pass);
+            .compute_blend(ping_pong, fx_state, &self.blend_bg, c_pass);
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {

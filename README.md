@@ -8,7 +8,7 @@ Particle system written in rust + WGPU + EGUI
 - [ ] Create noise texture for effects
   - [ ] Create these textures in gui
 - [ ] Export shader to file
-- [ ] Use rust-gpu
+- [ ] Use rust-gpu, maybe?
 
 ## Gui
 - [x] Show all possible diffuse textures in map
@@ -23,7 +23,7 @@ Particle system written in rust + WGPU + EGUI
 - [x] Textures are stored in the bind group texture arrays 
 - [x] Downscaled is just the same fx texture but uses only top left
   - [ ] Downscale maybe just in one texture but use offset
-
+- [ ] Use depth texture for blooming
 - [x] Simplify API and make only one post fx trait + register trait
 - [ ] Noise textures are updated once in a while
 - [x] Split gaussian again in hor ver

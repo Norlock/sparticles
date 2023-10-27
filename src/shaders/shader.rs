@@ -11,6 +11,13 @@ impl CustomShader for wgpu::Device {
         let file = get_file(filename);
 
         let shader_str = format!("{}{}{}", declarations, noise, file);
+        let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        dir.push(format!("debug/{}", filename));
+
+        let _ = fs::write(
+            dir.to_str().expect("Can't create debug shader"),
+            &shader_str,
+        );
 
         self.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(label),
