@@ -10,7 +10,6 @@ use egui_winit::egui::FontFamily;
 use egui_winit::winit;
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::EventResponse;
-use std::iter;
 use wgpu_profiler::CreationError;
 use wgpu_profiler::GpuProfiler;
 use wgpu_profiler::GpuProfilerSettings;
@@ -173,7 +172,7 @@ impl GfxState {
             self.surface.configure(&self.device, &self.surface_config);
 
             self.screen_descriptor = ScreenDescriptor {
-                size_in_pixels: [self.surface_config.width, self.surface_config.height],
+                size_in_pixels: [size.width, size.height],
                 pixels_per_point: self.window.scale_factor() as f32,
             };
         }
@@ -186,6 +185,7 @@ impl GfxState {
             .take_egui_input(&state.gfx_state.window);
 
         state.gfx_state.ctx.begin_frame(input);
+
         GuiState::update_gui(state);
 
         let State { gfx_state, .. } = state;
@@ -273,32 +273,5 @@ impl GfxState {
 
         // Signal to the profiler that the frame is finished.
         profiler.end_frame().unwrap();
-
-        // Query for oldest finished frame (this is almost certainly not the one we just submitted!) and display results in the command line.
-        if state.clock.frame() % 20 == 0 {
-            if let Some(results) = profiler.process_finished_frame(queue.get_timestamp_period()) {
-                print!("\x1B[2J\x1B[1;1H"); // Clear terminal and put cursor to first row first column
-                println!();
-                scopes_to_console_recursive(&results, 2);
-            }
-        }
-    }
-}
-
-fn scopes_to_console_recursive(results: &[GpuTimerScopeResult], indentation: u32) {
-    for scope in results {
-        if indentation > 0 {
-            print!("{:<width$}", "|", width = 4);
-        }
-
-        println!(
-            "{:.3}μs - {}",
-            (scope.time.end - scope.time.start) * 1000.0 * 1000.0,
-            scope.label
-        );
-
-        if !scope.nested_scopes.is_empty() {
-            scopes_to_console_recursive(&scope.nested_scopes, indentation + 1);
-        }
     }
 }

@@ -97,7 +97,6 @@ impl InitSettings {
         let mut emitters: Vec<EmitterState> = Vec::new();
 
         for emitter_uniform in app_settings.emitters() {
-            println!("ok ok");
             println!("{:?}", emitter_uniform);
             let is_unique = emitters
                 .iter()

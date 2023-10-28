@@ -37,7 +37,7 @@ impl BlurPass {
         c_pass.set_bind_group(2, &blur_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        ping_pong.swap(&self.io_uniform);
+        ping_pong.swap();
 
         c_pass.set_pipeline(&self.blur_pipeline_y);
         c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
@@ -45,7 +45,7 @@ impl BlurPass {
         c_pass.set_bind_group(2, &blur_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        ping_pong.swap(&self.io_uniform);
+        ping_pong.swap();
     }
 
     pub fn compute_split<'a>(
@@ -61,7 +61,7 @@ impl BlurPass {
         c_pass.set_bind_group(2, &blur_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
 
-        ping_pong.swap(&self.io_uniform);
+        ping_pong.swap();
     }
 
     pub fn new(options: &CreateFxOptions, settings: BlurPassSettings) -> Self {

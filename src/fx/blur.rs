@@ -1,4 +1,3 @@
-use super::blur_pass::BlurPass;
 use super::post_process::CreateFxOptions;
 use super::post_process::FxIOUniform;
 use super::post_process::PingPongState;
@@ -51,7 +50,10 @@ impl RegisterPostFx for RegisterBlurFx {
     }
 
     fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
-        let settings = BlurSettings::new(BlurType::GaussianHorVer);
+        let settings = BlurSettings {
+            blur_uniform: BlurUniform::new(1),
+            blur_type: BlurType::GaussianHorVer,
+        };
 
         Box::new(Blur::new(options, settings))
     }
@@ -72,24 +74,26 @@ pub struct BlurUniform {
     pub sigma: f32,
     pub hdr_mul: f32,
     pub intensity: f32,
+    pub downscale: u32,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-pub struct BlurSettings {
-    pub blur_uniform: BlurUniform,
-    pub blur_type: BlurType,
-}
-
-impl Default for BlurUniform {
-    fn default() -> Self {
+impl BlurUniform {
+    pub fn new(downscale: u32) -> Self {
         Self {
             brightness_threshold: 0.6,
             radius: 4,
             sigma: 1.3,
             hdr_mul: 25.,
             intensity: 1.00, // betere naam verzinnen
+            downscale,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub struct BlurSettings {
+    pub blur_uniform: BlurUniform,
+    pub blur_type: BlurType,
 }
 
 impl PostFx for Blur {
@@ -107,6 +111,7 @@ impl PostFx for Blur {
         &'a self,
         ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
+        gfx_state: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
         let count_x =
@@ -121,7 +126,7 @@ impl PostFx for Blur {
             c_pass.set_bind_group(2, &self.blur_bg, &[]);
             c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-            ping_pong.swap(&self.io_uniform);
+            ping_pong.swap();
         };
 
         match self.blur_type {
@@ -175,16 +180,6 @@ impl HandleAction for Blur {
 
     fn enabled(&self) -> bool {
         self.enabled
-    }
-}
-
-impl BlurSettings {
-    /// Standalone should only be true if not inside another effect
-    pub fn new(blur_type: BlurType) -> Self {
-        Self {
-            blur_uniform: BlurUniform::default(),
-            blur_type,
-        }
     }
 }
 

@@ -25,7 +25,7 @@ impl Downscale {
         c_pass.set_bind_group(1, &self.bind_group, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        ping_pong.swap(&self.io_uniform);
+        ping_pong.swap();
     }
 
     pub fn new(options: &CreateFxOptions, io_uniform: FxIOUniform) -> Self {

@@ -7,6 +7,7 @@ use crate::{
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
 use std::num::NonZeroU64;
+use wgpu_profiler::GpuProfiler;
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -95,6 +96,7 @@ pub trait PostFx: HandleAction {
         &'a self,
         ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
+        gfx_state: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     );
 

@@ -86,15 +86,20 @@ impl PostFx for ColorFx {
         &'a self,
         ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
+        gfx_state: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
+        gfx_state
+            .profiler
+            .begin_scope("Color Fx", c_pass, &gfx_state.device);
         c_pass.set_pipeline(&self.general_pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
         c_pass.set_bind_group(1, &self.io_bg, &[]);
         c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
+        gfx_state.profiler.end_scope(c_pass).unwrap();
 
-        ping_pong.swap(&self.io_uniform);
+        ping_pong.swap();
     }
 
     fn update(&mut self, gfx_state: &GfxState) {
@@ -164,7 +169,7 @@ impl ColorFx {
         c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        ping_pong.swap(&self.io_uniform);
+        ping_pong.swap();
     }
 
     pub fn new(options: &CreateFxOptions, settings: ColorFxSettings) -> Self {

@@ -49,6 +49,7 @@ struct GaussianBlur {
     sigma: f32,
     hdr_mul: f32,
     intensity: f32,
+    downscale: u32,
 }
 
 struct FxIO {

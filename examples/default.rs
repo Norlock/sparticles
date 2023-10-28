@@ -39,7 +39,7 @@ impl AppSettings for CustomSettings {
     }
 
     fn show_gui(&self) -> bool {
-        false
+        true
     }
 
     fn use_tracy(&self) -> bool {

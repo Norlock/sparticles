@@ -27,7 +27,7 @@ pub struct BlendSettings<'a> {
 }
 
 impl BlendPass {
-    pub fn compute_add<'a>(
+    pub fn add_blend<'a>(
         &'a self,
         ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
@@ -42,10 +42,10 @@ impl BlendPass {
         c_pass.set_bind_group(2, blend_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        ping_pong.swap(&self.io_uniform);
+        ping_pong.swap();
     }
 
-    pub fn compute_blend<'a>(
+    pub fn lerp_blend<'a>(
         &'a self,
         ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
@@ -60,7 +60,7 @@ impl BlendPass {
         c_pass.set_bind_group(2, blend_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        ping_pong.swap(&self.io_uniform);
+        ping_pong.swap();
     }
 
     pub fn new(options: &CreateFxOptions, settings: BlendSettings) -> Self {

@@ -1,8 +1,4 @@
-use crate::{
-    fx::PostProcessState,
-    model::gfx_state::GfxState,
-    traits::{CreateFxView, FxDimensions},
-};
+use crate::{fx::PostProcessState, model::gfx_state::GfxState, traits::CreateFxView};
 use egui_wgpu::wgpu::{self, util::align_to};
 use image::GenericImageView;
 use rand::{rngs::ThreadRng, Rng};
@@ -64,18 +60,22 @@ impl IconTexture {
 impl GfxState {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
+    fn tex_size(&self) -> wgpu::Extent3d {
+        let config = &self.surface_config;
+
+        wgpu::Extent3d {
+            width: config.width.max(1920),
+            height: config.height.max(1200),
+            depth_or_array_layers: 1,
+        }
+    }
+
     pub fn create_depth_view(&self) -> wgpu::TextureView {
         let device = &self.device;
-        let config = &self.surface_config;
-        let dimensions = config.fx_dimensions();
 
         let desc = wgpu::TextureDescriptor {
             label: Some("Depth texture"),
-            size: wgpu::Extent3d {
-                width: dimensions[0],
-                height: dimensions[1],
-                depth_or_array_layers: 1,
-            },
+            size: self.tex_size(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -89,16 +89,11 @@ impl GfxState {
 
     pub fn create_frame_view(&self) -> wgpu::TextureView {
         let config = &self.surface_config;
-        let dimensions = config.fx_dimensions();
 
         self.device
             .create_texture(&wgpu::TextureDescriptor {
                 label: Some("Frame view"),
-                size: wgpu::Extent3d {
-                    width: dimensions[0],
-                    height: dimensions[1],
-                    depth_or_array_layers: 1,
-                },
+                size: self.tex_size(),
                 mip_level_count: 1,
                 sample_count: 1,
                 view_formats: &[],
@@ -114,11 +109,7 @@ impl GfxState {
         self.device
             .create_texture(&wgpu::TextureDescriptor {
                 label: None,
-                size: wgpu::Extent3d {
-                    width: self.surface_config.width,
-                    height: self.surface_config.height,
-                    depth_or_array_layers: 1,
-                },
+                size: self.tex_size(),
                 mip_level_count: 1,
                 sample_count: 1,
                 view_formats: &[],
@@ -227,12 +218,7 @@ impl GfxState {
         let device = &self.device;
         let queue = &self.queue;
 
-        let size = wgpu::Extent3d {
-            width: self.surface_config.width,
-            height: self.surface_config.height,
-            depth_or_array_layers: 1,
-        };
-
+        let size = self.tex_size();
         let mut noise_data = Vec::new();
 
         let bytes_per_row = align_to(

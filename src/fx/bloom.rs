@@ -24,6 +24,7 @@ use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
 use serde::Deserialize;
 use serde::Serialize;
+use wgpu_profiler::GpuProfiler;
 
 pub struct Bloom {
     enabled: bool,
@@ -47,7 +48,7 @@ pub struct Bloom {
 
 struct DownscalePass {
     downscale: Downscale,
-    blur: BlurPass,
+    blur: Option<BlurPass>,
 }
 
 struct UpscalePass {
@@ -76,7 +77,7 @@ impl RegisterPostFx for RegisterBloomFx {
         Box::new(Bloom::new(
             options,
             BloomSettings {
-                blur_uniform: BlurUniform::default(),
+                blur_uniform: BlurUniform::new(9),
                 blend_uniform: BlendUniform { io_mix: 0.5 },
             },
         ))
@@ -88,25 +89,49 @@ impl PostFx for Bloom {
         &'a self,
         ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
+        gfx_state: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
+        let profiler = &mut gfx_state.profiler;
+        let device = &gfx_state.device;
+
+        profiler.begin_scope("Bloom Fx", c_pass, &gfx_state.device);
+        profiler.begin_scope("Split", c_pass, &gfx_state.device);
+
         self.split_pass
             .compute_split(ping_pong, fx_state, &self.blur_bg, c_pass);
 
-        for down in self.downscale_passes.iter() {
+        profiler.end_scope(c_pass).unwrap();
+
+        for (i, down) in self.downscale_passes.iter().enumerate() {
+            profiler.begin_scope(&format!("Downscale {}", i), c_pass, device);
             down.downscale.compute(ping_pong, fx_state, c_pass);
-            down.blur
-                .compute_hor_ver(ping_pong, fx_state, &self.blur_bg, c_pass);
+            profiler.end_scope(c_pass).unwrap();
+
+            if let Some(blur) = &down.blur {
+                profiler.begin_scope(&format!("Blur {}", i), c_pass, device);
+                blur.compute_hor_ver(ping_pong, fx_state, &self.blur_bg, c_pass);
+                profiler.end_scope(c_pass).unwrap();
+            }
         }
 
         for up in self.upscale_passes.iter() {
+            profiler.begin_scope("Upscale + blend", c_pass, device);
             up.blend
-                .compute_blend(ping_pong, fx_state, &self.blend_bg, c_pass);
+                .lerp_blend(ping_pong, fx_state, &self.blend_bg, c_pass);
+            profiler.end_scope(c_pass).unwrap();
         }
 
+        profiler.begin_scope("Tonemapping", c_pass, device);
         self.color.compute_tonemap(ping_pong, fx_state, c_pass);
+        profiler.end_scope(c_pass).unwrap();
+
+        profiler.begin_scope("Blend", c_pass, device);
         self.blend
-            .compute_blend(ping_pong, fx_state, &self.blend_bg, c_pass);
+            .lerp_blend(ping_pong, fx_state, &self.blend_bg, c_pass);
+        profiler.end_scope(c_pass).unwrap();
+
+        profiler.end_scope(c_pass).unwrap();
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
@@ -193,17 +218,15 @@ impl Bloom {
             },
         );
 
-        let mut width = gfx_state.surface_config.width;
-        let mut height = gfx_state.surface_config.height;
+        let mut width = gfx_state.surface_config.width.max(1920);
+        let mut height = gfx_state.surface_config.height.max(1200);
 
-        let mut add_downscale_pass = true;
-        let mut idx = 1;
         let mut downscale = 1.0;
 
         let mut downscale_passes = Vec::new();
         let mut upscale_passes = Vec::new();
 
-        while add_downscale_pass {
+        for idx in 1..=blur_uniform.downscale {
             let in_idx = idx;
             let out_idx = idx + 1;
             let out_downscale = downscale * 2.;
@@ -223,21 +246,28 @@ impl Bloom {
             let blur_io = FxIOUniform::symetric_downscaled(out_idx, out_downscale);
             println!("blur: {:?}", &blur_io);
 
-            let blur = BlurPass::new(
-                options,
-                BlurPassSettings {
-                    io_uniform: blur_io,
-                    blur_layout: &blur_ctx.bg_layout,
-                },
-            );
+            if width <= 512 || height <= 512 {
+                let blur = BlurPass::new(
+                    options,
+                    BlurPassSettings {
+                        io_uniform: blur_io,
+                        blur_layout: &blur_ctx.bg_layout,
+                    },
+                );
 
-            downscale_passes.push(DownscalePass { downscale, blur });
+                downscale_passes.push(DownscalePass {
+                    downscale,
+                    blur: Some(blur),
+                });
+            } else {
+                downscale_passes.push(DownscalePass {
+                    downscale,
+                    blur: None,
+                });
+            }
 
             width = (width as f32 / 2.).ceil() as u32;
             height = (height as f32 / 2.).ceil() as u32;
-
-            idx += 1;
-            add_downscale_pass = 10 < width && 10 < height;
         }
 
         println!("");

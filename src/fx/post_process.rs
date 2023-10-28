@@ -34,17 +34,8 @@ impl PingPongState {
         self.fx_idx
     }
 
-    fn swap_fx(&mut self) {
+    pub fn swap(&mut self) {
         self.fx_idx = (self.fx_idx + 1) % 2;
-    }
-
-    pub fn swap(&mut self, io_uniform: &FxIOUniform) {
-        self.swap_fx();
-        //if io_uniform.out_idx == 0 {
-        //self.swap_blend();
-        //} else {
-        //self.swap_fx();
-        //}
     }
 }
 
@@ -139,8 +130,10 @@ impl PostProcessState {
     }
 
     pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) -> PingPongState {
+        let profiler = &mut state.gfx_state.profiler;
         let pp = &mut state.post_process;
         let fx_state = &mut pp.fx_state;
+        let device = &state.gfx_state.device;
 
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Post process pipeline"),
@@ -149,15 +142,17 @@ impl PostProcessState {
 
         let mut ping_pong = PingPongState::new();
 
+        profiler.begin_scope("Post fx init", &mut c_pass, &device);
         c_pass.set_pipeline(&pp.initialize_pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(&mut ping_pong), &[]);
         c_pass.set_bind_group(1, &pp.io_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
+        profiler.end_scope(&mut c_pass).unwrap();
 
-        ping_pong.swap_fx();
+        ping_pong.swap();
 
         for fx in pp.effects.iter().filter(|fx| fx.enabled()) {
-            fx.compute(&mut ping_pong, &fx_state, &mut c_pass);
+            fx.compute(&mut ping_pong, &fx_state, &mut state.gfx_state, &mut c_pass);
         }
 
         ping_pong

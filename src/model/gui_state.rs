@@ -7,8 +7,12 @@ use crate::{
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
 use egui_wgpu::wgpu;
-use egui_winit::egui::{self, load::SizedTexture, ComboBox, ImageButton, TextureId};
+use egui_winit::egui::{
+    self, load::SizedTexture, CollapsingHeader, ComboBox, ImageButton, Margin, ScrollArea,
+    TextureId,
+};
 use std::{collections::HashMap, path::PathBuf};
+use wgpu_profiler::GpuTimerScopeResult;
 
 pub struct GuiState {
     pub enabled: bool,
@@ -16,6 +20,7 @@ pub struct GuiState {
     pub new_emitter_tag: String,
     pub preview_enabled: bool,
     pub selected_bind_group: usize,
+    pub profiling_results: Vec<GpuTimerScopeResult>,
 
     fps_text: String,
     cpu_time_text: String,
@@ -50,106 +55,154 @@ impl GuiState {
             return;
         }
 
-        Window::new("Sparticles settings").show(&state.gfx_state.ctx.clone(), |ui| {
-            let State {
-                clock,
-                lights,
-                emitters,
-                gui,
-                post_process,
-                ..
-            } = state;
+        let margin_size = 10.;
 
-            // Update gui info
-            if clock.frame() % 20 == 0 {
-                let particle_count: u64 = lights.particle_count()
-                    + emitters.iter().map(|s| s.particle_count()).sum::<u64>();
+        Window::new("Sparticles settings")
+            .vscroll(true)
+            .frame(egui::Frame {
+                fill: Color32::from_rgb(0, 30, 0),
+                inner_margin: Margin {
+                    top: margin_size,
+                    left: margin_size,
+                    right: margin_size,
+                    bottom: margin_size,
+                },
+                ..Default::default()
+            })
+            .show(&state.gfx_state.ctx.clone(), |ui| {
+                let State {
+                    clock,
+                    lights,
+                    emitters,
+                    gui,
+                    gfx_state,
+                    post_process,
+                    ..
+                } = state;
 
-                gui.cpu_time_text = clock.cpu_time_text();
-                gui.fps_text = clock.fps_text();
-                gui.elapsed_text = clock.elapsed_text();
-                gui.particle_count_text = format!("Particle count: {}", particle_count);
-            }
+                // Update gui info
+                if clock.frame() % 20 == 0 {
+                    let particle_count: u64 = lights.particle_count()
+                        + emitters.iter().map(|s| s.particle_count()).sum::<u64>();
 
-            // Set labels
-            create_label(ui, &gui.fps_text);
-            create_label(ui, &gui.cpu_time_text);
-            create_label(ui, &gui.elapsed_text);
-            create_label(ui, &gui.particle_count_text);
+                    gui.cpu_time_text = clock.cpu_time_text();
+                    gui.fps_text = clock.fps_text();
+                    gui.elapsed_text = clock.elapsed_text();
+                    gui.particle_count_text = format!("Particle count: {}", particle_count);
 
-            let mut create_emitter = false;
+                    let prof = &mut gfx_state.profiler;
+                    let queue = &gfx_state.queue;
 
-            gui.reset_camera = ui.button("Reset camera").clicked();
-            ui.add_space(5.0);
+                    if let Some(res) = prof.process_finished_frame(queue.get_timestamp_period()) {
+                        gui.profiling_results = res;
+                    }
+                }
 
-            let emitter_txts: Vec<&str> = emitters
-                .iter()
-                .map(|em| em.id())
-                .chain([lights.id()])
-                .collect();
+                let mut create_emitter = false;
 
-            ui.horizontal(|ui| {
-                ComboBox::from_label("Select emitter").show_index(
-                    ui,
-                    &mut gui.selected_emitter_id,
-                    emitter_txts.len(),
-                    |i| emitter_txts[i],
-                );
+                ui.collapsing("Performance", |ui| {
+                    create_label(ui, &gui.fps_text);
+                    create_label(ui, &gui.cpu_time_text);
+                    create_label(ui, &gui.elapsed_text);
+                    ui.separator();
 
-                ui.add(egui::TextEdit::singleline(&mut gui.new_emitter_tag));
+                    Self::display_performance(ui, &gui.profiling_results);
+                });
 
-                let is_enabled = 3 <= gui.new_emitter_tag.len()
-                    && emitters.iter().all(|em| em.id() != &gui.new_emitter_tag)
-                    && lights.id() != &gui.new_emitter_tag;
+                create_label(ui, &gui.particle_count_text);
 
-                create_emitter = ui
-                    .add_enabled(is_enabled, egui::Button::new("Add emitter"))
-                    .clicked();
+                gui.reset_camera = ui.button("Reset camera").clicked();
+                ui.add_space(5.0);
+
+                let emitter_txts: Vec<&str> = emitters
+                    .iter()
+                    .map(|em| em.id())
+                    .chain([lights.id()])
+                    .collect();
+
+                ui.horizontal(|ui| {
+                    ComboBox::from_label("Select emitter").show_index(
+                        ui,
+                        &mut gui.selected_emitter_id,
+                        emitter_txts.len(),
+                        |i| emitter_txts[i],
+                    );
+
+                    ui.add(egui::TextEdit::singleline(&mut gui.new_emitter_tag));
+
+                    let is_enabled = 3 <= gui.new_emitter_tag.len()
+                        && emitters.iter().all(|em| em.id() != &gui.new_emitter_tag)
+                        && lights.id() != &gui.new_emitter_tag;
+
+                    create_emitter = ui
+                        .add_enabled(is_enabled, egui::Button::new("Add emitter"))
+                        .clicked();
+                });
+
+                ui.add_space(5.0);
+
+                ui.separator();
+
+                if ui.button("Export settings").clicked() {
+                    EmitterState::export(emitters, lights);
+                    PostProcessState::export(post_process);
+                }
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.selectable_value(
+                        &mut gui.selected_tab,
+                        Tab::EmitterSettings,
+                        "Spawn settings",
+                    );
+                    ui.selectable_value(&mut gui.selected_tab, Tab::PostFxSettings, "Post FX");
+                    ui.selectable_value(
+                        &mut gui.selected_tab,
+                        Tab::ParticleAnimations,
+                        "Particle animations",
+                    );
+                    ui.selectable_value(
+                        &mut gui.selected_tab,
+                        Tab::EmitterAnimations,
+                        "Emitter animations",
+                    );
+                });
+
+                ui.separator();
+
+                match gui.selected_tab {
+                    Tab::EmitterSettings => GuiState::emitter_settings_tab(state, ui),
+                    Tab::PostFxSettings => GuiState::post_fx_tab(state, ui),
+                    Tab::ParticleAnimations => GuiState::particle_animations_tab(state, ui),
+                    Tab::EmitterAnimations => GuiState::emitter_animations_tab(state, ui),
+                };
+
+                if create_emitter {
+                    EmitterState::append(state);
+                }
             });
+    }
 
-            ui.add_space(5.0);
+    fn display_performance(ui: &mut Ui, results: &[GpuTimerScopeResult]) {
+        for scope in results.iter() {
+            let display_value = format!(
+                "{} - {:.3}μs",
+                scope.label,
+                (scope.time.end - scope.time.start) * 1000.0 * 1000.0,
+            );
 
-            ui.separator();
+            create_label(ui, &display_value);
 
-            if ui.button("Export settings").clicked() {
-                EmitterState::export(emitters, lights);
-                PostProcessState::export(post_process);
+            if !scope.nested_scopes.is_empty() {
+                ui.horizontal(|ui| {
+                    ui.add_space(5.);
+                    CollapsingHeader::new("-- details --")
+                        .id_source(&scope.label)
+                        .show(ui, |ui| Self::display_performance(ui, &scope.nested_scopes));
+                });
             }
-
-            ui.separator();
-
-            ui.horizontal(|ui| {
-                ui.selectable_value(
-                    &mut gui.selected_tab,
-                    Tab::EmitterSettings,
-                    "Spawn settings",
-                );
-                ui.selectable_value(&mut gui.selected_tab, Tab::PostFxSettings, "Post FX");
-                ui.selectable_value(
-                    &mut gui.selected_tab,
-                    Tab::ParticleAnimations,
-                    "Particle animations",
-                );
-                ui.selectable_value(
-                    &mut gui.selected_tab,
-                    Tab::EmitterAnimations,
-                    "Emitter animations",
-                );
-            });
-
-            ui.separator();
-
-            match gui.selected_tab {
-                Tab::EmitterSettings => GuiState::emitter_settings_tab(state, ui),
-                Tab::PostFxSettings => GuiState::post_fx_tab(state, ui),
-                Tab::ParticleAnimations => GuiState::particle_animations_tab(state, ui),
-                Tab::EmitterAnimations => GuiState::emitter_animations_tab(state, ui),
-            };
-
-            if create_emitter {
-                EmitterState::append(state);
-            }
-        });
+        }
     }
 
     pub fn selected_emitter<'a>(
@@ -284,6 +337,7 @@ impl GuiState {
             selected_texture_output: 0,
             icon_textures,
             new_emitter_tag: String::from(""),
+            profiling_results: Vec::new(),
         }
     }
 

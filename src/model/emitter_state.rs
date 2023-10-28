@@ -99,6 +99,8 @@ impl<'a> EmitterState {
             timestamp_writes: None,
         });
 
+        profiler.begin_scope("Compute", &mut c_pass, &device);
+
         let mut compute = |emitter: &'a EmitterState| {
             profiler.begin_scope(
                 &format!("Compute emitter: {}", emitter.id()),
@@ -122,6 +124,8 @@ impl<'a> EmitterState {
         for emitter in emitters.iter() {
             compute(emitter);
         }
+
+        profiler.end_scope(&mut c_pass).unwrap();
     }
 
     pub fn append(state: &mut State) {
@@ -178,9 +182,11 @@ impl<'a> EmitterState {
 
         let nr = clock.get_alt_bindgroup_nr();
 
+        profiler.begin_scope("Render", &mut r_pass, &device);
+
         // Light
         profiler.begin_scope(
-            &format!("Render (l) emitter: {}", lights.id()),
+            &format!("Render emitter: {}", lights.id()),
             &mut r_pass,
             &device,
         );
@@ -194,7 +200,7 @@ impl<'a> EmitterState {
         // Normal
         for emitter in emitters.iter() {
             profiler.begin_scope(
-                &format!("Render (n) emitter: {}", emitter.id()),
+                &format!("Render emitter: {}", emitter.id()),
                 &mut r_pass,
                 &device,
             );
@@ -206,6 +212,8 @@ impl<'a> EmitterState {
             r_pass.draw(0..4, 0..emitter.particle_count() as u32);
             profiler.end_scope(&mut r_pass).unwrap();
         }
+
+        profiler.end_scope(&mut r_pass).unwrap();
     }
 
     pub fn recreate_emitter(
