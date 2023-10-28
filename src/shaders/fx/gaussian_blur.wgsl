@@ -6,7 +6,7 @@
 
 fn apply_blur(pos: vec2<i32>, offset: vec2<i32>) {
     let size = vec2<i32>(
-        vec2<f32>(textureDimensions(read_fx[fx_io.out_idx])) / fx_io.out_downscale
+        vec2<f32>(textureDimensions(read_fx[0])) / fx_io.out_downscale
     );
 
     if any(size < pos) {

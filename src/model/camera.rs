@@ -192,10 +192,10 @@ impl Camera {
         self.proj = Mat4::perspective_rh(self.fov, aspect, self.near, self.far);
     }
 
-    pub fn process_input(&mut self, input: KeyboardInput) {
-        let state = input.state;
+    pub fn process_input(&mut self, input: &KeyboardInput) -> bool {
+        let press_state = input.state;
         let keycode = input.virtual_keycode.unwrap_or(VirtualKeyCode::Return);
-        let is_pressed = state == ElementState::Pressed;
+        let is_pressed = press_state == ElementState::Pressed;
 
         match keycode {
             VirtualKeyCode::W => {
@@ -228,8 +228,10 @@ impl Camera {
             VirtualKeyCode::Space => {
                 self.is_up_pressed = is_pressed;
             }
-            _ => (),
+            _ => return false,
         }
+
+        true
     }
 
     fn create_buffer_content(&mut self) -> Vec<f32> {

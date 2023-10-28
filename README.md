@@ -7,8 +7,10 @@ Particle system written in rust + WGPU + EGUI
 - [ ] Seperate post fx settings per emitter
 - [ ] Create noise texture for effects
   - [ ] Create these textures in gui
-- [ ] Export shader to file
+- [x] Export shader to file
 - [ ] Use rust-gpu, maybe?
+- [ ] keyboard struct
+- [ ] gui events to update
 
 ## Gui
 - [x] Show all possible diffuse textures in map

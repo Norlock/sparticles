@@ -185,11 +185,7 @@ impl<'a> EmitterState {
         profiler.begin_scope("Render", &mut r_pass, &device);
 
         // Light
-        profiler.begin_scope(
-            &format!("Render emitter: {}", lights.id()),
-            &mut r_pass,
-            &device,
-        );
+        profiler.begin_scope(&format!("Emitter: {}", lights.id()), &mut r_pass, &device);
         r_pass.set_pipeline(&lights.render_pipeline);
         r_pass.set_bind_group(0, &camera.bind_group, &[]);
         r_pass.set_bind_group(1, &lights.diffuse_ctx.bind_group, &[]);
@@ -199,11 +195,7 @@ impl<'a> EmitterState {
 
         // Normal
         for emitter in emitters.iter() {
-            profiler.begin_scope(
-                &format!("Render emitter: {}", emitter.id()),
-                &mut r_pass,
-                &device,
-            );
+            profiler.begin_scope(&format!("Emitter: {}", emitter.id()), &mut r_pass, &device);
             r_pass.set_pipeline(&emitter.render_pipeline);
             r_pass.set_bind_group(0, &camera.bind_group, &[]);
             r_pass.set_bind_group(1, &emitter.diffuse_ctx.bind_group, &[]);

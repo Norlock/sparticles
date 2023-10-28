@@ -24,7 +24,6 @@ use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
 use serde::Deserialize;
 use serde::Serialize;
-use wgpu_profiler::GpuProfiler;
 
 pub struct Bloom {
     enabled: bool,
@@ -78,7 +77,10 @@ impl RegisterPostFx for RegisterBloomFx {
             options,
             BloomSettings {
                 blur_uniform: BlurUniform::new(9),
-                blend_uniform: BlendUniform { io_mix: 0.5 },
+                blend_uniform: BlendUniform {
+                    io_mix: 0.5,
+                    aspect: options.fx_state.aspect,
+                },
             },
         ))
     }
@@ -206,6 +208,7 @@ impl Bloom {
         let CreateFxOptions { gfx_state, .. } = options;
 
         let device = &gfx_state.device;
+        let config = &gfx_state.surface_config;
 
         let blur_uniform = settings.blur_uniform;
         let blur_ctx = UniformContext::from_uniform(&blur_uniform, device, "Blur");
@@ -218,8 +221,8 @@ impl Bloom {
             },
         );
 
-        let mut width = gfx_state.surface_config.width.max(1920);
-        let mut height = gfx_state.surface_config.height.max(1200);
+        let mut width = config.width.min(1920) as f32;
+        let mut height = config.height.min(1200) as f32;
 
         let mut downscale = 1.0;
 
@@ -240,13 +243,28 @@ impl Bloom {
 
             downscale = out_downscale;
 
-            println!("downscale: {:?}", &downscale_io);
             let downscale = Downscale::new(options, downscale_io);
-
             let blur_io = FxIOUniform::symetric_downscaled(out_idx, out_downscale);
-            println!("blur: {:?}", &blur_io);
 
-            if width <= 512 || height <= 512 {
+            println!("downscale: {:?}", &downscale_io);
+            //println!("blur: {:?}", &blur_io);
+
+            if idx == 900 {
+                let blur = BlurPass::new(
+                    options,
+                    BlurPassSettings {
+                        io_uniform: blur_io,
+                        blur_layout: &blur_ctx.bg_layout,
+                    },
+                );
+
+                //let downscale = Downscale::new2(options, downscale_io);
+
+                downscale_passes.push(DownscalePass {
+                    downscale,
+                    blur: Some(blur),
+                });
+            } else if width <= 512. || height <= 512. {
                 let blur = BlurPass::new(
                     options,
                     BlurPassSettings {
@@ -266,8 +284,8 @@ impl Bloom {
                 });
             }
 
-            width = (width as f32 / 2.).ceil() as u32;
-            height = (height as f32 / 2.).ceil() as u32;
+            width = width / 2.;
+            height = height / 2.;
         }
 
         println!("");

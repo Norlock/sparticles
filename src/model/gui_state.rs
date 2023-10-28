@@ -7,9 +7,9 @@ use crate::{
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
 use egui_wgpu::wgpu;
-use egui_winit::egui::{
-    self, load::SizedTexture, CollapsingHeader, ComboBox, ImageButton, Margin, ScrollArea,
-    TextureId,
+use egui_winit::{
+    egui::{self, load::SizedTexture, CollapsingHeader, ComboBox, ImageButton, Margin, TextureId},
+    winit::event::{ElementState, KeyboardInput, VirtualKeyCode},
 };
 use std::{collections::HashMap, path::PathBuf};
 use wgpu_profiler::GpuTimerScopeResult;
@@ -35,6 +35,8 @@ pub struct GuiState {
     selected_new_post_fx: usize,
     selected_texture_output: usize,
     selected_emitter_id: usize,
+
+    reset_input: bool,
 }
 
 const CHEVRON_UP_ID: &str = "chevron-up";
@@ -50,6 +52,43 @@ enum Tab {
 }
 
 impl GuiState {
+    pub fn process_input(&mut self, input: &KeyboardInput, shift_pressed: bool) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        self.reset_input = input.state == ElementState::Released;
+
+        if self.selected_tab == Tab::PostFxSettings && self.reset_input {
+            let keycode = input.virtual_keycode.unwrap_or(VirtualKeyCode::Return);
+
+            match keycode {
+                VirtualKeyCode::P => {
+                    if shift_pressed {
+                        self.preview_enabled = false;
+                    } else {
+                        self.preview_enabled = true;
+                    }
+                }
+                VirtualKeyCode::B => {
+                    self.selected_bind_group = (self.selected_bind_group + 1) % 2;
+                }
+                VirtualKeyCode::T => {
+                    if shift_pressed {
+                        if 0 < self.selected_texture_output {
+                            self.selected_texture_output -= 1;
+                        }
+                    } else {
+                        self.selected_texture_output = (self.selected_texture_output + 1).min(15);
+                    }
+                }
+                _ => return false,
+            }
+        }
+
+        true
+    }
+
     pub fn update_gui(state: &mut State) {
         if !state.gui.enabled {
             return;
@@ -100,16 +139,13 @@ impl GuiState {
 
                 let mut create_emitter = false;
 
-                ui.collapsing("Performance", |ui| {
-                    create_label(ui, &gui.fps_text);
-                    create_label(ui, &gui.cpu_time_text);
-                    create_label(ui, &gui.elapsed_text);
-                    ui.separator();
-
-                    Self::display_performance(ui, &gui.profiling_results);
-                });
-
+                create_label(ui, &gui.fps_text);
+                create_label(ui, &gui.cpu_time_text);
+                create_label(ui, &gui.elapsed_text);
                 create_label(ui, &gui.particle_count_text);
+                ui.separator();
+
+                Self::display_performance(ui, &gui.profiling_results);
 
                 gui.reset_camera = ui.button("Reset camera").clicked();
                 ui.add_space(5.0);
@@ -338,6 +374,7 @@ impl GuiState {
             icon_textures,
             new_emitter_tag: String::from(""),
             profiling_results: Vec::new(),
+            reset_input: true,
         }
     }
 
@@ -513,9 +550,6 @@ impl GuiState {
             }
         });
 
-        let mut new_tex_output = gui.selected_texture_output;
-        let mut new_preview_enabled = gui.preview_enabled;
-
         ui.add_space(10.);
         ui.horizontal(|ui| {
             // TODO connect to real len
@@ -528,36 +562,24 @@ impl GuiState {
             // TODO connect to real len
             egui::ComboBox::from_id_source("select-tex-output")
                 .selected_text("Select texture output")
-                .show_index(ui, &mut new_tex_output, 16, |i| {
+                .show_index(ui, &mut gui.selected_texture_output, 16, |i| {
                     format!("Texture output: {}", i)
                 });
 
-            ui.checkbox(&mut new_preview_enabled, "Preview enabled");
+            ui.checkbox(&mut gui.preview_enabled, "Preview enabled");
         });
 
-        if new_preview_enabled != gui.preview_enabled {
-            gui.preview_enabled = new_preview_enabled;
-
-            if new_preview_enabled {
-                post_process.io_uniform.out_idx = new_tex_output as u32;
-            } else {
-                post_process.io_uniform.out_idx = 0;
-            }
-
-            let contents = CommonBuffer::uniform_content(&post_process.io_uniform);
-            gfx_state
-                .queue
-                .write_buffer(&post_process.io_buf, 0, &contents);
-        } else if gui.preview_enabled && gui.selected_texture_output != new_tex_output {
-            gui.selected_texture_output = new_tex_output;
-
-            post_process.io_uniform.out_idx = new_tex_output as u32;
-
-            let contents = CommonBuffer::uniform_content(&post_process.io_uniform);
-            gfx_state
-                .queue
-                .write_buffer(&post_process.io_buf, 0, &contents);
+        if gui.preview_enabled {
+            post_process.io_uniform.out_idx = gui.selected_texture_output as u32;
+        } else {
+            gui.selected_texture_output = 0;
+            post_process.io_uniform.out_idx = 0;
         }
+
+        let contents = CommonBuffer::uniform_content(&post_process.io_uniform);
+        gfx_state
+            .queue
+            .write_buffer(&post_process.io_buf, 0, &contents);
     }
 
     pub fn create_title(ui: &mut Ui, str: &str) {

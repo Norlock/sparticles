@@ -19,6 +19,7 @@ pub struct BlendPass {
 pub struct BlendUniform {
     /// Number between 0 and 1. (0) Is col from input (1) is col from output
     pub io_mix: f32,
+    pub aspect: f32,
 }
 
 pub struct BlendSettings<'a> {
@@ -93,8 +94,8 @@ impl BlendPass {
             })
         };
 
-        let add_pipeline = create_pipeline("add");
-        let blend_pipeline = create_pipeline("blend");
+        let add_pipeline = create_pipeline("add_blend");
+        let blend_pipeline = create_pipeline("lerp_blend");
 
         Self {
             add_pipeline,

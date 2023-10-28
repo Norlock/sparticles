@@ -1,5 +1,4 @@
 use egui_winit::winit;
-use egui_winit::winit::dpi::{PhysicalSize, Size};
 use init::AppSettings;
 use model::State;
 use winit::event::Event::*;
@@ -31,13 +30,7 @@ pub fn start(init_app: impl AppSettings) {
         .unwrap();
 
     let mut state = State::new(init_app, window);
-
-    println!("Listing available video modes:");
-    for monitor in event_loop.available_monitors() {
-        for mode in monitor.video_modes() {
-            println!("{mode}");
-        }
-    }
+    let mut shift_pressed = false;
 
     event_loop.run(move |event, _, control_flow| {
         let gfx_state = &mut state.gfx_state;
@@ -66,8 +59,11 @@ pub fn start(init_app: impl AppSettings) {
                     }
                     winit::event::WindowEvent::KeyboardInput { input, .. } => {
                         if !response.consumed {
-                            state.process_events(input);
+                            state.process_events(input, shift_pressed);
                         }
+                    }
+                    winit::event::WindowEvent::ModifiersChanged(modifier) => {
+                        shift_pressed = modifier.shift()
                     }
                     _ => {}
                 }

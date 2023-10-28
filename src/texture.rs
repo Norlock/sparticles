@@ -64,8 +64,8 @@ impl GfxState {
         let config = &self.surface_config;
 
         wgpu::Extent3d {
-            width: config.width.max(1920),
-            height: config.height.max(1200),
+            width: config.width.min(1920),
+            height: config.height.min(1200),
             depth_or_array_layers: 1,
         }
     }

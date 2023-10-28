@@ -37,8 +37,14 @@ impl State {
         self.camera.resize(&self.gfx_state);
     }
 
-    pub fn process_events(&mut self, input: KeyboardInput) {
-        self.camera.process_input(input);
+    pub fn process_events(&mut self, input: KeyboardInput, shift_pressed: bool) {
+        if self.camera.process_input(&input) {
+            return;
+        }
+
+        if self.gui.process_input(&input, shift_pressed) {
+            return;
+        }
     }
 
     pub fn new(app_settings: impl AppSettings, window: Window) -> Self {
