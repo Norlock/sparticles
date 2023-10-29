@@ -19,16 +19,6 @@ pub struct PostProcessState {
     pub io_uniform: FxIOUniform,
     pub io_buf: wgpu::Buffer,
     pub io_bg: wgpu::BindGroup,
-
-    vp_uniform: ViewPortUniform,
-    vp_buf: wgpu::Buffer,
-    vp_bg: wgpu::BindGroup,
-}
-
-#[derive(ShaderType, Debug, Clone, Copy)]
-struct ViewPortUniform {
-    width: f32,
-    height: f32,
 }
 
 pub struct PingPongState {
@@ -112,22 +102,13 @@ pub struct CreateFxOptions<'a> {
     pub fx_state: &'a FxState,
 }
 
-pub const WORK_GROUP_SIZE: [f32; 2] = [8., 8.];
+pub const WORK_GROUP_SIZE: [u32; 2] = [8, 8];
 
 impl PostProcessState {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
     pub fn resize(&mut self, gfx_state: &GfxState) {
-        self.fx_state = FxState::new(gfx_state);
-
-        let queue = &gfx_state.queue;
-
-        self.vp_uniform.width = gfx_state.surface_config.width as f32;
-        self.vp_uniform.height = gfx_state.surface_config.height as f32;
-
-        let content = CommonBuffer::uniform_content(&self.vp_uniform);
-
-        queue.write_buffer(&self.vp_buf, 0, &content);
+        //self.fx_state = FxState::new(gfx_state);
     }
 
     pub fn update(state: &mut State) {
@@ -218,8 +199,7 @@ impl PostProcessState {
         }
 
         r_pass.set_bind_group(1, &pp.io_bg, &[]);
-        r_pass.set_bind_group(2, &pp.vp_bg, &[]);
-        r_pass.draw(0..3, 0..1);
+        r_pass.draw(0..4, 0..1);
 
         state.gfx_state.renderer.render(
             &mut r_pass,
@@ -242,46 +222,32 @@ impl PostProcessState {
         let io_uniform = FxIOUniform::zero();
         let io_ctx = UniformContext::from_uniform(&io_uniform, device, "IO");
 
-        let vp_uniform = ViewPortUniform {
-            width: config.width as f32,
-            height: config.height as f32,
-        };
-
-        let vp_ctx = UniformContext::from_uniform(&vp_uniform, device, "Viewport");
-
-        let c_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post fx layout"),
             bind_group_layouts: &[&fx_state.bind_group_layout, &io_ctx.bg_layout],
-            push_constant_ranges: &[],
-        });
-
-        let r_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Post fx layout"),
-            bind_group_layouts: &[
-                &fx_state.bind_group_layout,
-                &io_ctx.bg_layout,
-                &vp_ctx.bg_layout,
-            ],
             push_constant_ranges: &[],
         });
 
         let initialize_pipeline =
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("Init pipeline"),
-                layout: Some(&c_pipeline_layout),
+                layout: Some(&pipeline_layout),
                 module: &initialize_shader,
                 entry_point: "init",
             });
 
         let finalize_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Finalize pipeline"),
-            layout: Some(&r_pipeline_layout),
+            layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &finalize_shader,
                 entry_point: "vs_main",
                 buffers: &[],
             },
-            primitive: wgpu::PrimitiveState::default(),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                ..Default::default()
+            },
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             fragment: Some(wgpu::FragmentState {
@@ -310,10 +276,6 @@ impl PostProcessState {
             io_uniform,
             io_buf: io_ctx.buf,
             io_bg: io_ctx.bg,
-
-            vp_uniform,
-            vp_bg: vp_ctx.bg,
-            vp_buf: vp_ctx.buf,
         }
     }
 
@@ -467,7 +429,7 @@ impl FxState {
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         });
@@ -501,8 +463,8 @@ impl FxState {
             }));
         }
 
-        let count_x = (2048. / WORK_GROUP_SIZE[0]).ceil() as u32;
-        let count_y = (1024. / WORK_GROUP_SIZE[1]).ceil() as u32;
+        let count_x = 2048 / WORK_GROUP_SIZE[0];
+        let count_y = 1024 / WORK_GROUP_SIZE[1];
 
         Self {
             bind_groups,
@@ -513,17 +475,5 @@ impl FxState {
             frame_view,
             aspect: config.width as f32 / config.height as f32,
         }
-    }
-}
-
-impl FxDimensions for wgpu::SurfaceConfiguration {
-    fn fx_dimensions(&self) -> Dimensions {
-        let expand = self.fx_offset() * 2;
-
-        [self.width + expand, self.height + expand]
-    }
-
-    fn fx_offset(&self) -> u32 {
-        0 //(self.width / 60).max(32)
     }
 }
