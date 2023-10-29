@@ -52,23 +52,23 @@ impl PingPongState {
 #[derive(ShaderType, Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct FxIOUniform {
     pub in_idx: u32,
-    pub in_downscale: f32,
+    pub in_downscale: u32,
     pub out_idx: u32,
-    pub out_downscale: f32,
+    pub out_downscale: u32,
 }
 
 impl FxIOUniform {
     pub fn asymetric_unscaled(in_idx: u32, out_idx: u32) -> Self {
         Self {
             in_idx,
-            in_downscale: 1.,
+            in_downscale: 1,
             out_idx,
-            out_downscale: 1.,
+            out_downscale: 1,
         }
     }
 
-    pub fn asymetric_downscaled(in_idx: u32, out_idx: u32, downscale: f32) -> Self {
-        assert!(1. <= downscale, "Downscale needs to be 1 or higher");
+    pub fn asymetric_downscaled(in_idx: u32, out_idx: u32, downscale: u32) -> Self {
+        assert!(1 <= downscale, "Downscale needs to be 1 or higher");
 
         Self {
             in_idx,
@@ -81,14 +81,14 @@ impl FxIOUniform {
     pub fn symetric_unscaled(in_out_idx: u32) -> Self {
         Self {
             in_idx: in_out_idx,
-            in_downscale: 1.,
+            in_downscale: 1,
             out_idx: in_out_idx,
-            out_downscale: 1.,
+            out_downscale: 1,
         }
     }
 
-    pub fn symetric_downscaled(in_out_idx: u32, downscale: f32) -> Self {
-        assert!(1. <= downscale, "Downscale needs to be 1 or higher");
+    pub fn symetric_downscaled(in_out_idx: u32, downscale: u32) -> Self {
+        assert!(1 <= downscale, "Downscale needs to be 1 or higher");
 
         Self {
             in_idx: in_out_idx,
@@ -367,21 +367,17 @@ impl FxState {
     }
 
     pub fn count_out(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
-        let div = io_uniform.out_downscale as f32;
+        let count_x = self.count_x / io_uniform.out_downscale;
+        let count_y = self.count_y / io_uniform.out_downscale;
 
-        let count_x = (self.count_x as f32 / div).ceil() as u32;
-        let count_y = (self.count_y as f32 / div).ceil() as u32;
-
-        (count_x, count_y)
+        (self.count_x, self.count_y)
     }
 
     pub fn count_in(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
-        let div = io_uniform.in_downscale as f32;
+        let count_x = self.count_x / io_uniform.in_downscale;
+        let count_y = self.count_y / io_uniform.in_downscale;
 
-        let count_x = (self.count_x as f32 / div).ceil() as u32;
-        let count_y = (self.count_y as f32 / div).ceil() as u32;
-
-        (count_x, count_y)
+        (self.count_x, self.count_y)
     }
 
     fn new(gfx_state: &GfxState) -> Self {
@@ -410,7 +406,7 @@ impl FxState {
                 visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Texture {
                     view_dimension: wgpu::TextureViewDimension::D2,
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
                     multisampled: false,
                 },
                 count: NonZeroU32::new(array_count),
@@ -471,7 +467,7 @@ impl FxState {
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         });
@@ -505,11 +501,8 @@ impl FxState {
             }));
         }
 
-        let width = (config.width as f32).min(1920.);
-        let height = (config.height as f32).min(1200.);
-
-        let count_x = (width / WORK_GROUP_SIZE[0]).ceil() as u32;
-        let count_y = (height / WORK_GROUP_SIZE[1]).ceil() as u32;
+        let count_x = (2048. / WORK_GROUP_SIZE[0]).ceil() as u32;
+        let count_y = (1024. / WORK_GROUP_SIZE[1]).ceil() as u32;
 
         Self {
             bind_groups,
@@ -518,7 +511,7 @@ impl FxState {
             count_y,
             depth_view,
             frame_view,
-            aspect: width / height,
+            aspect: config.width as f32 / config.height as f32,
         }
     }
 }

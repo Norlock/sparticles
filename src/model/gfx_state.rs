@@ -13,7 +13,6 @@ use egui_winit::EventResponse;
 use wgpu_profiler::CreationError;
 use wgpu_profiler::GpuProfiler;
 use wgpu_profiler::GpuProfilerSettings;
-use wgpu_profiler::GpuTimerScopeResult;
 use winit::dpi::PhysicalSize;
 use winit::window;
 

@@ -16,6 +16,7 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> @builtin(position) vec4<
 }
 
 @group(0) @binding(1) var read_fx: binding_array<texture_2d<f32>, 32>;
+//@group(1) @binding(1) var s: sampler;
 @group(1) @binding(0) var<uniform> fx_io: FxIO; 
 @group(2) @binding(0) var<uniform> view: Viewport; 
 

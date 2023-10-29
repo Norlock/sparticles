@@ -61,11 +61,9 @@ impl GfxState {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
     fn tex_size(&self) -> wgpu::Extent3d {
-        let config = &self.surface_config;
-
         wgpu::Extent3d {
-            width: config.width.min(1920),
-            height: config.height.min(1200),
+            width: 2048,
+            height: 1024,
             depth_or_array_layers: 1,
         }
     }

@@ -208,7 +208,6 @@ impl Bloom {
         let CreateFxOptions { gfx_state, .. } = options;
 
         let device = &gfx_state.device;
-        let config = &gfx_state.surface_config;
 
         let blur_uniform = settings.blur_uniform;
         let blur_ctx = UniformContext::from_uniform(&blur_uniform, device, "Blur");
@@ -221,10 +220,10 @@ impl Bloom {
             },
         );
 
-        let mut width = config.width.min(1920) as f32;
-        let mut height = config.height.min(1200) as f32;
+        let mut width = 2048;
+        let mut height = 1024;
 
-        let mut downscale = 1.0;
+        let mut downscale = 1;
 
         let mut downscale_passes = Vec::new();
         let mut upscale_passes = Vec::new();
@@ -232,7 +231,7 @@ impl Bloom {
         for idx in 1..=blur_uniform.downscale {
             let in_idx = idx;
             let out_idx = idx + 1;
-            let out_downscale = downscale * 2.;
+            let out_downscale = downscale * 2;
 
             let downscale_io = FxIOUniform {
                 in_idx,
@@ -264,7 +263,7 @@ impl Bloom {
                     downscale,
                     blur: Some(blur),
                 });
-            } else if width <= 512. || height <= 512. {
+            } else if width <= 512 || height <= 512 {
                 let blur = BlurPass::new(
                     options,
                     BlurPassSettings {
@@ -284,8 +283,8 @@ impl Bloom {
                 });
             }
 
-            width = width / 2.;
-            height = height / 2.;
+            width = width / 2;
+            height = height / 2;
         }
 
         println!("");
@@ -293,12 +292,12 @@ impl Bloom {
         let blend_uniform = settings.blend_uniform;
         let blend_ctx = UniformContext::from_uniform(&blend_uniform, device, "blend");
 
-        for i in (1..=downscale_passes.len()).rev() {
+        for i in (1..=downscale_passes.len() as u32).rev() {
             let blend_io = FxIOUniform {
-                in_idx: (i + 1) as u32,
-                in_downscale: 2f32.powi(i as i32),
-                out_idx: i as u32,
-                out_downscale: 2f32.powi(i as i32 - 1),
+                in_idx: (i + 1),
+                in_downscale: 2u64.pow(i) as u32,
+                out_idx: i,
+                out_downscale: 2u64.pow(i - 1) as u32,
             };
 
             println!("blend {:?}", &blend_io);

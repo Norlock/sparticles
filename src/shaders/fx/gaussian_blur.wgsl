@@ -5,9 +5,7 @@
 @group(2) @binding(0) var<uniform> globals: GaussianBlur; 
 
 fn apply_blur(pos: vec2<i32>, offset: vec2<i32>) {
-    let size = vec2<i32>(
-        vec2<f32>(textureDimensions(read_fx[0])) / fx_io.out_downscale
-    );
+    let size = vec2<i32>(textureDimensions(read_fx[0]) / fx_io.out_downscale);
 
     if any(size < pos) {
         return;
@@ -68,7 +66,6 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     }
 
     if any(vec3<f32>(globals.br_treshold) < hdr) {
-        // Convert to HDR
         textureStore(write_fx[fx_io.out_idx], pos, vec4<f32>(hdr, 1.0));
     } else {
         textureStore(write_fx[fx_io.out_idx], pos, vec4<f32>(0.0));

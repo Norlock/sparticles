@@ -38,7 +38,7 @@ fn tonemap(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let pos = global_invocation_id.xy;
 
     let input_size = vec2<u32>(
-        ceil(vec2<f32>(textureDimensions(read_fx[0])) / fx_io.in_downscale)
+        textureDimensions(read_fx[0]) / fx_io.in_downscale
     );
 
     if any(input_size < pos) {

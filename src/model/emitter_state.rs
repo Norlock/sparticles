@@ -13,7 +13,6 @@ use std::{
     num::NonZeroU64,
 };
 use wgpu::util::DeviceExt;
-use wgpu_profiler::*;
 
 #[allow(unused)]
 pub struct EmitterState {
