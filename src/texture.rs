@@ -13,6 +13,9 @@ pub struct DiffuseCtx {
 
 pub struct IconTexture;
 
+const MAX_FX_WIDTH: f32 = 2048.;
+const MAX_FX_HEIGHT: f32 = 1024.;
+
 impl IconTexture {
     pub fn create_view(
         device: &wgpu::Device,
@@ -60,10 +63,34 @@ impl IconTexture {
 impl GfxState {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
+    pub fn aspect(&self) -> f32 {
+        self.surface_config.width as f32 / self.surface_config.height as f32
+    }
+
+    pub fn dimensions(&self) -> (f32, f32) {
+        let width = self.surface_config.width as f32;
+        let height = self.surface_config.height as f32;
+
+        let ratio_x = width / MAX_FX_WIDTH;
+        let ratio_y = height / MAX_FX_HEIGHT;
+
+        if 1.0 < ratio_x || 1.0 < ratio_y {
+            if ratio_y < ratio_x {
+                (MAX_FX_WIDTH, height / ratio_x)
+            } else {
+                (width / ratio_y, MAX_FX_HEIGHT)
+            }
+        } else {
+            (width, height)
+        }
+    }
+
     fn tex_size(&self) -> wgpu::Extent3d {
+        let (width, height) = self.dimensions();
+
         wgpu::Extent3d {
-            width: 2048,
-            height: 1024,
+            width: width as u32,
+            height: height as u32,
             depth_or_array_layers: 1,
         }
     }

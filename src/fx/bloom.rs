@@ -77,10 +77,7 @@ impl RegisterPostFx for RegisterBloomFx {
             options,
             BloomSettings {
                 blur_uniform: BlurUniform::new(9),
-                blend_uniform: BlendUniform {
-                    io_mix: 0.5,
-                    aspect: options.fx_state.aspect,
-                },
+                blend_uniform: BlendUniform { io_mix: 0.5 },
             },
         ))
     }
@@ -220,18 +217,20 @@ impl Bloom {
             },
         );
 
-        let mut width = 2048;
-        let mut height = 1024;
+        let (width, height) = gfx_state.dimensions();
+        let mut keep_downscaling = true;
+        let min_fx_side = 16.;
 
-        let mut downscale = 1;
+        let mut downscale = 1.;
+        let mut idx = 1;
 
         let mut downscale_passes = Vec::new();
         let mut upscale_passes = Vec::new();
 
-        for idx in 1..=blur_uniform.downscale {
+        while keep_downscaling {
             let in_idx = idx;
             let out_idx = idx + 1;
-            let out_downscale = downscale * 2;
+            let out_downscale = downscale * 2.;
 
             let downscale_io = FxIOUniform {
                 in_idx,
@@ -245,25 +244,13 @@ impl Bloom {
             let downscale = Downscale::new(options, downscale_io);
             let blur_io = FxIOUniform::symetric_downscaled(out_idx, out_downscale);
 
-            println!("downscale: {:?}", &downscale_io);
-            //println!("blur: {:?}", &blur_io);
+            let fx_width = width / out_downscale as f32;
+            let fx_height = height / out_downscale as f32;
 
-            if idx == 900 {
-                let blur = BlurPass::new(
-                    options,
-                    BlurPassSettings {
-                        io_uniform: blur_io,
-                        blur_layout: &blur_ctx.bg_layout,
-                    },
-                );
+            if min_fx_side <= fx_width && min_fx_side <= fx_height {
+                println!("downscale: {:?}", &downscale_io);
+                println!("blur: {:?}", &blur_io);
 
-                //let downscale = Downscale::new2(options, downscale_io);
-
-                downscale_passes.push(DownscalePass {
-                    downscale,
-                    blur: Some(blur),
-                });
-            } else if width <= 512 || height <= 512 {
                 let blur = BlurPass::new(
                     options,
                     BlurPassSettings {
@@ -276,15 +263,11 @@ impl Bloom {
                     downscale,
                     blur: Some(blur),
                 });
+
+                idx += 1;
             } else {
-                downscale_passes.push(DownscalePass {
-                    downscale,
-                    blur: None,
-                });
+                keep_downscaling = false;
             }
-
-            width = width / 2;
-            height = height / 2;
         }
 
         println!("");
@@ -292,12 +275,12 @@ impl Bloom {
         let blend_uniform = settings.blend_uniform;
         let blend_ctx = UniformContext::from_uniform(&blend_uniform, device, "blend");
 
-        for i in (1..=downscale_passes.len() as u32).rev() {
+        for i in (1..=downscale_passes.len() as i32).rev() {
             let blend_io = FxIOUniform {
-                in_idx: (i + 1),
-                in_downscale: 2u64.pow(i) as u32,
-                out_idx: i,
-                out_downscale: 2u64.pow(i - 1) as u32,
+                in_idx: (i + 1) as u32,
+                in_downscale: 2f32.powi(i),
+                out_idx: i as u32,
+                out_downscale: 2f32.powi(i - 1),
             };
 
             println!("blend {:?}", &blend_io);

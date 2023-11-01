@@ -74,7 +74,6 @@ pub struct BlurUniform {
     pub sigma: f32,
     pub hdr_mul: f32,
     pub intensity: f32,
-    pub downscale: u32,
 }
 
 impl BlurUniform {
@@ -85,7 +84,6 @@ impl BlurUniform {
             sigma: 1.3,
             hdr_mul: 25.,
             intensity: 1.00, // betere naam verzinnen
-            downscale,
         }
     }
 }

@@ -1,5 +1,5 @@
 use super::{gfx_state::GfxState, State};
-use crate::traits::{CreateAspect, ToVecF32};
+use crate::traits::ToVecF32;
 use egui_wgpu::wgpu;
 use egui_winit::winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use glam::*;
@@ -50,7 +50,6 @@ pub struct Camera {
 impl Camera {
     pub fn new(gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
-        let surface_config = &gfx_state.surface_config;
 
         let position = Vec3::new(0., 0., 10.);
         let view_dir = Vec3::new(0., 0., -10.);
@@ -62,7 +61,7 @@ impl Camera {
         let near = 0.1;
         let far = 100.0;
         let fov = (45.0f32).to_radians();
-        let aspect = surface_config.aspect();
+        let aspect = gfx_state.aspect();
         let proj = Mat4::perspective_rh(fov, aspect, near, far);
 
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -188,8 +187,7 @@ impl Camera {
     }
 
     pub fn resize(&mut self, gfx_state: &GfxState) {
-        let aspect = gfx_state.surface_config.aspect();
-        self.proj = Mat4::perspective_rh(self.fov, aspect, self.near, self.far);
+        self.proj = Mat4::perspective_rh(self.fov, gfx_state.aspect(), self.near, self.far);
     }
 
     pub fn process_input(&mut self, input: &KeyboardInput) -> bool {
@@ -302,10 +300,4 @@ fn buffer_size() -> u64 {
 
     (view_proj_size + view_mat_size + rotated_vertices_size + vertex_positions_size + view_pos_size)
         * f32_mem_size
-}
-
-impl CreateAspect for wgpu::SurfaceConfiguration {
-    fn aspect(&self) -> f32 {
-        self.width as f32 / self.height as f32
-    }
 }

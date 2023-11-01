@@ -7,7 +7,6 @@ use crate::{
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
 use std::num::NonZeroU64;
-use wgpu_profiler::GpuProfiler;
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -27,10 +26,6 @@ pub trait CreateGui {
 
 pub trait ToVecF32 {
     fn to_vec_f32(&self) -> Vec<f32>;
-}
-
-pub trait CreateAspect {
-    fn aspect(&self) -> f32;
 }
 
 // --------------------------- Animations ------------------------------

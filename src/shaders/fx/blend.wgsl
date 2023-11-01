@@ -1,6 +1,5 @@
 struct Blend {
     io_mix: f32,
-    aspect: f32,
 }
 
 @group(0) @binding(0) var write_fx: binding_array<texture_storage_2d<rgba16float, write>, 16>;
@@ -59,18 +58,20 @@ fn in_color(in_pos: vec2<u32>) -> vec3<f32> {
 @compute
 @workgroup_size(8, 8, 1)
 fn lerp_blend(@builtin(global_invocation_id) pos: vec3<u32>) {
-    var out_size = vec2<u32>(
-        textureDimensions(read_fx[0]) / fx_io.out_downscale
+    let out_pos = pos.xy;
+
+    var fx_size = vec2<f32>(
+        textureDimensions(read_fx[0]) 
     );
 
-    if any(out_size < pos.xy) {
+    let output_size  = ceil(fx_size / fx_io.out_downscale);
+
+    if any(vec2<u32>(output_size) < out_pos) {
         return;
     }
 
-    let out_pos = pos.xy;
-
     let fx_downscale = fx_io.in_downscale / fx_io.out_downscale;
-    let in_pos = out_pos / fx_downscale;
+    let in_pos = vec2<u32>(vec2<f32>(out_pos) / fx_downscale);
 
     let in_color = in_color(in_pos);
     let out_color = textureLoad(read_fx[fx_io.out_idx], out_pos, 0).rgb;
@@ -83,17 +84,21 @@ fn lerp_blend(@builtin(global_invocation_id) pos: vec3<u32>) {
 @compute
 @workgroup_size(8, 8, 1)
 fn add_blend(@builtin(global_invocation_id) pos: vec3<u32>) {
-    var out_size = textureDimensions(read_fx[0]) / fx_io.out_downscale;
+    let out_pos = pos.xy;
 
-    if any(out_size < pos.xy) {
+    var fx_size = vec2<f32>(
+        textureDimensions(read_fx[0]) 
+    );
+
+    let output_size  = ceil(fx_size / fx_io.out_downscale);
+
+    if any(vec2<u32>(output_size) < out_pos) {
         return;
     }
 
-    let out_pos = pos.xy;
-
     // TODO check if downscale is below 1.0
     let fx_downscale = fx_io.in_downscale / fx_io.out_downscale;
-    let in_pos = out_pos / fx_downscale;
+    let in_pos = vec2<u32>(vec2<f32>(out_pos) / fx_downscale);
 
     let in_color = textureLoad(read_fx[fx_io.in_idx], in_pos, 0).rgb;
     let out_color = textureLoad(read_fx[fx_io.out_idx], out_pos, 0).rgb;

@@ -5,9 +5,11 @@
 @group(2) @binding(0) var<uniform> globals: GaussianBlur; 
 
 fn apply_blur(pos: vec2<i32>, offset: vec2<i32>) {
-    let size = vec2<i32>(textureDimensions(read_fx[0]) / fx_io.out_downscale);
+    let fx_size = vec2<f32>(textureDimensions(read_fx[0]));
 
-    if any(size < pos) {
+    let output_size = ceil(fx_size / fx_io.out_downscale);
+
+    if any(vec2<i32>(output_size) < pos) {
         return;
     }
 
@@ -20,7 +22,7 @@ fn apply_blur(pos: vec2<i32>, offset: vec2<i32>) {
         var tex_offset = offset * i;
         var tex_pos = pos + tex_offset;
 
-        if (all(vec2<i32>(0) < tex_pos) && all(tex_pos < size)) {
+        if (all(vec2<i32>(0) < tex_pos) && all(tex_pos < vec2<i32>(output_size))) {
             var t_off = vec2<f32>(tex_offset * tex_offset);
             var rhs = exp(-(t_off.x + t_off.y) / two_ss);
 

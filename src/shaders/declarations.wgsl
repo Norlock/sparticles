@@ -49,14 +49,13 @@ struct GaussianBlur {
     sigma: f32,
     hdr_mul: f32,
     intensity: f32,
-    downscale: u32,
 }
 
 struct FxIO {
     in_idx: u32,
-    in_downscale: u32,
+    in_downscale: f32,
     out_idx: u32,
-    out_downscale: u32,
+    out_downscale: f32,
 }
 
 fn pi() -> f32 {

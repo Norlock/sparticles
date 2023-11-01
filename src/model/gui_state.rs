@@ -8,7 +8,10 @@ use crate::{
 use egui::{Color32, RichText, Slider, Ui, Window};
 use egui_wgpu::wgpu;
 use egui_winit::{
-    egui::{self, load::SizedTexture, CollapsingHeader, ComboBox, ImageButton, Margin, TextureId},
+    egui::{
+        self, load::SizedTexture, CollapsingHeader, ComboBox, DisplayEvent, ImageButton, Margin,
+        SetEvent, TextureId,
+    },
     winit::event::{ElementState, KeyboardInput, VirtualKeyCode},
 };
 use std::{collections::HashMap, path::PathBuf};
@@ -36,7 +39,7 @@ pub struct GuiState {
     selected_texture_output: usize,
     selected_emitter_id: usize,
 
-    reset_input: bool,
+    display_event: Option<DisplayEvent>,
 }
 
 const CHEVRON_UP_ID: &str = "chevron-up";
@@ -53,37 +56,25 @@ enum Tab {
 
 impl GuiState {
     pub fn process_input(&mut self, input: &KeyboardInput, shift_pressed: bool) -> bool {
-        if !self.enabled {
+        if !self.enabled || input.state == ElementState::Pressed {
             return false;
         }
 
-        self.reset_input = input.state == ElementState::Released;
+        let keycode = input.virtual_keycode.unwrap_or(VirtualKeyCode::Return);
 
-        if self.selected_tab == Tab::PostFxSettings && self.reset_input {
-            let keycode = input.virtual_keycode.unwrap_or(VirtualKeyCode::Return);
-
-            match keycode {
-                VirtualKeyCode::P => {
-                    if shift_pressed {
-                        self.preview_enabled = false;
-                    } else {
-                        self.preview_enabled = true;
-                    }
-                }
-                VirtualKeyCode::B => {
-                    self.selected_bind_group = (self.selected_bind_group + 1) % 2;
-                }
-                VirtualKeyCode::T => {
-                    if shift_pressed {
-                        if 0 < self.selected_texture_output {
-                            self.selected_texture_output -= 1;
-                        }
-                    } else {
-                        self.selected_texture_output = (self.selected_texture_output + 1).min(15);
-                    }
-                }
-                _ => return false,
+        match keycode {
+            VirtualKeyCode::C => self.display_event.set(DisplayEvent::ToggleCollapse),
+            VirtualKeyCode::P => self.preview_enabled = !self.preview_enabled,
+            VirtualKeyCode::B => {
+                self.selected_bind_group = (self.selected_bind_group + 1) % 2;
             }
+            VirtualKeyCode::T if shift_pressed && 0 < self.selected_texture_output => {
+                self.selected_texture_output -= 1;
+            }
+            VirtualKeyCode::T if !shift_pressed => {
+                self.selected_texture_output = (self.selected_texture_output + 1).min(15);
+            }
+            _ => return false,
         }
 
         true
@@ -95,6 +86,7 @@ impl GuiState {
         }
 
         let margin_size = 10.;
+        let ctx = &state.gfx_state.ctx.clone();
 
         Window::new("Sparticles settings")
             .vscroll(true)
@@ -108,7 +100,9 @@ impl GuiState {
                 },
                 ..Default::default()
             })
-            .show(&state.gfx_state.ctx.clone(), |ui| {
+            .default_height(800.)
+            .display_event(&mut state.gui.display_event)
+            .show(ctx, |ui| {
                 let State {
                     clock,
                     lights,
@@ -374,7 +368,7 @@ impl GuiState {
             icon_textures,
             new_emitter_tag: String::from(""),
             profiling_results: Vec::new(),
-            reset_input: true,
+            display_event: None,
         }
     }
 

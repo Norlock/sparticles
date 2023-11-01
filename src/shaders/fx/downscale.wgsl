@@ -8,9 +8,9 @@
 fn downscale(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let pos = global_invocation_id.xy;
 
-    let fx_size = textureDimensions(read_fx[0]);
+    let fx_size = vec2<f32>(textureDimensions(read_fx[0]));
 
-    let input_size = fx_size / fx_io.in_downscale;
+    let input_size = vec2<u32>(ceil(fx_size / fx_io.in_downscale));
 
     if any(input_size < pos) {
         return;
@@ -22,18 +22,18 @@ fn downscale(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         textureStore(write_fx[fx_io.in_idx], pos, copy);
     }
 
-    let output_size = fx_size / fx_io.out_downscale;
+    let output_size  = ceil(fx_size / fx_io.out_downscale);
 
-    if any(output_size < pos) {
+    if any(vec2<u32>(output_size) < pos) {
         return;
     }
 
     let downscale = fx_io.out_downscale / fx_io.in_downscale;
     
-    let start_x = pos.x * downscale;
-    let end_x = start_x + downscale;
-    let start_y = pos.y * downscale;
-    let end_y = start_y + downscale;
+    let start_x = pos.x * u32(downscale);
+    let end_x = start_x + u32(downscale);
+    let start_y = pos.y * u32(downscale);
+    let end_y = start_y + u32(downscale);
 
     var weight = 0.;
     var result = vec3<f32>(0.0);

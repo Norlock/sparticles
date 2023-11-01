@@ -121,22 +121,8 @@ impl GfxState {
             pixels_per_point: window.scale_factor() as f32,
         };
 
-        let profiler = GpuProfiler::new_with_tracy_client(
-            GpuProfilerSettings::default(),
-            adapter.get_info().backend,
-            &device,
-            &queue,
-        )
-        .unwrap_or_else(|err| match err {
-            CreationError::TracyClientNotRunning
-            | CreationError::TracyGpuContextCreationError(_) => {
-                println!("Failed to connect to Tracy. Continuing without Tracy integration.");
-                GpuProfiler::new(GpuProfilerSettings::default()).expect("Failed to create profiler")
-            }
-            _ => {
-                panic!("Failed to create profiler: {}", err);
-            }
-        });
+        let profiler =
+            GpuProfiler::new(GpuProfilerSettings::default()).expect("Failed to create profiler");
 
         Self {
             surface,

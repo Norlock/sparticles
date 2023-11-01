@@ -19,6 +19,15 @@ pub struct PostProcessState {
     pub io_uniform: FxIOUniform,
     pub io_buf: wgpu::Buffer,
     pub io_bg: wgpu::BindGroup,
+
+    aspect_buf: wgpu::Buffer,
+    aspect_bg: wgpu::BindGroup,
+}
+
+#[derive(ShaderType, Debug, Clone, Copy)]
+struct AspectUniform {
+    mul_x: f32,
+    mul_y: f32,
 }
 
 pub struct PingPongState {
@@ -42,23 +51,23 @@ impl PingPongState {
 #[derive(ShaderType, Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct FxIOUniform {
     pub in_idx: u32,
-    pub in_downscale: u32,
+    pub in_downscale: f32,
     pub out_idx: u32,
-    pub out_downscale: u32,
+    pub out_downscale: f32,
 }
 
 impl FxIOUniform {
     pub fn asymetric_unscaled(in_idx: u32, out_idx: u32) -> Self {
         Self {
             in_idx,
-            in_downscale: 1,
+            in_downscale: 1.,
             out_idx,
-            out_downscale: 1,
+            out_downscale: 1.,
         }
     }
 
-    pub fn asymetric_downscaled(in_idx: u32, out_idx: u32, downscale: u32) -> Self {
-        assert!(1 <= downscale, "Downscale needs to be 1 or higher");
+    pub fn asymetric_downscaled(in_idx: u32, out_idx: u32, downscale: f32) -> Self {
+        assert!(1. <= downscale, "Downscale needs to be 1 or higher");
 
         Self {
             in_idx,
@@ -71,14 +80,14 @@ impl FxIOUniform {
     pub fn symetric_unscaled(in_out_idx: u32) -> Self {
         Self {
             in_idx: in_out_idx,
-            in_downscale: 1,
+            in_downscale: 1.,
             out_idx: in_out_idx,
-            out_downscale: 1,
+            out_downscale: 1.,
         }
     }
 
-    pub fn symetric_downscaled(in_out_idx: u32, downscale: u32) -> Self {
-        assert!(1 <= downscale, "Downscale needs to be 1 or higher");
+    pub fn symetric_downscaled(in_out_idx: u32, downscale: f32) -> Self {
+        assert!(1. <= downscale, "Downscale needs to be 1 or higher");
 
         Self {
             in_idx: in_out_idx,
@@ -102,13 +111,29 @@ pub struct CreateFxOptions<'a> {
     pub fx_state: &'a FxState,
 }
 
+impl AspectUniform {
+    pub fn new(_gfx_state: &GfxState) -> Self {
+        Self {
+            mul_x: 1.,
+            mul_y: 1.,
+        }
+    }
+}
+
 pub const WORK_GROUP_SIZE: [u32; 2] = [8, 8];
 
 impl PostProcessState {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
     pub fn resize(&mut self, gfx_state: &GfxState) {
-        //self.fx_state = FxState::new(gfx_state);
+        self.fx_state = FxState::new(gfx_state);
+
+        let queue = &gfx_state.queue;
+
+        let aspect_uniform = AspectUniform::new(gfx_state);
+        let content = CommonBuffer::uniform_content(&aspect_uniform);
+
+        queue.write_buffer(&self.aspect_buf, 0, &content);
     }
 
     pub fn update(state: &mut State) {
@@ -199,6 +224,7 @@ impl PostProcessState {
         }
 
         r_pass.set_bind_group(1, &pp.io_bg, &[]);
+        r_pass.set_bind_group(2, &pp.aspect_bg, &[]);
         r_pass.draw(0..4, 0..1);
 
         state.gfx_state.renderer.render(
@@ -222,23 +248,36 @@ impl PostProcessState {
         let io_uniform = FxIOUniform::zero();
         let io_ctx = UniformContext::from_uniform(&io_uniform, device, "IO");
 
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let aspect_uniform = AspectUniform::new(gfx_state);
+        let aspect_ctx = UniformContext::from_uniform(&aspect_uniform, device, "Aspect");
+
+        let c_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post fx layout"),
             bind_group_layouts: &[&fx_state.bind_group_layout, &io_ctx.bg_layout],
+            push_constant_ranges: &[],
+        });
+
+        let r_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Post fx layout"),
+            bind_group_layouts: &[
+                &fx_state.bind_group_layout,
+                &io_ctx.bg_layout,
+                &aspect_ctx.bg_layout,
+            ],
             push_constant_ranges: &[],
         });
 
         let initialize_pipeline =
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("Init pipeline"),
-                layout: Some(&pipeline_layout),
+                layout: Some(&c_pipeline_layout),
                 module: &initialize_shader,
                 entry_point: "init",
             });
 
         let finalize_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Finalize pipeline"),
-            layout: Some(&pipeline_layout),
+            layout: Some(&r_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &finalize_shader,
                 entry_point: "vs_main",
@@ -276,6 +315,9 @@ impl PostProcessState {
             io_uniform,
             io_buf: io_ctx.buf,
             io_bg: io_ctx.bg,
+
+            aspect_bg: aspect_ctx.bg,
+            aspect_buf: aspect_ctx.buf,
         }
     }
 
@@ -316,12 +358,10 @@ pub struct FxState {
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub count_x: u32,
     pub count_y: u32,
+    pub tex_dimensions: (f32, f32),
     pub depth_view: wgpu::TextureView,
     pub frame_view: wgpu::TextureView,
-    pub aspect: f32,
 }
-
-pub type Dimensions = [u32; 2];
 
 impl FxState {
     pub fn bind_group(&self, ping_pong: &PingPongState) -> &wgpu::BindGroup {
@@ -329,22 +369,25 @@ impl FxState {
     }
 
     pub fn count_out(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
-        let count_x = self.count_x / io_uniform.out_downscale;
-        let count_y = self.count_y / io_uniform.out_downscale;
+        let (width, height) = self.tex_dimensions;
 
-        (self.count_x, self.count_y)
+        let count_x = (width / io_uniform.out_downscale).ceil() as u32;
+        let count_y = (height / io_uniform.out_downscale).ceil() as u32;
+
+        (count_x, count_y)
     }
 
     pub fn count_in(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
-        let count_x = self.count_x / io_uniform.in_downscale;
-        let count_y = self.count_y / io_uniform.in_downscale;
+        let (width, height) = self.tex_dimensions;
 
-        (self.count_x, self.count_y)
+        let count_x = (width / io_uniform.in_downscale).ceil() as u32;
+        let count_y = (height / io_uniform.in_downscale).ceil() as u32;
+
+        (count_x, count_y)
     }
 
     fn new(gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
-        let config = &gfx_state.surface_config;
         let frame_view = gfx_state.create_frame_view();
         let depth_view = gfx_state.create_depth_view();
 
@@ -430,7 +473,7 @@ impl FxState {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
 
@@ -463,17 +506,19 @@ impl FxState {
             }));
         }
 
-        let count_x = 2048 / WORK_GROUP_SIZE[0];
-        let count_y = 1024 / WORK_GROUP_SIZE[1];
+        let (x, y) = gfx_state.dimensions();
+
+        let count_x = (x / 8.).ceil() as u32;
+        let count_y = (y / 8.).ceil() as u32;
 
         Self {
             bind_groups,
             bind_group_layout,
+            tex_dimensions: (x, y),
             count_x,
             count_y,
             depth_view,
             frame_view,
-            aspect: config.width as f32 / config.height as f32,
         }
     }
 }
