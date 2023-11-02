@@ -76,7 +76,7 @@ impl RegisterPostFx for RegisterBloomFx {
         Box::new(Bloom::new(
             options,
             BloomSettings {
-                blur_uniform: BlurUniform::new(9),
+                blur_uniform: BlurUniform::default(),
                 blend_uniform: BlendUniform { io_mix: 0.5 },
             },
         ))

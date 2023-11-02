@@ -49,8 +49,21 @@ impl<'a> EmitterState {
             lights,
             emitters,
             gfx_state,
+            camera,
+            events,
             ..
         } = state;
+        if let Some(tag) = events.get_delete_emitter() {
+            emitters.retain(|em| em.id() != &tag);
+        } else if let Some(tag) = events.get_create_emitter() {
+            let emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
+                camera,
+                emitter_uniform: EmitterUniform::new(tag),
+                light_layout: Some(&lights.bind_group_layout),
+            });
+
+            emitters.push(emitter);
+        }
 
         let mut all_emitters: Vec<&mut EmitterState> = vec![lights];
         all_emitters.append(&mut emitters.iter_mut().collect::<Vec<&mut EmitterState>>());
@@ -125,26 +138,6 @@ impl<'a> EmitterState {
         }
 
         profiler.end_scope(&mut c_pass).unwrap();
-    }
-
-    pub fn append(state: &mut State) {
-        let State {
-            camera,
-            lights,
-            emitters,
-            gfx_state,
-            gui,
-            ..
-        } = state;
-
-        let tag = gui.new_emitter_tag.to_string();
-        let emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
-            camera,
-            emitter_uniform: EmitterUniform::new(tag),
-            light_layout: Some(&lights.bind_group_layout),
-        });
-
-        emitters.push(emitter);
     }
 
     pub fn render_particles(state: &mut State, encoder: &mut wgpu::CommandEncoder) {

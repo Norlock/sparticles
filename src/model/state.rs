@@ -1,4 +1,4 @@
-use super::{Camera, Clock, EmitterState, GfxState, GuiState};
+use super::{Camera, Clock, EmitterState, Events, GfxState, GuiState};
 use crate::init::{InitEmitters, InitSettings};
 use crate::traits::*;
 use crate::{fx::PostProcessState, AppSettings};
@@ -15,6 +15,7 @@ pub struct State {
     pub registered_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
     pub registered_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
     pub registered_post_fx: Vec<Box<dyn RegisterPostFx>>,
+    pub events: Events,
 }
 
 impl State {
@@ -77,6 +78,7 @@ impl State {
             registered_par_anims,
             registered_em_anims,
             registered_post_fx,
+            events: Events::default(),
         }
     }
 }

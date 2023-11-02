@@ -10,7 +10,6 @@ use egui_winit::egui::FontFamily;
 use egui_winit::winit;
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::EventResponse;
-use wgpu_profiler::CreationError;
 use wgpu_profiler::GpuProfiler;
 use wgpu_profiler::GpuProfilerSettings;
 use winit::dpi::PhysicalSize;

@@ -51,7 +51,7 @@ impl RegisterPostFx for RegisterBlurFx {
 
     fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
         let settings = BlurSettings {
-            blur_uniform: BlurUniform::new(1),
+            blur_uniform: BlurUniform::default(),
             blur_type: BlurType::GaussianHorVer,
         };
 
@@ -76,8 +76,8 @@ pub struct BlurUniform {
     pub intensity: f32,
 }
 
-impl BlurUniform {
-    pub fn new(downscale: u32) -> Self {
+impl Default for BlurUniform {
+    fn default() -> Self {
         Self {
             brightness_threshold: 0.6,
             radius: 4,

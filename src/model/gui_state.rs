@@ -19,7 +19,6 @@ use wgpu_profiler::GpuTimerScopeResult;
 
 pub struct GuiState {
     pub enabled: bool,
-    pub reset_camera: bool,
     pub new_emitter_tag: String,
     pub preview_enabled: bool,
     pub selected_bind_group: usize,
@@ -110,6 +109,7 @@ impl GuiState {
                     gui,
                     gfx_state,
                     post_process,
+                    events,
                     ..
                 } = state;
 
@@ -131,8 +131,6 @@ impl GuiState {
                     }
                 }
 
-                let mut create_emitter = false;
-
                 create_label(ui, &gui.fps_text);
                 create_label(ui, &gui.cpu_time_text);
                 create_label(ui, &gui.elapsed_text);
@@ -141,9 +139,6 @@ impl GuiState {
 
                 Self::display_performance(ui, &gui.profiling_results);
 
-                gui.reset_camera = ui.button("Reset camera").clicked();
-                ui.add_space(5.0);
-
                 let emitter_txts: Vec<&str> = emitters
                     .iter()
                     .map(|em| em.id())
@@ -151,32 +146,59 @@ impl GuiState {
                     .collect();
 
                 ui.horizontal(|ui| {
-                    ComboBox::from_label("Select emitter").show_index(
+                    ComboBox::from_id_source("select-emitter").show_index(
                         ui,
                         &mut gui.selected_emitter_id,
                         emitter_txts.len(),
                         |i| emitter_txts[i],
                     );
 
-                    ui.add(egui::TextEdit::singleline(&mut gui.new_emitter_tag));
+                    ui.separator();
+
+                    ui.label("New emitter tag:");
+                    ui.add(
+                        egui::TextEdit::singleline(&mut gui.new_emitter_tag).desired_width(100.),
+                    );
 
                     let is_enabled = 3 <= gui.new_emitter_tag.len()
                         && emitters.iter().all(|em| em.id() != &gui.new_emitter_tag)
                         && lights.id() != &gui.new_emitter_tag;
 
-                    create_emitter = ui
+                    if ui
                         .add_enabled(is_enabled, egui::Button::new("Add emitter"))
-                        .clicked();
+                        .clicked()
+                    {
+                        events.set_create_emitter(gui.new_emitter_tag.to_string());
+                        gui.new_emitter_tag = "".to_string();
+                    }
                 });
 
                 ui.add_space(5.0);
 
                 ui.separator();
 
-                if ui.button("Export settings").clicked() {
-                    EmitterState::export(emitters, lights);
-                    PostProcessState::export(post_process);
-                }
+                ui.horizontal(|ui| {
+                    if ui.button("Export settings").clicked() {
+                        EmitterState::export(emitters, lights);
+                        PostProcessState::export(post_process);
+                    }
+
+                    if ui.button("Reset camera").clicked() {
+                        events.set_reset_camera();
+                    }
+
+                    let emitter =
+                        GuiState::selected_emitter(emitters, lights, gui.selected_emitter_id)
+                            .expect("Expects a selected emitter");
+
+                    if !emitter.is_light && ui.button("Remove emitter").clicked() {
+                        let tag = emitter.id().to_string();
+                        events.set_delete_emitter(tag);
+                        gui.selected_emitter_id = 0;
+                    }
+                });
+
+                ui.add_space(5.0);
 
                 ui.separator();
 
@@ -207,10 +229,6 @@ impl GuiState {
                     Tab::ParticleAnimations => GuiState::particle_animations_tab(state, ui),
                     Tab::EmitterAnimations => GuiState::emitter_animations_tab(state, ui),
                 };
-
-                if create_emitter {
-                    EmitterState::append(state);
-                }
             });
     }
 
@@ -351,7 +369,6 @@ impl GuiState {
         Self {
             enabled: show_gui,
             preview_enabled: false,
-            reset_camera: false,
             cpu_time_text: "".to_string(),
             fps_text: "".to_string(),
             elapsed_text: "".to_string(),
@@ -384,13 +401,6 @@ impl GuiState {
 
         if !gui.enabled {
             return;
-        }
-
-        if gui.reset_camera {
-            camera.pitch = 0.;
-            camera.yaw = 0.;
-            camera.position = glam::Vec3::new(0., 0., 10.);
-            camera.view_dir = glam::Vec3::new(0., 0., -10.);
         }
 
         if emitters.len() == gui.selected_emitter_id {

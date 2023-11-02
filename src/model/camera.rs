@@ -127,8 +127,16 @@ impl Camera {
             gfx_state,
             camera,
             clock,
+            events,
             ..
         } = state;
+
+        if let Some(_) = events.get_reset_camera() {
+            camera.pitch = 0.;
+            camera.yaw = 0.;
+            camera.position = glam::Vec3::new(0., 0., 10.);
+            camera.view_dir = glam::Vec3::new(0., 0., -10.);
+        }
 
         let queue = &gfx_state.queue;
         let speed = 3.0;
