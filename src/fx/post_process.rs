@@ -19,15 +19,6 @@ pub struct PostProcessState {
     pub io_uniform: FxIOUniform,
     pub io_buf: wgpu::Buffer,
     pub io_bg: wgpu::BindGroup,
-
-    aspect_buf: wgpu::Buffer,
-    aspect_bg: wgpu::BindGroup,
-}
-
-#[derive(ShaderType, Debug, Clone, Copy)]
-struct AspectUniform {
-    mul_x: f32,
-    mul_y: f32,
 }
 
 pub struct PingPongState {
@@ -111,29 +102,11 @@ pub struct CreateFxOptions<'a> {
     pub fx_state: &'a FxState,
 }
 
-impl AspectUniform {
-    pub fn new(_gfx_state: &GfxState) -> Self {
-        Self {
-            mul_x: 1.,
-            mul_y: 1.,
-        }
-    }
-}
-
-pub const WORK_GROUP_SIZE: [u32; 2] = [8, 8];
-
 impl PostProcessState {
     pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
     pub fn resize(&mut self, gfx_state: &GfxState) {
         self.fx_state = FxState::new(gfx_state);
-
-        let queue = &gfx_state.queue;
-
-        let aspect_uniform = AspectUniform::new(gfx_state);
-        let content = CommonBuffer::uniform_content(&aspect_uniform);
-
-        queue.write_buffer(&self.aspect_buf, 0, &content);
     }
 
     pub fn update(state: &mut State) {
@@ -224,7 +197,6 @@ impl PostProcessState {
         }
 
         r_pass.set_bind_group(1, &pp.io_bg, &[]);
-        r_pass.set_bind_group(2, &pp.aspect_bg, &[]);
         r_pass.draw(0..4, 0..1);
 
         state.gfx_state.renderer.render(
@@ -248,36 +220,23 @@ impl PostProcessState {
         let io_uniform = FxIOUniform::zero();
         let io_ctx = UniformContext::from_uniform(&io_uniform, device, "IO");
 
-        let aspect_uniform = AspectUniform::new(gfx_state);
-        let aspect_ctx = UniformContext::from_uniform(&aspect_uniform, device, "Aspect");
-
-        let c_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post fx layout"),
             bind_group_layouts: &[&fx_state.bind_group_layout, &io_ctx.bg_layout],
-            push_constant_ranges: &[],
-        });
-
-        let r_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Post fx layout"),
-            bind_group_layouts: &[
-                &fx_state.bind_group_layout,
-                &io_ctx.bg_layout,
-                &aspect_ctx.bg_layout,
-            ],
             push_constant_ranges: &[],
         });
 
         let initialize_pipeline =
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("Init pipeline"),
-                layout: Some(&c_pipeline_layout),
+                layout: Some(&pipeline_layout),
                 module: &initialize_shader,
                 entry_point: "init",
             });
 
         let finalize_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Finalize pipeline"),
-            layout: Some(&r_pipeline_layout),
+            layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &finalize_shader,
                 entry_point: "vs_main",
@@ -315,9 +274,6 @@ impl PostProcessState {
             io_uniform,
             io_buf: io_ctx.buf,
             io_bg: io_ctx.bg,
-
-            aspect_bg: aspect_ctx.bg,
-            aspect_buf: aspect_ctx.buf,
         }
     }
 
@@ -363,6 +319,8 @@ pub struct FxState {
     pub frame_view: wgpu::TextureView,
 }
 
+const WORK_GROUP_SIZE: f32 = 8.;
+
 impl FxState {
     pub fn bind_group(&self, ping_pong: &PingPongState) -> &wgpu::BindGroup {
         &self.bind_groups[ping_pong.idx()]
@@ -371,8 +329,8 @@ impl FxState {
     pub fn count_out(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
         let (width, height) = self.tex_dimensions;
 
-        let count_x = (width / io_uniform.out_downscale).ceil() as u32;
-        let count_y = (height / io_uniform.out_downscale).ceil() as u32;
+        let count_x = (width / io_uniform.out_downscale / WORK_GROUP_SIZE).ceil() as u32 + 1;
+        let count_y = (height / io_uniform.out_downscale / WORK_GROUP_SIZE).ceil() as u32 + 1;
 
         (count_x, count_y)
     }
@@ -380,8 +338,8 @@ impl FxState {
     pub fn count_in(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
         let (width, height) = self.tex_dimensions;
 
-        let count_x = (width / io_uniform.in_downscale).ceil() as u32;
-        let count_y = (height / io_uniform.in_downscale).ceil() as u32;
+        let count_x = (width / io_uniform.in_downscale / WORK_GROUP_SIZE).ceil() as u32 + 1;
+        let count_y = (height / io_uniform.in_downscale / WORK_GROUP_SIZE).ceil() as u32 + 1;
 
         (count_x, count_y)
     }
@@ -508,8 +466,8 @@ impl FxState {
 
         let (x, y) = gfx_state.dimensions();
 
-        let count_x = (x / 8.).ceil() as u32;
-        let count_y = (y / 8.).ceil() as u32;
+        let count_x = (x / WORK_GROUP_SIZE).ceil() as u32;
+        let count_y = (y / WORK_GROUP_SIZE).ceil() as u32;
 
         Self {
             bind_groups,
