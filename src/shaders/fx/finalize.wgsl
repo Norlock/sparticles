@@ -1,7 +1,3 @@
-struct AspectUniform {
-    mul_x: f32,
-    mul_y: f32,
-}
 
 struct VertexOutput {
     @builtin(position) pos: vec4<f32>,
@@ -33,7 +29,6 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 @group(0) @binding(1) var read_fx: binding_array<texture_2d<f32>, 32>;
 @group(0) @binding(4) var s: sampler;
 @group(1) @binding(0) var<uniform> fx_io: FxIO; 
-@group(2) @binding(0) var<uniform> aspect: AspectUniform; 
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {

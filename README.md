@@ -10,14 +10,16 @@ GPU Particle system written in Rust + WGPU + EGUI
 - [x] Export shader to file
 - [ ] Use rust-gpu, maybe?
 - [ ] keyboard struct
-- [ ] Gui events to update
+- [x] Gui events to update
 - [ ] Fix recreate light emitter
+- [ ] Able to import models + materials
 
 ## Gui
 - [x] Show all possible diffuse textures in map
 - [x] Preview mode of textures
 
 ## Post fx
+- [x] Bloom
 - [ ] Depth of view
 - [ ] Motion blur
 

@@ -66,6 +66,7 @@ impl GfxState {
                     features: wgpu::Features::TIMESTAMP_QUERY
                         | wgpu::Features::TEXTURE_BINDING_ARRAY
                         | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY
+                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
                         | GpuProfiler::ALL_WGPU_TIMER_FEATURES,
                     limits,
                     label: None,

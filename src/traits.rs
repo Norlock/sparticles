@@ -95,6 +95,8 @@ pub trait PostFx: HandleAction {
         c_pass: &mut wgpu::ComputePass<'a>,
     );
 
+    fn resize(&mut self, options: &CreateFxOptions);
+
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState);
 }
 

@@ -24,10 +24,6 @@ pub enum JsonImportMode {
 pub trait AppSettings {
     fn show_gui(&self) -> bool;
 
-    /// Used for profiling
-    fn use_tracy(&self) -> bool {
-        false
-    }
     fn light(&self) -> EmitterUniform;
     fn emitters(&self) -> Vec<EmitterUniform>;
 

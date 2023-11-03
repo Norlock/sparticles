@@ -28,7 +28,7 @@ pub struct Blur {
     blur_pipeline_y: wgpu::ComputePipeline,
 
     io_uniform: FxIOUniform,
-    io_bg: wgpu::BindGroup,
+    io_ctx: UniformContext,
 
     blur_uniform: BlurUniform,
     blur_bg: wgpu::BindGroup,
@@ -95,6 +95,10 @@ pub struct BlurSettings {
 }
 
 impl PostFx for Blur {
+    fn resize(&mut self, options: &CreateFxOptions) {
+        self.io_uniform.resize(&self.io_ctx, options);
+    }
+
     fn update(&mut self, gfx_state: &GfxState) {
         if self.update_uniform {
             let queue = &gfx_state.queue;
@@ -120,7 +124,7 @@ impl PostFx for Blur {
         let mut dispatch = |pipeline: &'a wgpu::ComputePipeline| {
             c_pass.set_pipeline(pipeline);
             c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-            c_pass.set_bind_group(1, &self.io_bg, &[]);
+            c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
             c_pass.set_bind_group(2, &self.blur_bg, &[]);
             c_pass.dispatch_workgroups(count_x, count_y, 1);
 
@@ -195,7 +199,7 @@ impl Blur {
             blur_type,
         } = blur_settings;
 
-        let io_uniform = FxIOUniform::symetric_unscaled(0);
+        let io_uniform = FxIOUniform::zero(options.fx_state);
         let blur_shader = device.create_shader("fx/gaussian_blur.wgsl", "Gaussian blur");
 
         let io_ctx = UniformContext::from_uniform(&io_uniform, device, "IO");
@@ -204,7 +208,7 @@ impl Blur {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Blur layout"),
             bind_group_layouts: &[
-                &fx_state.bind_group_layout,
+                &fx_state.pp_bg_layout,
                 &io_ctx.bg_layout,
                 &blur_ctx.bg_layout,
             ],
@@ -232,7 +236,7 @@ impl Blur {
             blur_bg: blur_ctx.bg,
 
             io_uniform,
-            io_bg: io_ctx.bg,
+            io_ctx,
             blur_type,
             update_uniform: false,
             enabled: true,

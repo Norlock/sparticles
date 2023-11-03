@@ -12,7 +12,7 @@ pub struct BlurPass {
     pub split_pipeline: wgpu::ComputePipeline,
 
     pub io_uniform: FxIOUniform,
-    pub io_bindgroup: wgpu::BindGroup,
+    io_ctx: UniformContext,
 }
 
 #[derive(Debug)]
@@ -33,7 +33,7 @@ impl BlurPass {
 
         c_pass.set_pipeline(&self.blur_pipeline_x);
         c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-        c_pass.set_bind_group(1, &self.io_bindgroup, &[]);
+        c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &blur_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
@@ -41,7 +41,7 @@ impl BlurPass {
 
         c_pass.set_pipeline(&self.blur_pipeline_y);
         c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-        c_pass.set_bind_group(1, &self.io_bindgroup, &[]);
+        c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &blur_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
@@ -57,11 +57,15 @@ impl BlurPass {
     ) {
         c_pass.set_pipeline(&self.split_pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-        c_pass.set_bind_group(1, &self.io_bindgroup, &[]);
+        c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &blur_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
 
         ping_pong.swap();
+    }
+
+    pub fn resize(&mut self, options: &CreateFxOptions) {
+        self.io_uniform.resize(&self.io_ctx, options);
     }
 
     pub fn new(options: &CreateFxOptions, settings: BlurPassSettings) -> Self {
@@ -82,7 +86,7 @@ impl BlurPass {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Split layout"),
-            bind_group_layouts: &[&fx_state.bind_group_layout, &io_ctx.bg_layout, &blur_layout],
+            bind_group_layouts: &[&fx_state.pp_bg_layout, &io_ctx.bg_layout, &blur_layout],
             push_constant_ranges: &[],
         });
 
@@ -104,7 +108,7 @@ impl BlurPass {
             blur_pipeline_y,
             split_pipeline,
             io_uniform,
-            io_bindgroup: io_ctx.bg,
+            io_ctx,
         }
     }
 }

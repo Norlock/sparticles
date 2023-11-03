@@ -16,14 +16,14 @@ use serde::{Deserialize, Serialize};
 pub struct ColorFx {
     color_uniform: ColorFxUniform,
     color_buffer: wgpu::Buffer,
-    io_uniform: FxIOUniform,
-    io_bg: wgpu::BindGroup,
     color_bg: wgpu::BindGroup,
+    io_uniform: FxIOUniform,
+    io_ctx: UniformContext,
     general_pipeline: wgpu::ComputePipeline,
     tonemap_pipeline: wgpu::ComputePipeline,
-    enabled: bool,
     selected_action: ListAction,
     update_uniform: bool,
+    enabled: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -42,7 +42,7 @@ impl RegisterPostFx for RegisterColorFx {
     fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
         let settings = ColorFxSettings {
             color_uniform: ColorFxUniform::default_rgb(),
-            io_uniform: FxIOUniform::zero(),
+            io_uniform: FxIOUniform::zero(&options.fx_state),
         };
 
         Box::new(ColorFx::new(options, settings))
@@ -82,6 +82,10 @@ impl ColorFxUniform {
 }
 
 impl PostFx for ColorFx {
+    fn resize(&mut self, options: &CreateFxOptions) {
+        self.io_uniform.resize(&self.io_ctx, options);
+    }
+
     fn compute<'a>(
         &'a self,
         ping_pong: &mut PingPongState,
@@ -94,7 +98,7 @@ impl PostFx for ColorFx {
             .begin_scope("Color Fx", c_pass, &gfx_state.device);
         c_pass.set_pipeline(&self.general_pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-        c_pass.set_bind_group(1, &self.io_bg, &[]);
+        c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
         gfx_state.profiler.end_scope(c_pass).unwrap();
@@ -165,7 +169,7 @@ impl ColorFx {
 
         c_pass.set_pipeline(&self.tonemap_pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-        c_pass.set_bind_group(1, &self.io_bg, &[]);
+        c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
@@ -188,7 +192,7 @@ impl ColorFx {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Color pipeline layout"),
             bind_group_layouts: &[
-                &fx_state.bind_group_layout,
+                &fx_state.pp_bg_layout,
                 &io_ctx.bg_layout,
                 &col_ctx.bg_layout,
             ],
@@ -211,7 +215,7 @@ impl ColorFx {
             color_uniform: settings.color_uniform,
             color_buffer: col_ctx.buf,
             io_uniform: settings.io_uniform,
-            io_bg: io_ctx.bg,
+            io_ctx,
             color_bg: col_ctx.bg,
             general_pipeline,
             tonemap_pipeline,

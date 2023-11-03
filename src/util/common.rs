@@ -7,7 +7,7 @@ use egui_wgpu::wgpu::{self, util::DeviceExt};
 use encase::{private::WriteInto, ShaderType, UniformBuffer};
 use serde::{Deserialize, Serialize};
 
-use crate::traits::HandleAction;
+use crate::{fx::post_process::CreateFxOptions, model::GfxState, traits::HandleAction};
 
 #[derive(PartialEq, Serialize, Deserialize, Default)]
 pub enum ListAction {

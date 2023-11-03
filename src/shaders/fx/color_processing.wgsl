@@ -16,11 +16,10 @@ fn gamma(col: vec3<f32>) -> vec3<f32> {
 
 @compute
 @workgroup_size(8, 8, 1)
-fn general(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-    let pos = global_invocation_id.xy;
-    let size = vec2<u32>(textureDimensions(read_fx[0]));
+fn general(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let pos = global_id.xy;
 
-    if any(size < pos) {
+    if any(vec2<u32>(fx_io.out_size_x, fx_io.out_size_y) < pos) {
         return;
     }
 
@@ -34,16 +33,10 @@ fn general(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
 @compute
 @workgroup_size(8, 8, 1)
-fn tonemap(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-    let pos = global_invocation_id.xy;
+fn tonemap(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let pos = global_id.xy;
 
-    var fx_size = vec2<f32>(
-        textureDimensions(read_fx[0]) 
-    );
-
-    let input_size  = ceil(fx_size / fx_io.in_downscale);
-
-    if any(vec2<u32>(input_size) < pos) {
+    if any(vec2<u32>(fx_io.out_size_x, fx_io.out_size_y) < pos) {
         return;
     }
 

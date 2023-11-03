@@ -22,6 +22,7 @@ use crate::util::UniformContext;
 use egui_wgpu::wgpu;
 use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
+use glam::Vec2;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -84,6 +85,20 @@ impl RegisterPostFx for RegisterBloomFx {
 }
 
 impl PostFx for Bloom {
+    fn resize(&mut self, options: &CreateFxOptions) {
+        self.blend.resize(options);
+        self.color.resize(options);
+        self.split_pass.resize(options);
+
+        for dp in self.downscale_passes.iter_mut() {
+            dp.downscale.resize(options);
+        }
+
+        for up in self.upscale_passes.iter_mut() {
+            up.blend.resize(options);
+        }
+    }
+
     fn compute<'a>(
         &'a self,
         ping_pong: &mut PingPongState,
@@ -107,19 +122,21 @@ impl PostFx for Bloom {
             down.downscale.compute(ping_pong, fx_state, c_pass);
             profiler.end_scope(c_pass).unwrap();
 
-            if let Some(blur) = &down.blur {
-                profiler.begin_scope(&format!("Blur {}", i), c_pass, device);
-                blur.compute_hor_ver(ping_pong, fx_state, &self.blur_bg, c_pass);
-                profiler.end_scope(c_pass).unwrap();
-            }
+            //if let Some(blur) = &down.blur {
+            //profiler.begin_scope(&format!("Blur {}", i), c_pass, device);
+            //blur.compute_hor_ver(ping_pong, fx_state, &self.blur_bg, c_pass);
+            //profiler.end_scope(c_pass).unwrap();
+            //}
         }
 
         for up in self.upscale_passes.iter() {
-            profiler.begin_scope("Upscale + blend", c_pass, device);
+            profiler.begin_scope("Upscale (blend)", c_pass, device);
             up.blend
                 .lerp_blend(ping_pong, fx_state, &self.blend_bg, c_pass);
             profiler.end_scope(c_pass).unwrap();
         }
+
+        //ping_pong.swap();
 
         profiler.begin_scope("Tonemapping", c_pass, device);
         self.color.compute_tonemap(ping_pong, fx_state, c_pass);
@@ -199,10 +216,11 @@ impl HandleAction for Bloom {
 }
 
 impl Bloom {
-    pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
-
     pub fn new(options: &CreateFxOptions, settings: BloomSettings) -> Self {
-        let CreateFxOptions { gfx_state, .. } = options;
+        let CreateFxOptions {
+            gfx_state,
+            fx_state,
+        } = options;
 
         let device = &gfx_state.device;
 
@@ -212,93 +230,65 @@ impl Bloom {
         let split_pass = BlurPass::new(
             options,
             BlurPassSettings {
-                io_uniform: FxIOUniform::asymetric_unscaled(0, 1),
+                io_uniform: FxIOUniform::asymetric_unscaled(&options.fx_state, 0, 1),
                 blur_layout: &blur_ctx.bg_layout,
             },
         );
 
-        let (width, height) = gfx_state.dimensions();
-        let mut keep_downscaling = true;
-        let min_fx_side = 16.;
-
-        let mut downscale = 1.;
-        let mut idx = 1;
+        let min_fx = Vec2::splat(16.);
 
         let mut downscale_passes = Vec::new();
         let mut upscale_passes = Vec::new();
 
-        while keep_downscaling {
-            let in_idx = idx;
-            let out_idx = idx + 1;
-            let out_downscale = downscale * 2.;
-
-            let downscale_io = FxIOUniform {
-                in_idx,
-                in_downscale: downscale,
-                out_idx,
-                out_downscale,
-            };
-
-            downscale = out_downscale;
-
-            let downscale = Downscale::new(options, downscale_io);
-            let blur_io = FxIOUniform::symetric_downscaled(out_idx, out_downscale);
-
-            let fx_width = width / out_downscale as f32;
-            let fx_height = height / out_downscale as f32;
-
-            if min_fx_side <= fx_width && min_fx_side <= fx_height {
-                println!("downscale: {:?}", &downscale_io);
-                println!("blur: {:?}", &blur_io);
-
-                let blur = BlurPass::new(
-                    options,
-                    BlurPassSettings {
-                        io_uniform: blur_io,
-                        blur_layout: &blur_ctx.bg_layout,
-                    },
-                );
-
-                downscale_passes.push(DownscalePass {
-                    downscale,
-                    blur: Some(blur),
-                });
-
-                idx += 1;
-            } else {
-                keep_downscaling = false;
-            }
-        }
+        let downscale_list =
+            FxIOUniform::create_downscale_list(&mut Vec::new(), &fx_state.tex_size, &min_fx, 1, 1);
+        let upscale_list = FxIOUniform::reverse_list(&downscale_list);
 
         println!("");
 
         let blend_uniform = settings.blend_uniform;
         let blend_ctx = UniformContext::from_uniform(&blend_uniform, device, "blend");
 
-        for i in (1..=downscale_passes.len() as i32).rev() {
-            let blend_io = FxIOUniform {
-                in_idx: (i + 1) as u32,
-                in_downscale: 2f32.powi(i),
-                out_idx: i as u32,
-                out_downscale: 2f32.powi(i - 1),
-            };
+        for io_uniform in downscale_list {
+            println!("downscale {:?}", &io_uniform);
 
-            println!("blend {:?}", &blend_io);
-            let blend = BlendPass::new(
-                options,
-                BlendSettings {
-                    blend_layout: &blend_ctx.bg_layout,
-                    io_uniform: blend_io,
-                },
-            );
-
-            upscale_passes.push(UpscalePass { blend });
+            downscale_passes.push(DownscalePass {
+                downscale: Downscale::new(options, io_uniform),
+                blur: None,
+            });
         }
+
+        for io_uniform in upscale_list {
+            println!("upscale {:?}", io_uniform);
+
+            upscale_passes.push(UpscalePass {
+                blend: BlendPass::new(
+                    options,
+                    BlendSettings {
+                        io_uniform,
+                        blend_layout: &blend_ctx.bg_layout,
+                    },
+                ),
+            });
+        }
+
+        //for i in (1..=downscale_passes.len() as i32).rev() {
+        //println!("blend {:?}", &blend_io);
+        //let blend = BlendPass::new(
+        //options,
+        //BlendSettings {
+        //blend_layout: &blend_ctx.bg_layout,
+        //io_uniform: blend_io,
+        //},
+        //);
+
+        //upscale_passes.push(UpscalePass { blend });
+        //}
 
         let color = ColorFx::new(
             options,
             ColorFxSettings {
-                io_uniform: FxIOUniform::symetric_unscaled(1),
+                io_uniform: FxIOUniform::symetric_unscaled(options.fx_state, 1),
                 color_uniform: ColorFxUniform::default_srgb(),
             },
         );
@@ -306,7 +296,7 @@ impl Bloom {
         let blend = BlendPass::new(
             options,
             BlendSettings {
-                io_uniform: FxIOUniform::asymetric_unscaled(1, 0),
+                io_uniform: FxIOUniform::asymetric_unscaled(options.fx_state, 1, 0),
                 blend_layout: &blend_ctx.bg_layout,
             },
         );

@@ -10,8 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct BlendPass {
     add_pipeline: wgpu::ComputePipeline,
     blend_pipeline: wgpu::ComputePipeline,
-
-    io_bg: wgpu::BindGroup,
+    io_ctx: UniformContext,
     io_uniform: FxIOUniform,
 }
 
@@ -37,12 +36,10 @@ impl BlendPass {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
         c_pass.set_pipeline(&self.add_pipeline);
-        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-        c_pass.set_bind_group(1, &self.io_bg, &[]);
+        c_pass.set_bind_group(0, fx_state.rw_bind_group(ping_pong), &[]);
+        c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, blend_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
-
-        ping_pong.swap();
     }
 
     pub fn lerp_blend<'a>(
@@ -55,12 +52,14 @@ impl BlendPass {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
         c_pass.set_pipeline(&self.blend_pipeline);
-        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
-        c_pass.set_bind_group(1, &self.io_bg, &[]);
+        c_pass.set_bind_group(0, fx_state.rw_bind_group(ping_pong), &[]);
+        c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, blend_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
+    }
 
-        ping_pong.swap();
+    pub fn resize(&mut self, options: &CreateFxOptions) {
+        self.io_uniform.resize(&self.io_ctx, options);
     }
 
     pub fn new(options: &CreateFxOptions, settings: BlendSettings) -> Self {
@@ -77,7 +76,7 @@ impl BlendPass {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Blend layout"),
             bind_group_layouts: &[
-                &fx_state.bind_group_layout,
+                &fx_state.rw_bg_layout,
                 &io_ctx.bg_layout,
                 settings.blend_layout,
             ],
@@ -99,7 +98,7 @@ impl BlendPass {
         Self {
             add_pipeline,
             blend_pipeline,
-            io_bg: io_ctx.bg,
+            io_ctx,
             io_uniform: settings.io_uniform,
         }
     }

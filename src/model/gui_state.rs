@@ -583,7 +583,7 @@ impl GuiState {
         let contents = CommonBuffer::uniform_content(&post_process.io_uniform);
         gfx_state
             .queue
-            .write_buffer(&post_process.io_buf, 0, &contents);
+            .write_buffer(&post_process.io_ctx.buf, 0, &contents);
     }
 
     pub fn create_title(ui: &mut Ui, str: &str) {

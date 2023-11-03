@@ -6,19 +6,19 @@ use crate::util::{
 };
 use egui_wgpu::wgpu;
 use encase::ShaderType;
+use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
 
 pub struct PostProcessState {
     pub effects: Vec<Box<dyn PostFx>>,
     pub fx_state: FxState,
+    pub io_uniform: FxIOUniform,
 
     initialize_pipeline: wgpu::ComputePipeline,
     finalize_pipeline: wgpu::RenderPipeline,
 
-    pub io_uniform: FxIOUniform,
-    pub io_buf: wgpu::Buffer,
-    pub io_bg: wgpu::BindGroup,
+    pub io_ctx: UniformContext,
 }
 
 pub struct PingPongState {
@@ -34,6 +34,10 @@ impl PingPongState {
         self.fx_idx
     }
 
+    fn rw_idx(&self) -> usize {
+        (self.fx_idx + 1) % 2
+    }
+
     pub fn swap(&mut self) {
         self.fx_idx = (self.fx_idx + 1) % 2;
     }
@@ -42,58 +46,200 @@ impl PingPongState {
 #[derive(ShaderType, Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct FxIOUniform {
     pub in_idx: u32,
-    pub in_downscale: f32,
     pub out_idx: u32,
+
+    pub in_downscale: u32,
+    pub out_downscale: u32,
+
+    pub in_size_x: u32,
+    pub in_size_y: u32,
+
+    pub out_size_x: u32,
+    pub out_size_y: u32,
+}
+
+pub struct FxIO {
+    pub in_idx: u32,
+    pub out_idx: u32,
+
+    pub in_downscale: u32,
+    pub out_downscale: u32,
+
+    pub in_size: Vec2,
+    pub out_size: Vec2,
+}
+
+pub struct FxIOUniformOptions {
+    pub in_idx: u32,
+    pub out_idx: u32,
+    pub in_downscale: f32,
     pub out_downscale: f32,
 }
 
 impl FxIOUniform {
-    pub fn asymetric_unscaled(in_idx: u32, out_idx: u32) -> Self {
+    pub fn create_downscale_list(
+        list: &mut Vec<FxIO>,
+        fx_size: &glam::Vec2,
+        min_size: &glam::Vec2,
+        in_downscale: u32,
+        io_idx: u32,
+    ) -> Vec<Self> {
+        let out_downscale = in_downscale * 2;
+        let out_size;
+
+        if let Some(last) = list.iter().last() {
+            let in_size = last.out_size;
+            out_size = (in_size / 2.).ceil();
+
+            list.push(FxIO {
+                in_idx: io_idx,
+                out_idx: io_idx + 1,
+                in_size,
+                out_size,
+                in_downscale,
+                out_downscale,
+            });
+        } else {
+            let in_size = *fx_size;
+            out_size = (in_size / 2.).ceil();
+
+            list.push(FxIO {
+                in_idx: io_idx,
+                out_idx: io_idx + 1,
+                in_size,
+                out_size,
+                in_downscale,
+                out_downscale,
+            });
+        }
+
+        if min_size.x < out_size.x && min_size.y < out_size.y {
+            Self::create_downscale_list(list, fx_size, min_size, out_downscale, io_idx + 1)
+        } else {
+            list.iter()
+                .map(|io| Self {
+                    in_idx: io.in_idx,
+                    out_idx: io.out_idx,
+                    in_downscale: io.in_downscale,
+                    out_downscale: io.out_downscale,
+                    in_size_x: io.in_size.x as u32,
+                    in_size_y: io.in_size.y as u32,
+                    out_size_x: io.out_size.x as u32,
+                    out_size_y: io.out_size.y as u32,
+                })
+                .collect()
+        }
+    }
+
+    pub fn symetric_unscaled(fx_state: &FxState, io_idx: u32) -> Self {
+        Self::create(
+            fx_state,
+            FxIOUniformOptions {
+                in_idx: io_idx,
+                out_idx: io_idx,
+                in_downscale: 1.,
+                out_downscale: 1.,
+            },
+        )
+    }
+
+    pub fn asymetric_unscaled(fx_state: &FxState, in_idx: u32, out_idx: u32) -> Self {
+        Self::create(
+            fx_state,
+            FxIOUniformOptions {
+                in_idx,
+                out_idx,
+                in_downscale: 1.,
+                out_downscale: 1.,
+            },
+        )
+    }
+
+    pub fn reverse_list(list: &Vec<Self>) -> Vec<Self> {
+        let mut result = Vec::new();
+
+        for last in list.iter().rev() {
+            result.push(Self {
+                in_idx: last.out_idx,
+                out_idx: last.in_idx,
+                in_size_x: last.out_size_x,
+                in_size_y: last.out_size_y,
+                out_size_x: last.in_size_x,
+                out_size_y: last.in_size_y,
+                in_downscale: last.out_downscale,
+                out_downscale: last.in_downscale,
+            });
+        }
+
+        result
+    }
+
+    pub fn create(fx_state: &FxState, options: FxIOUniformOptions) -> Self {
+        let FxIOUniformOptions {
+            in_idx,
+            out_idx,
+            in_downscale,
+            out_downscale,
+        } = options;
+
+        let in_size = (fx_state.tex_size / in_downscale).ceil();
+        let out_size = (fx_state.tex_size / out_downscale).ceil();
+
         Self {
             in_idx,
-            in_downscale: 1.,
             out_idx,
-            out_downscale: 1.,
+            in_size_x: in_size.x as u32,
+            in_size_y: in_size.y as u32,
+            out_size_x: out_size.x as u32,
+            out_size_y: out_size.y as u32,
+            in_downscale: 1,
+            out_downscale: 1,
         }
-    }
-
-    pub fn asymetric_downscaled(in_idx: u32, out_idx: u32, downscale: f32) -> Self {
-        assert!(1. <= downscale, "Downscale needs to be 1 or higher");
-
-        Self {
-            in_idx,
-            in_downscale: downscale,
-            out_idx,
-            out_downscale: downscale,
-        }
-    }
-
-    pub fn symetric_unscaled(in_out_idx: u32) -> Self {
-        Self {
-            in_idx: in_out_idx,
-            in_downscale: 1.,
-            out_idx: in_out_idx,
-            out_downscale: 1.,
-        }
-    }
-
-    pub fn symetric_downscaled(in_out_idx: u32, downscale: f32) -> Self {
-        assert!(1. <= downscale, "Downscale needs to be 1 or higher");
-
-        Self {
-            in_idx: in_out_idx,
-            in_downscale: downscale,
-            out_idx: in_out_idx,
-            out_downscale: downscale,
-        }
-    }
-
-    pub fn zero() -> Self {
-        Self::asymetric_unscaled(0, 0)
     }
 
     pub fn create_content(&self) -> Vec<u8> {
         CommonBuffer::uniform_content(self)
+    }
+
+    pub fn zero(fx_state: &FxState) -> Self {
+        let tex_size = &fx_state.tex_size;
+        let size_x = tex_size.x as u32;
+        let size_y = tex_size.y as u32;
+
+        Self {
+            in_idx: 0,
+            out_idx: 0,
+            in_size_x: size_x,
+            in_size_y: size_y,
+            out_size_x: size_x,
+            out_size_y: size_y,
+            in_downscale: 1,
+            out_downscale: 1,
+        }
+    }
+
+    pub fn resize(&mut self, io_ctx: &UniformContext, options: &CreateFxOptions) {
+        let fx_state = &options.fx_state;
+        let tex_size = &fx_state.tex_size;
+
+        let in_size = (*tex_size / self.in_downscale as f32).ceil();
+        let out_size = (*tex_size / self.out_downscale as f32).ceil();
+
+        *self = Self {
+            in_idx: self.in_idx,
+            out_idx: self.out_idx,
+            in_size_x: in_size.x as u32,
+            in_size_y: in_size.y as u32,
+            out_size_x: out_size.x as u32,
+            out_size_y: out_size.y as u32,
+            in_downscale: self.in_downscale,
+            out_downscale: self.out_downscale,
+        };
+
+        let queue = &options.gfx_state.queue;
+        let contents = CommonBuffer::uniform_content(self);
+
+        queue.write_buffer(&io_ctx.buf, 0, &contents);
     }
 }
 
@@ -107,6 +253,17 @@ impl PostProcessState {
 
     pub fn resize(&mut self, gfx_state: &GfxState) {
         self.fx_state = FxState::new(gfx_state);
+
+        let options = CreateFxOptions {
+            fx_state: &self.fx_state,
+            gfx_state,
+        };
+
+        self.io_uniform.resize(&self.io_ctx, &options);
+
+        for fx in self.effects.iter_mut() {
+            fx.resize(&options);
+        }
     }
 
     pub fn update(state: &mut State) {
@@ -144,7 +301,7 @@ impl PostProcessState {
         profiler.begin_scope("Init", &mut c_pass, &device);
         c_pass.set_pipeline(&pp.initialize_pipeline);
         c_pass.set_bind_group(0, fx_state.bind_group(&mut ping_pong), &[]);
-        c_pass.set_bind_group(1, &pp.io_bg, &[]);
+        c_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
         profiler.end_scope(&mut c_pass).unwrap();
 
@@ -191,12 +348,12 @@ impl PostProcessState {
         r_pass.set_pipeline(&pp.finalize_pipeline);
 
         if gui.preview_enabled {
-            r_pass.set_bind_group(0, &pp.fx_state.bind_groups[gui.selected_bind_group], &[]);
+            r_pass.set_bind_group(0, &pp.fx_state.pp_bind_groups[gui.selected_bind_group], &[]);
         } else {
             r_pass.set_bind_group(0, &pp.fx_state.bind_group(&ping_pong), &[]);
         }
 
-        r_pass.set_bind_group(1, &pp.io_bg, &[]);
+        r_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
         r_pass.draw(0..4, 0..1);
 
         state.gfx_state.renderer.render(
@@ -217,12 +374,12 @@ impl PostProcessState {
 
         let fx_state = FxState::new(gfx_state);
 
-        let io_uniform = FxIOUniform::zero();
+        let io_uniform = FxIOUniform::zero(&fx_state);
         let io_ctx = UniformContext::from_uniform(&io_uniform, device, "IO");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post fx layout"),
-            bind_group_layouts: &[&fx_state.bind_group_layout, &io_ctx.bg_layout],
+            bind_group_layouts: &[&fx_state.pp_bg_layout, &io_ctx.bg_layout],
             push_constant_ranges: &[],
         });
 
@@ -272,8 +429,7 @@ impl PostProcessState {
             finalize_pipeline,
 
             io_uniform,
-            io_buf: io_ctx.buf,
-            io_bg: io_ctx.bg,
+            io_ctx,
         }
     }
 
@@ -310,11 +466,15 @@ impl PostProcessState {
 }
 
 pub struct FxState {
-    bind_groups: Vec<wgpu::BindGroup>,
-    pub bind_group_layout: wgpu::BindGroupLayout,
+    pp_bind_groups: Vec<wgpu::BindGroup>,
+    pub pp_bg_layout: wgpu::BindGroupLayout,
+    rw_bind_groups: Vec<wgpu::BindGroup>,
+    pub rw_bg_layout: wgpu::BindGroupLayout,
+
     pub count_x: u32,
     pub count_y: u32,
-    pub tex_dimensions: (f32, f32),
+
+    pub tex_size: glam::Vec2,
     pub depth_view: wgpu::TextureView,
     pub frame_view: wgpu::TextureView,
 }
@@ -323,25 +483,25 @@ const WORK_GROUP_SIZE: f32 = 8.;
 
 impl FxState {
     pub fn bind_group(&self, ping_pong: &PingPongState) -> &wgpu::BindGroup {
-        &self.bind_groups[ping_pong.idx()]
+        &self.pp_bind_groups[ping_pong.idx()]
     }
 
-    pub fn count_out(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
-        let (width, height) = self.tex_dimensions;
-
-        let count_x = (width / io_uniform.out_downscale / WORK_GROUP_SIZE).ceil() as u32 + 1;
-        let count_y = (height / io_uniform.out_downscale / WORK_GROUP_SIZE).ceil() as u32 + 1;
-
-        (count_x, count_y)
+    pub fn rw_bind_group(&self, ping_pong: &PingPongState) -> &wgpu::BindGroup {
+        &self.rw_bind_groups[ping_pong.rw_idx()]
     }
 
     pub fn count_in(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
-        let (width, height) = self.tex_dimensions;
+        let res = (self.tex_size / io_uniform.in_downscale as f32 / WORK_GROUP_SIZE).ceil();
 
-        let count_x = (width / io_uniform.in_downscale / WORK_GROUP_SIZE).ceil() as u32 + 1;
-        let count_y = (height / io_uniform.in_downscale / WORK_GROUP_SIZE).ceil() as u32 + 1;
+        //(res.x as u32, res.y as u32)
+        (self.count_x, self.count_y)
+    }
 
-        (count_x, count_y)
+    pub fn count_out(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
+        let res = (self.tex_size / io_uniform.out_downscale as f32 / WORK_GROUP_SIZE).ceil();
+
+        //(res.x as u32, res.y as u32)
+        (self.count_x, self.count_y)
     }
 
     fn new(gfx_state: &GfxState) -> Self {
@@ -351,7 +511,21 @@ impl FxState {
 
         let array_count = 16;
 
-        let layout_entries = vec![
+        let read_write_layout_entries = vec![
+            // Fx read / write
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::StorageTexture {
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    format: PostProcessState::TEXTURE_FORMAT,
+                    access: wgpu::StorageTextureAccess::ReadWrite,
+                },
+                count: NonZeroU32::new(array_count),
+            },
+        ];
+
+        let ping_pong_layout_entries = vec![
             // Fx write
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
@@ -405,9 +579,14 @@ impl FxState {
             },
         ];
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let pp_bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Post process layout"),
-            entries: &layout_entries,
+            entries: &ping_pong_layout_entries,
+        });
+
+        let rw_bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Post process layout"),
+            entries: &read_write_layout_entries,
         });
 
         let mut ping_views = Vec::new();
@@ -418,7 +597,8 @@ impl FxState {
             pong_views.push(gfx_state.create_fx_view());
         }
 
-        let mut bind_groups = Vec::new();
+        let mut pp_bind_groups = Vec::new();
+        let mut rw_bind_groups = Vec::new();
 
         let ping_refs: Vec<&wgpu::TextureView> = ping_views.iter().collect();
         let pong_refs: Vec<&wgpu::TextureView> = pong_views.iter().collect();
@@ -436,9 +616,9 @@ impl FxState {
         });
 
         for i in 0..2 {
-            bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Fx bindgroup"),
-                layout: &bind_group_layout,
+            pp_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Fx ping pong bindgroup"),
+                layout: &pp_bg_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -462,17 +642,29 @@ impl FxState {
                     },
                 ],
             }));
+
+            rw_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Fx rw bindgroup"),
+                layout: &rw_bg_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureViewArray(&all_refs[i % 2]),
+                }],
+            }));
         }
 
         let (x, y) = gfx_state.dimensions();
+        println!("x: {}, y: {}", x, y);
 
         let count_x = (x / WORK_GROUP_SIZE).ceil() as u32;
         let count_y = (y / WORK_GROUP_SIZE).ceil() as u32;
 
         Self {
-            bind_groups,
-            bind_group_layout,
-            tex_dimensions: (x, y),
+            pp_bind_groups,
+            pp_bg_layout,
+            rw_bind_groups,
+            rw_bg_layout,
+            tex_size: Vec2::new(x, y),
             count_x,
             count_y,
             depth_view,

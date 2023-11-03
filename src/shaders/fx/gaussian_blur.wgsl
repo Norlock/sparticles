@@ -5,11 +5,8 @@
 @group(2) @binding(0) var<uniform> globals: GaussianBlur; 
 
 fn apply_blur(pos: vec2<i32>, offset: vec2<i32>) {
-    let fx_size = vec2<f32>(textureDimensions(read_fx[0]));
-
-    let output_size = ceil(fx_size / fx_io.out_downscale);
-
-    if any(vec2<i32>(output_size) < pos) {
+    let out_size = vec2<i32>(i32(fx_io.out_size_x), i32(fx_io.out_size_y));
+    if any(out_size < pos) {
         return;
     }
 
@@ -22,7 +19,8 @@ fn apply_blur(pos: vec2<i32>, offset: vec2<i32>) {
         var tex_offset = offset * i;
         var tex_pos = pos + tex_offset;
 
-        if (all(vec2<i32>(0) < tex_pos) && all(tex_pos < vec2<i32>(output_size))) {
+        if (all(vec2<i32>(0) < tex_pos) 
+                && all(tex_pos < out_size)) {
             var t_off = vec2<f32>(tex_offset * tex_offset);
             var rhs = exp(-(t_off.x + t_off.y) / two_ss);
 
@@ -53,9 +51,7 @@ fn apply_blur_y(@builtin(global_invocation_id) pos: vec3<u32>) {
 fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let pos = global_invocation_id.xy;
 
-    var frame_size = vec2<u32>(textureDimensions(read_fx[fx_io.in_idx]));
-
-    if any(frame_size < pos) {
+    if any(vec2<u32>(fx_io.out_size_x, fx_io.out_size_y) < pos) {
         return;
     }
 
