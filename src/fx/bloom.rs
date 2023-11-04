@@ -117,8 +117,8 @@ impl PostFx for Bloom {
             profiler.end_scope(c_pass).unwrap();
         }
 
-        for up in self.upscale_passes.iter() {
-            profiler.begin_scope("Upscale (blend)", c_pass, device);
+        for (i, up) in self.upscale_passes.iter().enumerate() {
+            profiler.begin_scope(&format!("Upscale {}", i), c_pass, device);
             up.blend
                 .lerp_upscale_blend(fx_state, &self.blend_ctx.bg, c_pass);
             profiler.end_scope(c_pass).unwrap();

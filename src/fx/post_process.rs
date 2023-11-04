@@ -353,7 +353,7 @@ impl PostProcessState {
         r_pass.set_pipeline(&pp.finalize_pipeline);
         r_pass.set_bind_group(0, &pp.fx_state.r_bg, &[]);
         r_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
-        r_pass.draw(0..4, 0..1);
+        r_pass.draw(0..3, 0..1);
         profiler.end_scope(&mut r_pass).unwrap();
 
         profiler.begin_scope("Render GUI", &mut r_pass, &device);

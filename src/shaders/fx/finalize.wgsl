@@ -1,28 +1,20 @@
-
 struct VertexOutput {
     @builtin(position) pos: vec4<f32>,
     @location(0) uv: vec2<f32>,
 };
 
+var<private> positions: array<vec2<f32>, 3> = array<vec2<f32>, 3>(
+    vec2<f32>(-1.0, -3.0),
+    vec2<f32>(-1.0, 1.0),
+    vec2<f32>(3.0, 1.0)
+);
+
 @vertex
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    var uvs: array<vec2<f32>, 4> = array<vec2<f32>, 4>(
-      vec2<f32>(0., 1. ),
-      vec2<f32>(1., 1.),
-      vec2<f32>(0., 0.),
-      vec2<f32>(1., 0.),
-    );
-
-    var vertices: array<vec4<f32>, 4> = array<vec4<f32>, 4>(
-        vec4<f32>(-1., -1., 0., 1.),
-        vec4<f32>(1.0, -1., 0., 1.),
-        vec4<f32>(-1., 1.0, 0., 1.),
-        vec4<f32>(1.0, 1.0, 0., 1.),
-    );
-
     var out: VertexOutput;
-    out.pos = vertices[vertex_index];
-    out.uv = uvs[vertex_index];
+    out.pos = vec4<f32>(positions[vertex_index], 0., 1.);
+    out.uv = out.pos.xy * 0.5 + 0.5;
+    out.uv.y = 1.0 - out.uv.y;
     return out;
 }
 
