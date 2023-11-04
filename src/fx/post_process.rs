@@ -34,10 +34,6 @@ impl PingPongState {
         self.fx_idx
     }
 
-    fn rw_idx(&self) -> usize {
-        (self.fx_idx + 1) % 2
-    }
-
     pub fn swap(&mut self) {
         self.fx_idx = (self.fx_idx + 1) % 2;
     }
@@ -306,7 +302,7 @@ impl PostProcessState {
         profiler.begin_scope("Post fx compute", &mut c_pass, &device);
         profiler.begin_scope("Init", &mut c_pass, &device);
         c_pass.set_pipeline(&pp.initialize_pipeline);
-        c_pass.set_bind_group(0, fx_state.bind_group(&mut ping_pong), &[]);
+        c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
         profiler.end_scope(&mut c_pass).unwrap();
@@ -353,12 +349,7 @@ impl PostProcessState {
 
         r_pass.set_pipeline(&pp.finalize_pipeline);
 
-        if gui.preview_enabled {
-            r_pass.set_bind_group(0, &pp.fx_state.pp_bind_groups[gui.selected_bind_group], &[]);
-        } else {
-            r_pass.set_bind_group(0, &pp.fx_state.bind_group(&ping_pong), &[]);
-        }
-
+        r_pass.set_bind_group(0, &pp.fx_state.r_bg, &[]);
         r_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
         r_pass.draw(0..4, 0..1);
 
@@ -383,23 +374,29 @@ impl PostProcessState {
         let io_uniform = FxIOUniform::zero(&fx_state);
         let io_ctx = UniformContext::from_uniform(&io_uniform, device, "IO");
 
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let c_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post fx layout"),
-            bind_group_layouts: &[&fx_state.pp_bg_layout, &io_ctx.bg_layout],
+            bind_group_layouts: &[&fx_state.bg_layout, &io_ctx.bg_layout],
+            push_constant_ranges: &[],
+        });
+
+        let r_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Post fx layout"),
+            bind_group_layouts: &[&fx_state.r_bg_layout, &io_ctx.bg_layout],
             push_constant_ranges: &[],
         });
 
         let initialize_pipeline =
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("Init pipeline"),
-                layout: Some(&pipeline_layout),
+                layout: Some(&c_pipeline_layout),
                 module: &initialize_shader,
                 entry_point: "init",
             });
 
         let finalize_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Finalize pipeline"),
-            layout: Some(&pipeline_layout),
+            layout: Some(&r_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &finalize_shader,
                 entry_point: "vs_main",
@@ -472,10 +469,11 @@ impl PostProcessState {
 }
 
 pub struct FxState {
-    pp_bind_groups: Vec<wgpu::BindGroup>,
-    pub pp_bg_layout: wgpu::BindGroupLayout,
-    rw_bind_groups: Vec<wgpu::BindGroup>,
-    pub rw_bg_layout: wgpu::BindGroupLayout,
+    pub bg: wgpu::BindGroup,
+    pub bg_layout: wgpu::BindGroupLayout,
+
+    r_bg: wgpu::BindGroup,
+    r_bg_layout: wgpu::BindGroupLayout,
 
     pub count_x: u32,
     pub count_y: u32,
@@ -488,14 +486,6 @@ pub struct FxState {
 const WORK_GROUP_SIZE: f32 = 8.;
 
 impl FxState {
-    pub fn bind_group(&self, ping_pong: &PingPongState) -> &wgpu::BindGroup {
-        &self.pp_bind_groups[ping_pong.idx()]
-    }
-
-    pub fn rw_bind_group(&self, ping_pong: &PingPongState) -> &wgpu::BindGroup {
-        &self.rw_bind_groups[ping_pong.rw_idx()]
-    }
-
     pub fn count_in(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
         let res = (self.tex_size / io_uniform.in_downscale as f32 / WORK_GROUP_SIZE).ceil();
 
@@ -517,8 +507,8 @@ impl FxState {
 
         let array_count = 16;
 
-        let read_write_layout_entries = vec![
-            // Fx read / write
+        let c_layout_entries = [
+            // Fx read + write
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::COMPUTE,
@@ -529,34 +519,9 @@ impl FxState {
                 },
                 count: NonZeroU32::new(array_count),
             },
-        ];
-
-        let ping_pong_layout_entries = vec![
-            // Fx write
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::StorageTexture {
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    format: PostProcessState::TEXTURE_FORMAT,
-                    access: wgpu::StorageTextureAccess::WriteOnly,
-                },
-                count: NonZeroU32::new(array_count),
-            },
-            // Fx read
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    multisampled: false,
-                },
-                count: NonZeroU32::new(array_count),
-            },
             // Frame
             wgpu::BindGroupLayoutEntry {
-                binding: 2,
+                binding: 1,
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::Texture {
                     view_dimension: wgpu::TextureViewDimension::D2,
@@ -567,7 +532,7 @@ impl FxState {
             },
             // Depth
             wgpu::BindGroupLayoutEntry {
-                binding: 3,
+                binding: 2,
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::Texture {
                     view_dimension: wgpu::TextureViewDimension::D2,
@@ -578,38 +543,51 @@ impl FxState {
             },
             // Sampler
             wgpu::BindGroupLayoutEntry {
-                binding: 4,
-                visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
+                binding: 3,
+                visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 count: None,
             },
         ];
 
-        let pp_bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let r_layout_entries = [
+            // Fx read + write
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    multisampled: false,
+                },
+                count: NonZeroU32::new(array_count),
+            },
+            // Sampler
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+        ];
+
+        let bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Post process layout"),
-            entries: &ping_pong_layout_entries,
+            entries: &c_layout_entries,
         });
 
-        let rw_bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Post process layout"),
-            entries: &read_write_layout_entries,
+        let r_bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Post process render layout"),
+            entries: &r_layout_entries,
         });
 
-        let mut ping_views = Vec::new();
-        let mut pong_views = Vec::new();
+        let mut tex_views = Vec::new();
 
         for _ in 0..array_count {
-            ping_views.push(gfx_state.create_fx_view());
-            pong_views.push(gfx_state.create_fx_view());
+            tex_views.push(gfx_state.create_fx_view());
         }
 
-        let mut pp_bind_groups = Vec::new();
-        let mut rw_bind_groups = Vec::new();
-
-        let ping_refs: Vec<&wgpu::TextureView> = ping_views.iter().collect();
-        let pong_refs: Vec<&wgpu::TextureView> = pong_views.iter().collect();
-
-        let all_refs: [&[&wgpu::TextureView]; 2] = [&ping_refs, &pong_refs];
+        let tex_refs: Vec<&wgpu::TextureView> = tex_views.iter().collect();
 
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -621,43 +599,43 @@ impl FxState {
             ..Default::default()
         });
 
-        for i in 0..2 {
-            pp_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Fx ping pong bindgroup"),
-                layout: &pp_bg_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureViewArray(&all_refs[i % 2]),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureViewArray(&all_refs[(i + 1) % 2]),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: wgpu::BindingResource::TextureView(&frame_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: wgpu::BindingResource::TextureView(&depth_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 4,
-                        resource: wgpu::BindingResource::Sampler(&sampler),
-                    },
-                ],
-            }));
-
-            rw_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Fx rw bindgroup"),
-                layout: &rw_bg_layout,
-                entries: &[wgpu::BindGroupEntry {
+        let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Fx compute bindgroup"),
+            layout: &bg_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureViewArray(&all_refs[i % 2]),
-                }],
-            }));
-        }
+                    resource: wgpu::BindingResource::TextureViewArray(&tex_refs),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&frame_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&depth_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+        });
+
+        let r_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Fx render bindgroup"),
+            layout: &r_bg_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureViewArray(&tex_refs),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+        });
 
         let (x, y) = gfx_state.dimensions();
         println!("x: {}, y: {}", x, y);
@@ -666,10 +644,10 @@ impl FxState {
         let count_y = (y / WORK_GROUP_SIZE).ceil() as u32;
 
         Self {
-            pp_bind_groups,
-            pp_bg_layout,
-            rw_bind_groups,
-            rw_bg_layout,
+            bg,
+            bg_layout,
+            r_bg,
+            r_bg_layout,
             tex_size: Vec2::new(x, y),
             count_x,
             count_y,

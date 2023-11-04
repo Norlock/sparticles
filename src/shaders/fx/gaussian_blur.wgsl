@@ -1,6 +1,4 @@
-@group(0) @binding(0) var write_fx: binding_array<texture_storage_2d<rgba16float, write>, 32>;
-@group(0) @binding(1) var read_fx: binding_array<texture_2d<f32>, 32>;
-
+@group(0) @binding(0) var fx_tex: binding_array<texture_storage_2d<rgba16float, read_write>, 16>;
 @group(1) @binding(0) var<uniform> fx_io: FxIO; 
 @group(2) @binding(0) var<uniform> globals: GaussianBlur; 
 
@@ -25,13 +23,13 @@ fn apply_blur(pos: vec2<i32>, offset: vec2<i32>) {
             var rhs = exp(-(t_off.x + t_off.y) / two_ss);
 
             var coeff = lhs * rhs * globals.intensity;
-            var col = textureLoad(read_fx[fx_io.out_idx], tex_pos, 0).rgb;
+            var col = textureLoad(fx_tex[fx_io.in_idx], tex_pos).rgb;
 
             result += col * coeff;
         }
     }
 
-    textureStore(write_fx[fx_io.out_idx], pos, vec4<f32>(result, 1.0));
+    textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(result, 1.0));
 }
 
 @compute
@@ -55,17 +53,17 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    let copy = textureLoad(read_fx[fx_io.in_idx], pos, 0);
+    let copy = textureLoad(fx_tex[fx_io.in_idx], pos);
     let hdr = copy.rgb * globals.hdr_mul;
 
     // Ping pong asymetric
     if fx_io.in_idx != fx_io.out_idx {
-        textureStore(write_fx[fx_io.in_idx], pos, copy);
+        textureStore(fx_tex[fx_io.in_idx], pos, copy);
     }
 
     if any(vec3<f32>(globals.br_treshold) < hdr) {
-        textureStore(write_fx[fx_io.out_idx], pos, vec4<f32>(hdr, 1.0));
+        textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(hdr, 1.0));
     } else {
-        textureStore(write_fx[fx_io.out_idx], pos, vec4<f32>(0.0));
+        textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(0.0));
     }
 }

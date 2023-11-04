@@ -123,7 +123,7 @@ impl PostFx for Blur {
 
         let mut dispatch = |pipeline: &'a wgpu::ComputePipeline| {
             c_pass.set_pipeline(pipeline);
-            c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
+            c_pass.set_bind_group(0, &fx_state.bg, &[]);
             c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
             c_pass.set_bind_group(2, &self.blur_bg, &[]);
             c_pass.dispatch_workgroups(count_x, count_y, 1);
@@ -207,11 +207,7 @@ impl Blur {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Blur layout"),
-            bind_group_layouts: &[
-                &fx_state.pp_bg_layout,
-                &io_ctx.bg_layout,
-                &blur_ctx.bg_layout,
-            ],
+            bind_group_layouts: &[&fx_state.bg_layout, &io_ctx.bg_layout, &blur_ctx.bg_layout],
             push_constant_ranges: &[],
         });
 

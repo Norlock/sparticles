@@ -24,7 +24,6 @@ pub struct BlurPassSettings<'a> {
 impl BlurPass {
     pub fn compute_hor_ver<'a>(
         &'a self,
-        ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
         blur_bg: &'a wgpu::BindGroup,
         c_pass: &mut wgpu::ComputePass<'a>,
@@ -32,20 +31,16 @@ impl BlurPass {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
         c_pass.set_pipeline(&self.blur_pipeline_x);
-        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
+        c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &blur_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
-
-        ping_pong.swap();
 
         c_pass.set_pipeline(&self.blur_pipeline_y);
-        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
+        c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &blur_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
-
-        ping_pong.swap();
     }
 
     pub fn compute_split<'a>(
@@ -56,7 +51,7 @@ impl BlurPass {
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
         c_pass.set_pipeline(&self.split_pipeline);
-        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
+        c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &blur_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
@@ -86,7 +81,7 @@ impl BlurPass {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Split layout"),
-            bind_group_layouts: &[&fx_state.pp_bg_layout, &io_ctx.bg_layout, &blur_layout],
+            bind_group_layouts: &[&fx_state.bg_layout, &io_ctx.bg_layout, &blur_layout],
             push_constant_ranges: &[],
         });
 

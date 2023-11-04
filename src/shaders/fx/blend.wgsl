@@ -63,7 +63,8 @@ fn lerp_blend(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
 
-    let in_pos = pos / 2u;
+    let downscale = (fx_io.in_downscale / fx_io.out_downscale);
+    let in_pos = pos / downscale;
     let out_pos = pos;
 
     let in_color = in_color(in_pos);
@@ -83,7 +84,8 @@ fn add_blend(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
 
-    let in_pos = pos / 2u;
+    let downscale = (fx_io.in_downscale / fx_io.out_downscale);
+    let in_pos = pos / downscale;
     let out_pos = pos;
 
     let in_color = textureLoad(fx_tex[fx_io.in_idx], in_pos).rgb;

@@ -30,9 +30,8 @@ pub struct Bloom {
     update_uniform: bool,
     selected_action: ListAction,
 
-    blur_bg: wgpu::BindGroup,
     blur_uniform: BlurUniform,
-    blur_buf: wgpu::Buffer,
+    blur_ctx: UniformContext,
 
     split_pass: BlurPass,
     downscale_passes: Vec<DownscalePass>,
@@ -111,7 +110,7 @@ impl PostFx for Bloom {
         profiler.begin_scope("Split", c_pass, &gfx_state.device);
 
         self.split_pass
-            .compute_split(ping_pong, fx_state, &self.blur_bg, c_pass);
+            .compute_split(ping_pong, fx_state, &self.blur_ctx.bg, c_pass);
 
         profiler.end_scope(c_pass).unwrap();
 
@@ -127,14 +126,11 @@ impl PostFx for Bloom {
             //}
         }
 
-        for up in self.upscale_passes.iter() {
-            profiler.begin_scope("Upscale (blend)", c_pass, device);
-            up.blend
-                .lerp_blend(ping_pong, fx_state, &self.blend_ctx.bg, c_pass);
-            profiler.end_scope(c_pass).unwrap();
-        }
-
-        ping_pong.swap();
+        //for up in self.upscale_passes.iter() {
+        //profiler.begin_scope("Upscale (blend)", c_pass, device);
+        //up.blend.lerp_blend(fx_state, &self.blend_ctx.bg, c_pass);
+        //profiler.end_scope(c_pass).unwrap();
+        //}
 
         //profiler.begin_scope("Tonemapping", c_pass, device);
         //self.color.compute_tonemap(ping_pong, fx_state, c_pass);
@@ -181,7 +177,7 @@ impl PostFx for Bloom {
         if self.update_uniform {
             let buffer_content = CommonBuffer::uniform_content(&self.blur_uniform);
 
-            queue.write_buffer(&self.blur_buf, 0, &buffer_content);
+            queue.write_buffer(&self.blur_ctx.buf, 0, &buffer_content);
             self.update_uniform = false;
         }
     }
@@ -301,8 +297,7 @@ impl Bloom {
             split_pass,
             downscale_passes,
             upscale_passes,
-            blur_bg: blur_ctx.bg,
-            blur_buf: blur_ctx.buf,
+            blur_ctx,
             blur_uniform,
             selected_action: ListAction::None,
             enabled: true,

@@ -97,7 +97,7 @@ impl PostFx for ColorFx {
             .profiler
             .begin_scope("Color Fx", c_pass, &gfx_state.device);
         c_pass.set_pipeline(&self.general_pipeline);
-        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
+        c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
@@ -168,7 +168,7 @@ impl ColorFx {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
         c_pass.set_pipeline(&self.tonemap_pipeline);
-        c_pass.set_bind_group(0, fx_state.bind_group(ping_pong), &[]);
+        c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
@@ -191,11 +191,7 @@ impl ColorFx {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Color pipeline layout"),
-            bind_group_layouts: &[
-                &fx_state.pp_bg_layout,
-                &io_ctx.bg_layout,
-                &col_ctx.bg_layout,
-            ],
+            bind_group_layouts: &[&fx_state.bg_layout, &io_ctx.bg_layout, &col_ctx.bg_layout],
             push_constant_ranges: &[],
         });
 

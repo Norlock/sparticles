@@ -4,8 +4,7 @@ struct ColorCorrection {
     brightness: f32,
 }
 
-@group(0) @binding(0) var write_fx: binding_array<texture_storage_2d<rgba16float, write>, 32>;
-@group(0) @binding(1) var read_fx: binding_array<texture_2d<f32>, 32>;
+@group(0) @binding(0) var fx_tex: binding_array<texture_storage_2d<rgba16float, read_write>, 16>;
 
 @group(1) @binding(0) var<uniform> fx_io: FxIO; 
 @group(2) @binding(0) var<uniform> globals: ColorCorrection; 
@@ -23,12 +22,12 @@ fn general(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
 
-    var out = textureLoad(read_fx[fx_io.in_idx], pos, 0).rgb;
+    var out = textureLoad(fx_tex[fx_io.in_idx], pos).rgb;
 
     out = gamma(out);
     out = (out - 0.5) * globals.contrast + 0.5 + globals.brightness;
 
-    textureStore(write_fx[fx_io.out_idx], pos, vec4<f32>(out, 1.0));
+    textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(out, 1.0));
 }
 
 @compute
@@ -40,7 +39,7 @@ fn tonemap(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
 
-    let hdr_color = textureLoad(read_fx[fx_io.in_idx], pos, 0).rgb;      
+    let hdr_color = textureLoad(fx_tex[fx_io.in_idx], pos).rgb;      
 
     // tone mapping
     var result = acesFilm(hdr_color);
@@ -48,5 +47,5 @@ fn tonemap(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // also gamma correct
     result = gamma(result);
 
-    textureStore(write_fx[fx_io.out_idx], pos, vec4<f32>(result, 1.0));
+    textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(result, 1.0));
 }
