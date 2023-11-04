@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, FxIOUniform},
+    post_process::{FxIOUniform, FxOptions},
     FxState,
 };
 use crate::{traits::CustomShader, util::UniformContext};
@@ -74,12 +74,12 @@ impl BlendPass {
         c_pass.dispatch_workgroups(count_x, count_y, 1);
     }
 
-    pub fn resize(&mut self, options: &CreateFxOptions) {
+    pub fn resize(&mut self, options: &FxOptions) {
         self.io_uniform.resize(&self.io_ctx, options);
     }
 
-    pub fn new(options: &CreateFxOptions, settings: BlendSettings) -> Self {
-        let CreateFxOptions {
+    pub fn new(options: &FxOptions, settings: BlendSettings) -> Self {
+        let FxOptions {
             gfx_state,
             fx_state,
         } = options;

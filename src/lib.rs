@@ -25,8 +25,8 @@ pub fn start(init_app: impl AppSettings) {
     let window = window::WindowBuilder::new()
         .with_decorations(true)
         .with_transparent(false)
-        .with_resizable(false)
-        .with_max_inner_size(PhysicalSize::new(1920., 1080.))
+        //.with_resizable(false)
+        //.with_max_inner_size(PhysicalSize::new(1920., 1080.))
         .with_title("Sparticles")
         .build(&event_loop)
         .unwrap();

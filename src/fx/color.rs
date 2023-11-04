@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, FxIOUniform},
+    post_process::{FxIOUniform, FxOptions},
     FxState,
 };
 use crate::{
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 #[allow(unused)]
 pub struct ColorFx {
-    color_uniform: ColorFxUniform,
+    pub color_uniform: ColorFxUniform,
     color_buffer: wgpu::Buffer,
     color_bg: wgpu::BindGroup,
     io_uniform: FxIOUniform,
@@ -22,8 +22,8 @@ pub struct ColorFx {
     general_pipeline: wgpu::ComputePipeline,
     tonemap_pipeline: wgpu::ComputePipeline,
     selected_action: ListAction,
-    update_uniform: bool,
     enabled: bool,
+    pub update_event: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -39,7 +39,7 @@ impl RegisterPostFx for RegisterColorFx {
         "color-processing"
     }
 
-    fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
+    fn create_default(&self, options: &FxOptions) -> Box<dyn PostFx> {
         let settings = ColorFxSettings {
             color_uniform: ColorFxUniform::default_rgb(),
             io_uniform: FxIOUniform::zero(&options.fx_state),
@@ -48,7 +48,7 @@ impl RegisterPostFx for RegisterColorFx {
         Box::new(ColorFx::new(options, settings))
     }
 
-    fn import(&self, options: &CreateFxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
+    fn import(&self, options: &FxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
         let settings = serde_json::from_value(value).expect("Can't parse color processing Fx");
 
         Box::new(ColorFx::new(options, settings))
@@ -82,7 +82,7 @@ impl ColorFxUniform {
 }
 
 impl PostFx for ColorFx {
-    fn resize(&mut self, options: &CreateFxOptions) {
+    fn resize(&mut self, options: &FxOptions) {
         self.io_uniform.resize(&self.io_ctx, options);
     }
 
@@ -104,26 +104,26 @@ impl PostFx for ColorFx {
     }
 
     fn update(&mut self, gfx_state: &GfxState) {
-        if self.update_uniform {
-            let queue = &gfx_state.queue;
-
-            let color_content = CommonBuffer::uniform_content(&self.color_uniform);
-            queue.write_buffer(&self.color_buffer, 0, &color_content);
-            self.update_uniform = false;
+        if self.update_event.take().is_none() {
+            return;
         }
+
+        let queue = &gfx_state.queue;
+        let color_content = CommonBuffer::uniform_content(&self.color_uniform);
+        queue.write_buffer(&self.color_buffer, 0, &color_content);
     }
 
     fn create_ui(&mut self, ui: &mut egui::Ui, ui_state: &GuiState) {
+        self.selected_action = ui_state.create_li_header(ui, "Color correction");
         let mut uniform = self.color_uniform;
 
-        self.selected_action = ui_state.create_li_header(ui, "Color correction");
-        ui.add(Slider::new(&mut uniform.gamma, 0.1..=4.0).text("Gamma"));
+        self.ui_gamma(ui);
         ui.add(Slider::new(&mut uniform.contrast, 0.1..=4.0).text("Contrast"));
         ui.add(Slider::new(&mut uniform.brightness, 0.01..=1.0).text("Brightness"));
         ui.checkbox(&mut self.enabled, "Enabled");
 
         if self.color_uniform != uniform {
-            self.update_uniform = true;
+            self.update_event = Some(true);
             self.color_uniform = uniform;
         }
     }
@@ -170,8 +170,17 @@ impl ColorFx {
         c_pass.dispatch_workgroups(count_x, count_y, 1);
     }
 
-    pub fn new(options: &CreateFxOptions, settings: ColorFxSettings) -> Self {
-        let CreateFxOptions {
+    pub fn ui_gamma(&mut self, ui: &mut egui::Ui) {
+        if ui
+            .add(Slider::new(&mut self.color_uniform.gamma, 0.1..=4.0).text("Gamma"))
+            .changed()
+        {
+            self.update_event = Some(true);
+        };
+    }
+
+    pub fn new(options: &FxOptions, settings: ColorFxSettings) -> Self {
+        let FxOptions {
             gfx_state,
             fx_state,
         } = options;
@@ -210,7 +219,7 @@ impl ColorFx {
             general_pipeline,
             tonemap_pipeline,
             enabled: true,
-            update_uniform: false,
+            update_event: None,
             selected_action: ListAction::None,
         }
     }

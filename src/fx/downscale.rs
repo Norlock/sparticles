@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, FxIOUniform},
+    post_process::{FxIOUniform, FxOptions},
     FxState,
 };
 use crate::{traits::CustomShader, util::UniformContext};
@@ -25,12 +25,12 @@ impl Downscale {
         c_pass.dispatch_workgroups(count_x, count_y, 1);
     }
 
-    pub fn resize(&mut self, options: &CreateFxOptions) {
+    pub fn resize(&mut self, options: &FxOptions) {
         self.io_uniform.resize(&self.io_ctx, options);
     }
 
-    pub fn new(options: &CreateFxOptions, io_uniform: FxIOUniform) -> Self {
-        let CreateFxOptions {
+    pub fn new(options: &FxOptions, io_uniform: FxIOUniform) -> Self {
+        let FxOptions {
             gfx_state,
             fx_state,
         } = options;

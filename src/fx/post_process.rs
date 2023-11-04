@@ -203,7 +203,7 @@ impl FxIOUniform {
         }
     }
 
-    pub fn resize(&mut self, io_ctx: &UniformContext, options: &CreateFxOptions) {
+    pub fn resize(&mut self, io_ctx: &UniformContext, options: &FxOptions) {
         let fx_state = &options.fx_state;
 
         let in_size = (fx_state.tex_size / self.in_downscale as f32).ceil();
@@ -227,7 +227,7 @@ impl FxIOUniform {
     }
 }
 
-pub struct CreateFxOptions<'a> {
+pub struct FxOptions<'a> {
     pub gfx_state: &'a GfxState,
     pub fx_state: &'a FxState,
 }
@@ -238,7 +238,7 @@ impl PostProcessState {
     pub fn resize(&mut self, gfx_state: &GfxState) {
         self.fx_state = FxState::new(gfx_state);
 
-        let options = CreateFxOptions {
+        let options = FxOptions {
             fx_state: &self.fx_state,
             gfx_state,
         };
@@ -423,7 +423,7 @@ impl PostProcessState {
             multiview: None,
         });
 
-        let effects = app_settings.add_post_fx(&CreateFxOptions {
+        let effects = app_settings.add_post_fx(&FxOptions {
             fx_state: &fx_state,
             gfx_state,
         });
@@ -445,7 +445,7 @@ impl PostProcessState {
         registered_effects: &Vec<Box<dyn RegisterPostFx>>,
         to_export: Vec<DynamicExport>,
     ) {
-        let options = CreateFxOptions {
+        let options = FxOptions {
             gfx_state,
             fx_state: &self.fx_state,
         };

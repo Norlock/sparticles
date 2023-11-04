@@ -2,7 +2,7 @@
 GPU Particle system written in Rust + WGPU + EGUI
 
 ## Roadmap
-- [ ] Performance test gpu
+- [x] Performance test gpu
 - [x] Export (Post fx / animation settings).
 - [ ] Seperate post fx settings per emitter
 - [ ] Create noise texture for effects
@@ -27,9 +27,8 @@ GPU Particle system written in Rust + WGPU + EGUI
 - [x] Create one bindgrouplayout + 2 (ping pong) bindgroups
 - [x] Textures are stored in the bind group texture arrays 
 - [x] Downscaled is just the same fx texture but uses only top left
-- [ ] Downscale maybe just in one texture but use offset
 
 - [x] Simplify API and make only one post fx trait + register trait
 - [ ] Noise textures are updated once in a while
 - [x] Split gaussian again in hor ver
-
+- [ ] Displacement map

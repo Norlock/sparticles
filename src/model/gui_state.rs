@@ -1,6 +1,6 @@
 use super::{events::ViewIOEvent, EmitterState, GfxState, State};
 use crate::{
-    fx::{post_process::CreateFxOptions, PostProcessState},
+    fx::{post_process::FxOptions, PostProcessState},
     texture::IconTexture,
     util::ListAction,
     util::Persistence,
@@ -557,12 +557,10 @@ impl GuiState {
             );
 
             if ui.button("Add post fx").clicked() {
-                effects.push(
-                    registered_post_fx[*sel_post_fx].create_default(&CreateFxOptions {
-                        fx_state: &post_process.fx_state,
-                        gfx_state,
-                    }),
-                );
+                effects.push(registered_post_fx[*sel_post_fx].create_default(&FxOptions {
+                    fx_state: &post_process.fx_state,
+                    gfx_state,
+                }));
             }
         });
 

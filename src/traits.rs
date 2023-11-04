@@ -1,5 +1,5 @@
 use crate::{
-    fx::post_process::{CreateFxOptions, FxState},
+    fx::post_process::{FxOptions, FxState},
     model::{Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
     util::persistence::DynamicExport,
     util::ListAction,
@@ -94,7 +94,7 @@ pub trait PostFx: HandleAction {
         c_pass: &mut wgpu::ComputePass<'a>,
     );
 
-    fn resize(&mut self, options: &CreateFxOptions);
+    fn resize(&mut self, options: &FxOptions);
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState);
 }
@@ -102,9 +102,9 @@ pub trait PostFx: HandleAction {
 pub trait RegisterPostFx {
     fn tag(&self) -> &str;
 
-    fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx>;
+    fn create_default(&self, options: &FxOptions) -> Box<dyn PostFx>;
 
-    fn import(&self, options: &CreateFxOptions, value: serde_json::Value) -> Box<dyn PostFx>;
+    fn import(&self, options: &FxOptions, value: serde_json::Value) -> Box<dyn PostFx>;
 }
 
 pub trait HandleAction {

@@ -1,5 +1,5 @@
-use super::post_process::CreateFxOptions;
 use super::post_process::FxIOUniform;
+use super::post_process::FxOptions;
 use super::FxState;
 use crate::model::GfxState;
 use crate::model::GuiState;
@@ -48,7 +48,7 @@ impl RegisterPostFx for RegisterBlurFx {
         "blur"
     }
 
-    fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
+    fn create_default(&self, options: &FxOptions) -> Box<dyn PostFx> {
         let settings = BlurSettings {
             blur_uniform: BlurUniform::default(),
             blur_type: BlurType::GaussianHorVer,
@@ -57,7 +57,7 @@ impl RegisterPostFx for RegisterBlurFx {
         Box::new(Blur::new(options, settings))
     }
 
-    fn import(&self, options: &CreateFxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
+    fn import(&self, options: &FxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
         let settings = serde_json::from_value(value).expect("Can't parse blur");
 
         Box::new(Blur::new(options, settings))
@@ -94,7 +94,7 @@ pub struct BlurSettings {
 }
 
 impl PostFx for Blur {
-    fn resize(&mut self, options: &CreateFxOptions) {
+    fn resize(&mut self, options: &FxOptions) {
         self.io_uniform.resize(&self.io_ctx, options);
     }
 
@@ -179,8 +179,8 @@ impl HandleAction for Blur {
 }
 
 impl Blur {
-    pub fn new(options: &CreateFxOptions, blur_settings: BlurSettings) -> Self {
-        let CreateFxOptions {
+    pub fn new(options: &FxOptions, blur_settings: BlurSettings) -> Self {
+        let FxOptions {
             gfx_state,
             fx_state,
         } = options;

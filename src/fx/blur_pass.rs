@@ -1,5 +1,5 @@
-use super::post_process::CreateFxOptions;
 use super::post_process::FxIOUniform;
+use super::post_process::FxOptions;
 use super::FxState;
 use crate::traits::*;
 use crate::util::UniformContext;
@@ -55,12 +55,12 @@ impl BlurPass {
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
     }
 
-    pub fn resize(&mut self, options: &CreateFxOptions) {
+    pub fn resize(&mut self, options: &FxOptions) {
         self.io_uniform.resize(&self.io_ctx, options);
     }
 
-    pub fn new(options: &CreateFxOptions, settings: BlurPassSettings) -> Self {
-        let CreateFxOptions {
+    pub fn new(options: &FxOptions, settings: BlurPassSettings) -> Self {
+        let FxOptions {
             gfx_state,
             fx_state,
         } = options;

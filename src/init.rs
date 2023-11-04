@@ -4,7 +4,7 @@ use crate::animations::sway_animation::RegisterSwayAnimation;
 use crate::animations::{RegisterForceAnimation, RegisterGravityAnimation, RegisterStrayAnimation};
 use crate::fx::bloom::RegisterBloomFx;
 use crate::fx::blur::RegisterBlurFx;
-use crate::fx::post_process::CreateFxOptions;
+use crate::fx::post_process::FxOptions;
 use crate::fx::PostProcessState;
 use crate::fx::RegisterColorFx;
 use crate::model::{Camera, CreateEmitterOptions, EmitterState, EmitterUniform, GfxState};
@@ -34,7 +34,7 @@ pub trait AppSettings {
     fn add_emitter_anim(&self, emitter: &mut EmitterState) {}
 
     /// If you want to add through code use this function otherwise use gui
-    fn add_post_fx(&self, options: &CreateFxOptions) -> Vec<Box<dyn PostFx>> {
+    fn add_post_fx(&self, options: &FxOptions) -> Vec<Box<dyn PostFx>> {
         vec![]
     }
 

@@ -1,8 +1,8 @@
 use super::blur::BlurUniform;
 use super::blur_pass::BlurPass;
 use super::blur_pass::BlurPassSettings;
-use super::post_process::CreateFxOptions;
 use super::post_process::FxIOUniform;
+use super::post_process::FxOptions;
 use super::BlendPass;
 use super::ColorFx;
 use super::Downscale;
@@ -63,12 +63,12 @@ impl RegisterPostFx for RegisterBloomFx {
         "bloom"
     }
 
-    fn import(&self, options: &CreateFxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
+    fn import(&self, options: &FxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
         let bloom_settings = serde_json::from_value(value).unwrap();
         Box::new(Bloom::new(options, bloom_settings))
     }
 
-    fn create_default(&self, options: &CreateFxOptions) -> Box<dyn PostFx> {
+    fn create_default(&self, options: &FxOptions) -> Box<dyn PostFx> {
         Box::new(Bloom::new(
             options,
             BloomSettings {
@@ -80,7 +80,7 @@ impl RegisterPostFx for RegisterBloomFx {
 }
 
 impl PostFx for Bloom {
-    fn resize(&mut self, options: &CreateFxOptions) {
+    fn resize(&mut self, options: &FxOptions) {
         self.blend.resize(options);
         self.color.resize(options);
         self.split_pass.resize(options);
@@ -150,6 +150,9 @@ impl PostFx for Bloom {
         GuiState::create_title(ui, "Blend");
         ui.add(Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0).text("IO mix"));
 
+        GuiState::create_title(ui, "Color correction");
+        self.color.ui_gamma(ui);
+
         ui.checkbox(&mut self.enabled, "Enabled");
 
         if self.blur_uniform != blur {
@@ -169,6 +172,8 @@ impl PostFx for Bloom {
             queue.write_buffer(&self.blur_ctx.buf, 0, &buffer_content);
             self.update_uniform = false;
         }
+
+        self.color.update(gfx_state);
     }
 }
 
@@ -199,8 +204,8 @@ impl HandleAction for Bloom {
 }
 
 impl Bloom {
-    pub fn new(options: &CreateFxOptions, settings: BloomSettings) -> Self {
-        let CreateFxOptions {
+    pub fn new(options: &FxOptions, settings: BloomSettings) -> Self {
+        let FxOptions {
             gfx_state,
             fx_state,
         } = options;
