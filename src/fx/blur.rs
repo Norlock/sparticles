@@ -1,6 +1,5 @@
 use super::post_process::CreateFxOptions;
 use super::post_process::FxIOUniform;
-use super::post_process::PingPongState;
 use super::FxState;
 use crate::model::GfxState;
 use crate::model::GuiState;
@@ -111,15 +110,11 @@ impl PostFx for Blur {
 
     fn compute<'a>(
         &'a self,
-        ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
         gfx_state: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        let count_x =
-            (fx_state.count_x as f32 / self.io_uniform.out_downscale as f32).ceil() as u32;
-        let count_y =
-            (fx_state.count_y as f32 / self.io_uniform.out_downscale as f32).ceil() as u32;
+        let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
         let mut dispatch = |pipeline: &'a wgpu::ComputePipeline| {
             c_pass.set_pipeline(pipeline);
@@ -127,8 +122,6 @@ impl PostFx for Blur {
             c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
             c_pass.set_bind_group(2, &self.blur_bg, &[]);
             c_pass.dispatch_workgroups(count_x, count_y, 1);
-
-            ping_pong.swap();
         };
 
         match self.blur_type {

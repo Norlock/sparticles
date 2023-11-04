@@ -63,7 +63,7 @@ fn in_color(in_pos: vec2<i32>) -> vec3<f32> {
 
 @compute
 @workgroup_size(8, 8, 1)
-fn lerp_blend(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn lerp_upscale_blend(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos = global_id.xy;
 
     if any(vec2<u32>(fx_io.out_size_x, fx_io.out_size_y) < pos) {
@@ -80,6 +80,23 @@ fn lerp_blend(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let result = mix(in_color, out_color, blend.io_mix);
 
     textureStore(fx_tex[fx_io.out_idx], out_pos, vec4<f32>(result, 1.0));
+}
+
+@compute
+@workgroup_size(8, 8, 1)
+fn lerp_simple_blend(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let pos = global_id.xy;
+
+    if any(vec2<u32>(fx_io.out_size_x, fx_io.out_size_y) < pos) {
+        return;
+    }
+
+    let in_color = textureLoad(fx_tex[fx_io.in_idx], pos).rgb;
+    let out_color = textureLoad(fx_tex[fx_io.out_idx], pos).rgb;
+
+    let result = mix(in_color, out_color, blend.io_mix);
+
+    textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(result, 1.0));
 }
 
 @compute

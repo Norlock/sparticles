@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, FxIOUniform, PingPongState},
+    post_process::{CreateFxOptions, FxIOUniform},
     FxState,
 };
 use crate::{traits::CustomShader, util::UniformContext};
@@ -16,12 +16,7 @@ pub struct DownscaleSettings {
 }
 
 impl Downscale {
-    pub fn compute<'a>(
-        &'a self,
-        ping_pong: &mut PingPongState,
-        fx_state: &'a FxState,
-        c_pass: &mut wgpu::ComputePass<'a>,
-    ) {
+    pub fn compute<'a>(&'a self, fx_state: &'a FxState, c_pass: &mut wgpu::ComputePass<'a>) {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
         c_pass.set_pipeline(&self.pipeline);

@@ -1,6 +1,5 @@
 use super::post_process::CreateFxOptions;
 use super::post_process::FxIOUniform;
-use super::post_process::PingPongState;
 use super::FxState;
 use crate::traits::*;
 use crate::util::UniformContext;
@@ -45,7 +44,6 @@ impl BlurPass {
 
     pub fn compute_split<'a>(
         &'a self,
-        ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
         blur_bg: &'a wgpu::BindGroup,
         c_pass: &mut wgpu::ComputePass<'a>,
@@ -55,8 +53,6 @@ impl BlurPass {
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &blur_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
-
-        ping_pong.swap();
     }
 
     pub fn resize(&mut self, options: &CreateFxOptions) {

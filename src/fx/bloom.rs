@@ -3,7 +3,6 @@ use super::blur_pass::BlurPass;
 use super::blur_pass::BlurPassSettings;
 use super::post_process::CreateFxOptions;
 use super::post_process::FxIOUniform;
-use super::post_process::PingPongState;
 use super::BlendPass;
 use super::ColorFx;
 use super::Downscale;
@@ -45,7 +44,6 @@ pub struct Bloom {
 
 struct DownscalePass {
     downscale: Downscale,
-    blur: Option<BlurPass>,
 }
 
 struct UpscalePass {
@@ -98,7 +96,6 @@ impl PostFx for Bloom {
 
     fn compute<'a>(
         &'a self,
-        ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
         gfx_state: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
@@ -110,34 +107,30 @@ impl PostFx for Bloom {
         profiler.begin_scope("Split", c_pass, &gfx_state.device);
 
         self.split_pass
-            .compute_split(ping_pong, fx_state, &self.blur_ctx.bg, c_pass);
+            .compute_split(fx_state, &self.blur_ctx.bg, c_pass);
 
         profiler.end_scope(c_pass).unwrap();
 
         for (i, down) in self.downscale_passes.iter().enumerate() {
             profiler.begin_scope(&format!("Downscale {}", i), c_pass, device);
-            down.downscale.compute(ping_pong, fx_state, c_pass);
+            down.downscale.compute(fx_state, c_pass);
             profiler.end_scope(c_pass).unwrap();
-
-            //if let Some(blur) = &down.blur {
-            //profiler.begin_scope(&format!("Blur {}", i), c_pass, device);
-            //blur.compute_hor_ver(ping_pong, fx_state, &self.blur_bg, c_pass);
-            //profiler.end_scope(c_pass).unwrap();
-            //}
         }
 
         for up in self.upscale_passes.iter() {
             profiler.begin_scope("Upscale (blend)", c_pass, device);
-            up.blend.lerp_blend(fx_state, &self.blend_ctx.bg, c_pass);
+            up.blend
+                .lerp_upscale_blend(fx_state, &self.blend_ctx.bg, c_pass);
             profiler.end_scope(c_pass).unwrap();
         }
 
         profiler.begin_scope("Tonemapping", c_pass, device);
-        self.color.compute_tonemap(ping_pong, fx_state, c_pass);
+        self.color.compute_tonemap(fx_state, c_pass);
         profiler.end_scope(c_pass).unwrap();
 
         profiler.begin_scope("Blend", c_pass, device);
-        self.blend.lerp_blend(fx_state, &self.blend_ctx.bg, c_pass);
+        self.blend
+            .lerp_upscale_blend(fx_state, &self.blend_ctx.bg, c_pass);
         profiler.end_scope(c_pass).unwrap();
 
         profiler.end_scope(c_pass).unwrap();
@@ -149,13 +142,10 @@ impl PostFx for Bloom {
 
         let mut blur = self.blur_uniform;
 
-        GuiState::create_title(ui, "Gaussian blur");
+        GuiState::create_title(ui, "Split bloom");
 
-        ui.add(Slider::new(&mut blur.brightness_threshold, 0.0..=1.0).text("Brightness threshold"));
-        ui.add(Slider::new(&mut blur.sigma, 0.1..=3.0).text("Blur sigma"));
+        ui.add(Slider::new(&mut blur.brightness_threshold, 0.1..=5.0).text("Brightness treshhold"));
         ui.add(Slider::new(&mut blur.hdr_mul, 1.0..=50.0).text("HDR multiplication"));
-        ui.add(Slider::new(&mut blur.radius, 2..=6).text("Blur radius"));
-        ui.add(Slider::new(&mut blur.intensity, 0.9..=1.1).text("Blur intensity"));
 
         GuiState::create_title(ui, "Blend");
         ui.add(Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0).text("IO mix"));
@@ -235,23 +225,16 @@ impl Bloom {
             FxIOUniform::create_downscale_list(&mut Vec::new(), &fx_state.tex_size, 5, 1, 1);
         let upscale_list = FxIOUniform::reverse_list(&downscale_list);
 
-        println!("");
-
         let blend_uniform = settings.blend_uniform;
         let blend_ctx = UniformContext::from_uniform(&blend_uniform, device, "blend");
 
         for io_uniform in downscale_list {
-            println!("downscale {:?}", &io_uniform);
-
             downscale_passes.push(DownscalePass {
                 downscale: Downscale::new(options, io_uniform),
-                blur: None,
             });
         }
 
         for io_uniform in upscale_list {
-            println!("upscale {:?}", io_uniform);
-
             upscale_passes.push(UpscalePass {
                 blend: BlendPass::new(
                     options,
@@ -262,19 +245,6 @@ impl Bloom {
                 ),
             });
         }
-
-        //for i in (1..=downscale_passes.len() as i32).rev() {
-        //println!("blend {:?}", &blend_io);
-        //let blend = BlendPass::new(
-        //options,
-        //BlendSettings {
-        //blend_layout: &blend_ctx.bg_layout,
-        //io_uniform: blend_io,
-        //},
-        //);
-
-        //upscale_passes.push(UpscalePass { blend });
-        //}
 
         let color = ColorFx::new(
             options,

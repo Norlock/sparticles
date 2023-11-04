@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, FxIOUniform, PingPongState},
+    post_process::{CreateFxOptions, FxIOUniform},
     FxState,
 };
 use crate::{traits::CustomShader, util::UniformContext};
@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 
 pub struct BlendPass {
     add_pipeline: wgpu::ComputePipeline,
-    blend_pipeline: wgpu::ComputePipeline,
+    lerp_upscale_pipeline: wgpu::ComputePipeline,
+    lerp_simple_pipeline: wgpu::ComputePipeline,
     io_ctx: UniformContext,
     io_uniform: FxIOUniform,
 }
@@ -41,7 +42,8 @@ impl BlendPass {
         c_pass.dispatch_workgroups(count_x, count_y, 1);
     }
 
-    pub fn lerp_blend<'a>(
+    /// Does a average based on multiple points, and mix IO
+    pub fn lerp_upscale_blend<'a>(
         &'a self,
         fx_state: &'a FxState,
         blend_bg: &'a wgpu::BindGroup,
@@ -49,7 +51,23 @@ impl BlendPass {
     ) {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
-        c_pass.set_pipeline(&self.blend_pipeline);
+        c_pass.set_pipeline(&self.lerp_upscale_pipeline);
+        c_pass.set_bind_group(0, &fx_state.bg, &[]);
+        c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
+        c_pass.set_bind_group(2, blend_bg, &[]);
+        c_pass.dispatch_workgroups(count_x, count_y, 1);
+    }
+
+    /// Does a mix of IO
+    pub fn lerp_simple_blend<'a>(
+        &'a self,
+        fx_state: &'a FxState,
+        blend_bg: &'a wgpu::BindGroup,
+        c_pass: &mut wgpu::ComputePass<'a>,
+    ) {
+        let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
+
+        c_pass.set_pipeline(&self.lerp_simple_pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, blend_bg, &[]);
@@ -91,11 +109,13 @@ impl BlendPass {
         };
 
         let add_pipeline = create_pipeline("add_blend");
-        let blend_pipeline = create_pipeline("lerp_blend");
+        let lerp_upscale_pipeline = create_pipeline("lerp_upscale_blend");
+        let lerp_simple_pipeline = create_pipeline("lerp_simple_blend");
 
         Self {
             add_pipeline,
-            blend_pipeline,
+            lerp_upscale_pipeline,
+            lerp_simple_pipeline,
             io_ctx,
             io_uniform: settings.io_uniform,
         }

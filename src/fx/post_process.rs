@@ -22,24 +22,6 @@ pub struct PostProcessState {
     pub io_ctx: UniformContext,
 }
 
-pub struct PingPongState {
-    fx_idx: usize,
-}
-
-impl PingPongState {
-    fn new() -> Self {
-        Self { fx_idx: 0 }
-    }
-
-    fn idx(&self) -> usize {
-        self.fx_idx
-    }
-
-    pub fn swap(&mut self) {
-        self.fx_idx = (self.fx_idx + 1) % 2;
-    }
-}
-
 #[derive(ShaderType, Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct FxIOUniform {
     pub in_idx: u32,
@@ -315,7 +297,7 @@ impl PostProcessState {
         &self.fx_state.depth_view
     }
 
-    pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) -> PingPongState {
+    pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
         let profiler = &mut state.gfx_state.profiler;
         let pp = &mut state.post_process;
         let fx_state = &mut pp.fx_state;
@@ -326,8 +308,6 @@ impl PostProcessState {
             timestamp_writes: None,
         });
 
-        let mut ping_pong = PingPongState::new();
-
         profiler.begin_scope("Post fx compute", &mut c_pass, &device);
         profiler.begin_scope("Init", &mut c_pass, &device);
         c_pass.set_pipeline(&pp.initialize_pipeline);
@@ -336,22 +316,17 @@ impl PostProcessState {
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
         profiler.end_scope(&mut c_pass).unwrap();
 
-        ping_pong.swap();
-
         for fx in pp.effects.iter().filter(|fx| fx.enabled()) {
-            fx.compute(&mut ping_pong, &fx_state, &mut state.gfx_state, &mut c_pass);
+            fx.compute(&fx_state, &mut state.gfx_state, &mut c_pass);
         }
 
         state.gfx_state.profiler.end_scope(&mut c_pass).unwrap();
-
-        ping_pong
     }
 
     pub fn render(
         state: &mut State,
         output_view: wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
-        ping_pong: PingPongState,
     ) {
         let clipped_primitives = GfxState::draw_gui(state, encoder);
         let profiler = &mut state.gfx_state.profiler;
@@ -374,10 +349,8 @@ impl PostProcessState {
 
         profiler.begin_scope("Post fx render", &mut r_pass, &device);
         let pp = &mut state.post_process;
-        let gui = &state.gui;
 
         r_pass.set_pipeline(&pp.finalize_pipeline);
-
         r_pass.set_bind_group(0, &pp.fx_state.r_bg, &[]);
         r_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
         r_pass.draw(0..4, 0..1);
@@ -518,15 +491,13 @@ impl FxState {
     pub fn count_in(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
         let res = (self.tex_size / io_uniform.in_downscale as f32 / WORK_GROUP_SIZE).ceil();
 
-        //(res.x as u32, res.y as u32)
-        (self.count_x, self.count_y)
+        (res.x as u32, res.y as u32)
     }
 
     pub fn count_out(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
         let res = (self.tex_size / io_uniform.out_downscale as f32 / WORK_GROUP_SIZE).ceil();
 
-        //(res.x as u32, res.y as u32)
-        (self.count_x, self.count_y)
+        (res.x as u32, res.y as u32)
     }
 
     fn new(gfx_state: &GfxState) -> Self {

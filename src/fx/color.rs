@@ -1,5 +1,5 @@
 use super::{
-    post_process::{CreateFxOptions, FxIOUniform, PingPongState},
+    post_process::{CreateFxOptions, FxIOUniform},
     FxState,
 };
 use crate::{
@@ -88,7 +88,6 @@ impl PostFx for ColorFx {
 
     fn compute<'a>(
         &'a self,
-        ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
         gfx_state: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
@@ -102,8 +101,6 @@ impl PostFx for ColorFx {
         c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
         gfx_state.profiler.end_scope(c_pass).unwrap();
-
-        ping_pong.swap();
     }
 
     fn update(&mut self, gfx_state: &GfxState) {
@@ -161,7 +158,6 @@ impl HandleAction for ColorFx {
 impl ColorFx {
     pub fn compute_tonemap<'a>(
         &'a self,
-        ping_pong: &mut PingPongState,
         fx_state: &'a FxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
@@ -172,8 +168,6 @@ impl ColorFx {
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
-
-        ping_pong.swap();
     }
 
     pub fn new(options: &CreateFxOptions, settings: ColorFxSettings) -> Self {
