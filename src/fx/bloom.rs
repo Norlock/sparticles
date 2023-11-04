@@ -22,7 +22,6 @@ use crate::util::UniformContext;
 use egui_wgpu::wgpu;
 use egui_winit::egui::Slider;
 use egui_winit::egui::Ui;
-use glam::Vec2;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -41,8 +40,7 @@ pub struct Bloom {
     color: ColorFx,
 
     blend_uniform: BlendUniform,
-    blend_buf: wgpu::Buffer,
-    blend_bg: wgpu::BindGroup,
+    blend_ctx: UniformContext,
     blend: BlendPass,
 }
 
@@ -132,20 +130,20 @@ impl PostFx for Bloom {
         for up in self.upscale_passes.iter() {
             profiler.begin_scope("Upscale (blend)", c_pass, device);
             up.blend
-                .lerp_blend(ping_pong, fx_state, &self.blend_bg, c_pass);
+                .lerp_blend(ping_pong, fx_state, &self.blend_ctx.bg, c_pass);
             profiler.end_scope(c_pass).unwrap();
         }
 
-        //ping_pong.swap();
+        ping_pong.swap();
 
-        profiler.begin_scope("Tonemapping", c_pass, device);
-        self.color.compute_tonemap(ping_pong, fx_state, c_pass);
-        profiler.end_scope(c_pass).unwrap();
+        //profiler.begin_scope("Tonemapping", c_pass, device);
+        //self.color.compute_tonemap(ping_pong, fx_state, c_pass);
+        //profiler.end_scope(c_pass).unwrap();
 
-        profiler.begin_scope("Blend", c_pass, device);
-        self.blend
-            .lerp_blend(ping_pong, fx_state, &self.blend_bg, c_pass);
-        profiler.end_scope(c_pass).unwrap();
+        //profiler.begin_scope("Blend", c_pass, device);
+        //self.blend
+        //.lerp_blend(ping_pong, fx_state, &self.blend_ctx.bg, c_pass);
+        //profiler.end_scope(c_pass).unwrap();
 
         profiler.end_scope(c_pass).unwrap();
     }
@@ -178,7 +176,7 @@ impl PostFx for Bloom {
     fn update(&mut self, gfx_state: &GfxState) {
         let queue = &gfx_state.queue;
         let io_content = CommonBuffer::uniform_content(&self.blend_uniform);
-        queue.write_buffer(&self.blend_buf, 0, &io_content);
+        queue.write_buffer(&self.blend_ctx.buf, 0, &io_content);
 
         if self.update_uniform {
             let buffer_content = CommonBuffer::uniform_content(&self.blur_uniform);
@@ -235,13 +233,11 @@ impl Bloom {
             },
         );
 
-        let min_fx = Vec2::splat(16.);
-
         let mut downscale_passes = Vec::new();
         let mut upscale_passes = Vec::new();
 
         let downscale_list =
-            FxIOUniform::create_downscale_list(&mut Vec::new(), &fx_state.tex_size, &min_fx, 1, 1);
+            FxIOUniform::create_downscale_list(&mut Vec::new(), &fx_state.tex_size, 8, 1, 1);
         let upscale_list = FxIOUniform::reverse_list(&downscale_list);
 
         println!("");
@@ -312,8 +308,7 @@ impl Bloom {
             enabled: true,
             update_uniform: false,
             blend,
-            blend_buf: blend_ctx.buf,
-            blend_bg: blend_ctx.bg,
+            blend_ctx,
             blend_uniform,
             color,
         }

@@ -80,7 +80,7 @@ impl FxIOUniform {
     pub fn create_downscale_list(
         list: &mut Vec<FxIO>,
         fx_size: &glam::Vec2,
-        min_size: &glam::Vec2,
+        downscale_count: i32,
         in_downscale: u32,
         io_idx: u32,
     ) -> Vec<Self> {
@@ -113,8 +113,14 @@ impl FxIOUniform {
             });
         }
 
-        if min_size.x < out_size.x && min_size.y < out_size.y {
-            Self::create_downscale_list(list, fx_size, min_size, out_downscale, io_idx + 1)
+        if 0 <= downscale_count - 1 {
+            Self::create_downscale_list(
+                list,
+                fx_size,
+                downscale_count - 1,
+                out_downscale,
+                io_idx + 1,
+            )
         } else {
             list.iter()
                 .map(|io| Self {
