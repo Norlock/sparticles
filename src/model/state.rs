@@ -43,7 +43,7 @@ impl State {
             return;
         }
 
-        if self.gui.process_input(&input, shift_pressed) {
+        if GuiState::process_input(self, &input, shift_pressed) {
             return;
         }
     }

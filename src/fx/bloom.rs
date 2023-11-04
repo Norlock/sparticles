@@ -126,20 +126,19 @@ impl PostFx for Bloom {
             //}
         }
 
-        //for up in self.upscale_passes.iter() {
-        //profiler.begin_scope("Upscale (blend)", c_pass, device);
-        //up.blend.lerp_blend(fx_state, &self.blend_ctx.bg, c_pass);
-        //profiler.end_scope(c_pass).unwrap();
-        //}
+        for up in self.upscale_passes.iter() {
+            profiler.begin_scope("Upscale (blend)", c_pass, device);
+            up.blend.lerp_blend(fx_state, &self.blend_ctx.bg, c_pass);
+            profiler.end_scope(c_pass).unwrap();
+        }
 
-        //profiler.begin_scope("Tonemapping", c_pass, device);
-        //self.color.compute_tonemap(ping_pong, fx_state, c_pass);
-        //profiler.end_scope(c_pass).unwrap();
+        profiler.begin_scope("Tonemapping", c_pass, device);
+        self.color.compute_tonemap(ping_pong, fx_state, c_pass);
+        profiler.end_scope(c_pass).unwrap();
 
-        //profiler.begin_scope("Blend", c_pass, device);
-        //self.blend
-        //.lerp_blend(ping_pong, fx_state, &self.blend_ctx.bg, c_pass);
-        //profiler.end_scope(c_pass).unwrap();
+        profiler.begin_scope("Blend", c_pass, device);
+        self.blend.lerp_blend(fx_state, &self.blend_ctx.bg, c_pass);
+        profiler.end_scope(c_pass).unwrap();
 
         profiler.end_scope(c_pass).unwrap();
     }
@@ -233,7 +232,7 @@ impl Bloom {
         let mut upscale_passes = Vec::new();
 
         let downscale_list =
-            FxIOUniform::create_downscale_list(&mut Vec::new(), &fx_state.tex_size, 8, 1, 1);
+            FxIOUniform::create_downscale_list(&mut Vec::new(), &fx_state.tex_size, 5, 1, 1);
         let upscale_list = FxIOUniform::reverse_list(&downscale_list);
 
         println!("");

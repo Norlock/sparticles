@@ -1,10 +1,17 @@
 pub type Tag = String;
 
+pub enum ViewIOEvent {
+    Add,
+    Subtract,
+    Idx(u32),
+}
+
 #[derive(Default)]
 pub struct Events {
     reset_camera: Option<bool>,
     create_emitter: Option<Tag>,
     delete_emitter: Option<Tag>,
+    io_view: Option<ViewIOEvent>,
 }
 
 /// Every event is consumed when fetched
@@ -34,5 +41,13 @@ impl Events {
     /// Event will be removed when returned
     pub fn get_delete_emitter(&mut self) -> Option<String> {
         self.delete_emitter.take()
+    }
+
+    pub fn set_io_view(&mut self, event: ViewIOEvent) {
+        self.io_view = Some(event);
+    }
+
+    pub fn get_io_view(&mut self) -> Option<ViewIOEvent> {
+        self.io_view.take()
     }
 }

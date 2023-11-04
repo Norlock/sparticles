@@ -1,4 +1,4 @@
-use super::{EmitterState, GfxState, State};
+use super::{events::ViewIOEvent, EmitterState, GfxState, State};
 use crate::{
     fx::{post_process::CreateFxOptions, PostProcessState},
     texture::IconTexture,
@@ -20,8 +20,6 @@ use wgpu_profiler::GpuTimerScopeResult;
 pub struct GuiState {
     pub enabled: bool,
     pub new_emitter_tag: String,
-    pub preview_enabled: bool,
-    pub selected_bind_group: usize,
     pub profiling_results: Vec<GpuTimerScopeResult>,
 
     fps_text: String,
@@ -35,7 +33,6 @@ pub struct GuiState {
     selected_new_par_anim: usize,
     selected_new_em_anim: usize,
     selected_new_post_fx: usize,
-    selected_texture_output: usize,
     selected_emitter_id: usize,
 
     display_event: Option<DisplayEvent>,
@@ -54,24 +51,23 @@ enum Tab {
 }
 
 impl GuiState {
-    pub fn process_input(&mut self, input: &KeyboardInput, shift_pressed: bool) -> bool {
-        if !self.enabled || input.state == ElementState::Pressed {
+    pub fn process_input(state: &mut State, input: &KeyboardInput, shift_pressed: bool) -> bool {
+        let gui = &mut state.gui;
+        let events = &mut state.events;
+
+        if !gui.enabled || input.state == ElementState::Pressed {
             return false;
         }
 
         let keycode = input.virtual_keycode.unwrap_or(VirtualKeyCode::Return);
 
         match keycode {
-            VirtualKeyCode::C => self.display_event.set(DisplayEvent::ToggleCollapse),
-            VirtualKeyCode::P => self.preview_enabled = !self.preview_enabled,
-            VirtualKeyCode::B => {
-                self.selected_bind_group = (self.selected_bind_group + 1) % 2;
-            }
-            VirtualKeyCode::T if shift_pressed && 0 < self.selected_texture_output => {
-                self.selected_texture_output -= 1;
+            VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
+            VirtualKeyCode::T if shift_pressed => {
+                events.set_io_view(ViewIOEvent::Subtract);
             }
             VirtualKeyCode::T if !shift_pressed => {
-                self.selected_texture_output = (self.selected_texture_output + 1).min(15);
+                events.set_io_view(ViewIOEvent::Add);
             }
             _ => return false,
         }
@@ -85,7 +81,6 @@ impl GuiState {
         }
 
         let margin_size = 10.;
-        let ctx = &state.gfx_state.ctx.clone();
 
         Window::new("Sparticles settings")
             .vscroll(true)
@@ -101,7 +96,7 @@ impl GuiState {
             })
             .default_height(800.)
             .display_event(&mut state.gui.display_event)
-            .show(ctx, |ui| {
+            .show(&state.gfx_state.ctx.clone(), |ui| {
                 let State {
                     clock,
                     lights,
@@ -368,7 +363,6 @@ impl GuiState {
 
         Self {
             enabled: show_gui,
-            preview_enabled: false,
             cpu_time_text: "".to_string(),
             fps_text: "".to_string(),
             elapsed_text: "".to_string(),
@@ -380,8 +374,6 @@ impl GuiState {
             selected_new_em_anim: 0,
             selected_new_post_fx: 0,
             selected_texture: 0,
-            selected_bind_group: 0,
-            selected_texture_output: 0,
             icon_textures,
             new_emitter_tag: String::from(""),
             profiling_results: Vec::new(),
@@ -523,6 +515,7 @@ impl GuiState {
             gui,
             registered_post_fx,
             gfx_state,
+            events,
             ..
         } = state;
 
@@ -556,34 +549,18 @@ impl GuiState {
 
         ui.add_space(10.);
         ui.horizontal(|ui| {
-            // TODO connect to real len
-            egui::ComboBox::from_id_source("select-bind-group")
-                .selected_text("Select bind group")
-                .show_index(ui, &mut gui.selected_bind_group, 2, |i| {
-                    format!("bind group: {}", i)
-                });
+            let mut tex_output = post_process.io_uniform.out_idx as usize;
 
-            // TODO connect to real len
-            egui::ComboBox::from_id_source("select-tex-output")
+            if egui::ComboBox::from_id_source("select-tex-output")
                 .selected_text("Select texture output")
-                .show_index(ui, &mut gui.selected_texture_output, 16, |i| {
+                .show_index(ui, &mut tex_output, 16, |i| {
                     format!("Texture output: {}", i)
-                });
-
-            ui.checkbox(&mut gui.preview_enabled, "Preview enabled");
+                })
+                .changed()
+            {
+                events.set_io_view(ViewIOEvent::Idx(tex_output as u32))
+            }
         });
-
-        if gui.preview_enabled {
-            post_process.io_uniform.out_idx = gui.selected_texture_output as u32;
-        } else {
-            gui.selected_texture_output = 0;
-            post_process.io_uniform.out_idx = 0;
-        }
-
-        let contents = CommonBuffer::uniform_content(&post_process.io_uniform);
-        gfx_state
-            .queue
-            .write_buffer(&post_process.io_ctx.buf, 0, &contents);
     }
 
     pub fn create_title(ui: &mut Ui, str: &str) {

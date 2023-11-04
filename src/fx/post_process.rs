@@ -1,4 +1,5 @@
 use crate::init::AppSettings;
+use crate::model::events::ViewIOEvent;
 use crate::model::{GfxState, State};
 use crate::traits::*;
 use crate::util::{
@@ -13,11 +14,11 @@ use std::num::NonZeroU32;
 pub struct PostProcessState {
     pub effects: Vec<Box<dyn PostFx>>,
     pub fx_state: FxState,
-    pub io_uniform: FxIOUniform,
 
     initialize_pipeline: wgpu::ComputePipeline,
     finalize_pipeline: wgpu::RenderPipeline,
 
+    pub io_uniform: FxIOUniform,
     pub io_ctx: UniformContext,
 }
 
@@ -222,10 +223,9 @@ impl FxIOUniform {
 
     pub fn resize(&mut self, io_ctx: &UniformContext, options: &CreateFxOptions) {
         let fx_state = &options.fx_state;
-        let tex_size = &fx_state.tex_size;
 
-        let in_size = (*tex_size / self.in_downscale as f32).ceil();
-        let out_size = (*tex_size / self.out_downscale as f32).ceil();
+        let in_size = (fx_state.tex_size / self.in_downscale as f32).ceil();
+        let out_size = (fx_state.tex_size / self.out_downscale as f32).ceil();
 
         *self = Self {
             in_idx: self.in_idx,
@@ -269,6 +269,35 @@ impl PostProcessState {
     }
 
     pub fn update(state: &mut State) {
+        let State {
+            post_process: pp,
+            gfx_state,
+            events,
+            ..
+        } = state;
+
+        if let Some(event) = events.get_io_view() {
+            let io_uniform = &mut pp.io_uniform;
+            match event {
+                ViewIOEvent::Add => {
+                    if io_uniform.out_idx + 1 < 16 {
+                        io_uniform.out_idx += 1;
+                    }
+                }
+                ViewIOEvent::Subtract => {
+                    if 0 < io_uniform.out_idx {
+                        io_uniform.out_idx -= 1;
+                    }
+                }
+                ViewIOEvent::Idx(val) => {
+                    io_uniform.out_idx = val;
+                }
+            }
+
+            let contents = CommonBuffer::uniform_content(&pp.io_uniform);
+            gfx_state.queue.write_buffer(&pp.io_ctx.buf, 0, &contents);
+        }
+
         let effects = &mut state.post_process.effects;
 
         for fx in effects.iter_mut() {
@@ -638,7 +667,6 @@ impl FxState {
         });
 
         let (x, y) = gfx_state.dimensions();
-        println!("x: {}, y: {}", x, y);
 
         let count_x = (x / WORK_GROUP_SIZE).ceil() as u32;
         let count_y = (y / WORK_GROUP_SIZE).ceil() as u32;
