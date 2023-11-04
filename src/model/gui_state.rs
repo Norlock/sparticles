@@ -2,8 +2,8 @@ use super::{events::ViewIOEvent, EmitterState, GfxState, State};
 use crate::{
     fx::{post_process::CreateFxOptions, PostProcessState},
     texture::IconTexture,
+    util::ListAction,
     util::Persistence,
-    util::{CommonBuffer, ListAction},
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
 use egui_wgpu::wgpu;
