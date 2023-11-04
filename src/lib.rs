@@ -1,4 +1,5 @@
 use egui_winit::winit;
+use egui_winit::winit::dpi::PhysicalSize;
 use init::AppSettings;
 use model::State;
 use winit::event::Event::*;
@@ -24,7 +25,8 @@ pub fn start(init_app: impl AppSettings) {
     let window = window::WindowBuilder::new()
         .with_decorations(true)
         .with_transparent(false)
-        .with_resizable(true)
+        .with_resizable(false)
+        .with_max_inner_size(PhysicalSize::new(1920., 1080.))
         .with_title("Sparticles")
         .build(&event_loop)
         .unwrap();

@@ -66,9 +66,8 @@ impl Clock {
         format!("Time running: {:.2}", self.elapsed_sec())
     }
 
-    pub fn cpu_time_text(&self) -> String {
-        // TODO fixen
+    pub fn frame_time_text(&self) -> String {
         let cpu_time = self.delta_sec();
-        format!("CPU time ms: {:.0}", cpu_time * 1000.)
+        format!("Frame time ms: {:.0}", cpu_time * 1000.)
     }
 }

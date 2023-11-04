@@ -35,6 +35,7 @@ pub struct GuiState {
     selected_new_post_fx: usize,
     selected_emitter_id: usize,
 
+    performance_event: Option<DisplayEvent>,
     display_event: Option<DisplayEvent>,
 }
 
@@ -62,13 +63,18 @@ impl GuiState {
         let keycode = input.virtual_keycode.unwrap_or(VirtualKeyCode::Return);
 
         match keycode {
-            VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
             VirtualKeyCode::T if shift_pressed => {
                 events.set_io_view(ViewIOEvent::Subtract);
             }
             VirtualKeyCode::T if !shift_pressed => {
                 events.set_io_view(ViewIOEvent::Add);
             }
+            VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
+            VirtualKeyCode::Key1 => gui.selected_tab = Tab::EmitterSettings,
+            VirtualKeyCode::Key2 => gui.selected_tab = Tab::PostFxSettings,
+            VirtualKeyCode::Key3 => gui.selected_tab = Tab::ParticleAnimations,
+            VirtualKeyCode::Key4 => gui.selected_tab = Tab::EmitterAnimations,
+            VirtualKeyCode::P => gui.performance_event.set(DisplayEvent::ToggleCollapse),
             _ => return false,
         }
 
@@ -113,7 +119,7 @@ impl GuiState {
                     let particle_count: u64 = lights.particle_count()
                         + emitters.iter().map(|s| s.particle_count()).sum::<u64>();
 
-                    gui.cpu_time_text = clock.cpu_time_text();
+                    gui.cpu_time_text = clock.frame_time_text();
                     gui.fps_text = clock.fps_text();
                     gui.elapsed_text = clock.elapsed_text();
                     gui.particle_count_text = format!("Particle count: {}", particle_count);
@@ -132,7 +138,19 @@ impl GuiState {
                 create_label(ui, &gui.particle_count_text);
                 ui.separator();
 
-                Self::display_performance(ui, &gui.profiling_results);
+                CollapsingHeader::new("Performance")
+                    .id_source("total")
+                    .display(&mut gui.performance_event)
+                    .show(ui, |ui| {
+                        let mut total: f64 = 0.;
+                        Self::display_performance(ui, &mut total, &mut gui.profiling_results);
+                        create_label(
+                            ui,
+                            format!("{} - {:.3}μs", "Total GPU time", total * 1_000_000.),
+                        );
+                    });
+
+                ui.separator();
 
                 let emitter_txts: Vec<&str> = emitters
                     .iter()
@@ -227,22 +245,22 @@ impl GuiState {
             });
     }
 
-    fn display_performance(ui: &mut Ui, results: &[GpuTimerScopeResult]) {
+    fn display_performance(ui: &mut Ui, total_time: &mut f64, results: &[GpuTimerScopeResult]) {
         for scope in results.iter() {
-            let display_value = format!(
-                "{} - {:.3}μs",
-                scope.label,
-                (scope.time.end - scope.time.start) * 1000.0 * 1000.0,
-            );
+            let time = scope.time.end - scope.time.start;
+            *total_time += time;
+            let display_value = format!("{} - {:.3}μs", scope.label, time * 1_000_000.);
 
-            create_label(ui, &display_value);
+            create_label(ui, display_value);
 
             if !scope.nested_scopes.is_empty() {
                 ui.horizontal(|ui| {
                     ui.add_space(5.);
                     CollapsingHeader::new("-- details --")
                         .id_source(&scope.label)
-                        .show(ui, |ui| Self::display_performance(ui, &scope.nested_scopes));
+                        .show(ui, |ui| {
+                            Self::display_performance(ui, total_time, &scope.nested_scopes)
+                        });
                 });
             }
         }
@@ -378,6 +396,7 @@ impl GuiState {
             new_emitter_tag: String::from(""),
             profiling_results: Vec::new(),
             display_event: None,
+            performance_event: None,
         }
     }
 
@@ -616,8 +635,8 @@ impl GuiState {
     }
 }
 
-fn create_label(ui: &mut Ui, str: &str) {
-    ui.label(RichText::new(str).color(Color32::WHITE));
+fn create_label(ui: &mut Ui, text: impl Into<String>) {
+    ui.label(RichText::new(text).color(Color32::WHITE));
     ui.add_space(5.0);
 }
 

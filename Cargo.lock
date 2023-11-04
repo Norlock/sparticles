@@ -462,7 +462,7 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 [[package]]
 name = "ecolor"
 version = "0.23.0"
-source = "git+https://github.com/norlock/egui.git?branch=wgpu-18#fa50e9ecbb3d80ee527f3d73b268f0964cb21927"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "bytemuck",
 ]
@@ -470,7 +470,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.23.0"
-source = "git+https://github.com/norlock/egui.git?branch=wgpu-18#fa50e9ecbb3d80ee527f3d73b268f0964cb21927"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "ahash",
  "epaint",
@@ -481,7 +481,7 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.23.0"
-source = "git+https://github.com/norlock/egui.git?branch=wgpu-18#fa50e9ecbb3d80ee527f3d73b268f0964cb21927"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "bytemuck",
  "epaint",
@@ -494,7 +494,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.23.0"
-source = "git+https://github.com/norlock/egui.git?branch=wgpu-18#fa50e9ecbb3d80ee527f3d73b268f0964cb21927"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "arboard",
  "egui",
@@ -515,7 +515,7 @@ checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 [[package]]
 name = "emath"
 version = "0.23.0"
-source = "git+https://github.com/norlock/egui.git?branch=wgpu-18#fa50e9ecbb3d80ee527f3d73b268f0964cb21927"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "bytemuck",
 ]
@@ -567,7 +567,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.23.0"
-source = "git+https://github.com/norlock/egui.git?branch=wgpu-18#fa50e9ecbb3d80ee527f3d73b268f0964cb21927"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "ab_glyph",
  "ahash",
@@ -1083,6 +1083,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "libredox"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3af92c55d7d839293953fcd0fda5ecfe93297cfde6ffbdec13b41d99c0ba6607"
+dependencies = [
+ "bitflags 2.4.1",
+ "libc",
+ "redox_syscall 0.4.1",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1442,11 +1453,11 @@ checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 
 [[package]]
 name = "orbclient"
-version = "0.3.46"
+version = "0.3.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8378ac0dfbd4e7895f2d2c1f1345cab3836910baf3a300b000d04250f0c8428f"
+checksum = "52f0d54bde9774d3a51dcf281a5def240c71996bc6ca05d2c847ec8b2b216166"
 dependencies = [
- "redox_syscall 0.3.5",
+ "libredox",
 ]
 
 [[package]]
@@ -2623,9 +2634,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.5.18"
+version = "0.5.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "176b6138793677221d420fd2f0aeeced263f197688b36484660da767bca2fa32"
+checksum = "829846f3e3db426d4cee4510841b71a8e58aa2a76b1132579487ae430ccd9c7b"
 dependencies = [
  "memchr",
 ]
@@ -2680,18 +2691,18 @@ checksum = "0fcb9cbac069e033553e8bb871be2fbdffcab578eb25bd0f7c508cedc6dcd75a"
 
 [[package]]
 name = "zerocopy"
-version = "0.7.21"
+version = "0.7.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "686b7e407015242119c33dab17b8f61ba6843534de936d94368856528eae4dcc"
+checksum = "8cd369a67c0edfef15010f980c3cbe45d7f651deac2cd67ce097cd801de16557"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.7.21"
+version = "0.7.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "020f3dfe25dfc38dfea49ce62d5d45ecdd7f0d8a724fa63eb36b6eba4ec76806"
+checksum = "c2f140bda219a26ccc0cdb03dba58af72590c53b22642577d88a927bc5c87d6b"
 dependencies = [
  "proc-macro2",
  "quote",
