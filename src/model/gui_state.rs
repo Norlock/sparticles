@@ -1,6 +1,6 @@
 use super::{events::ViewIOEvent, EmitterState, GfxState, State};
 use crate::{
-    fx::{post_process::FxOptions, PostProcessState},
+    fx::{FxOptions, PostProcessState},
     texture::IconTexture,
     util::ListAction,
     util::Persistence,

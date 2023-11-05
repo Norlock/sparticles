@@ -1,7 +1,4 @@
-use super::{
-    post_process::{FxIOUniform, FxOptions},
-    FxState,
-};
+use super::{FxIOUniform, FxOptions, FxState};
 use crate::{
     model::{GfxState, GuiState},
     traits::{CustomShader, HandleAction, PostFx, RegisterPostFx},
@@ -83,7 +80,7 @@ impl ColorFxUniform {
 
 impl PostFx for ColorFx {
     fn resize(&mut self, options: &FxOptions) {
-        self.io_uniform.resize(&self.io_ctx, options);
+        self.io_uniform.resize(&self.io_ctx.buf, options);
     }
 
     fn compute<'a>(
@@ -159,15 +156,20 @@ impl ColorFx {
     pub fn compute_tonemap<'a>(
         &'a self,
         fx_state: &'a FxState,
+        gfx_state: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
+
+        gfx_state.begin_scope("Tonemapping", c_pass);
 
         c_pass.set_pipeline(&self.tonemap_pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
+
+        gfx_state.end_scope(c_pass);
     }
 
     pub fn ui_gamma(&mut self, ui: &mut egui::Ui) {

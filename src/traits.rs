@@ -1,5 +1,5 @@
 use crate::{
-    fx::post_process::{FxOptions, FxState},
+    fx::{FxOptions, FxState},
     model::{Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
     util::persistence::DynamicExport,
     util::ListAction,
@@ -90,7 +90,7 @@ pub trait PostFx: HandleAction {
     fn compute<'a>(
         &'a self,
         fx_state: &'a FxState,
-        gfx_state: &mut GfxState,
+        profiler: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     );
 

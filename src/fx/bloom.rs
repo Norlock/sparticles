@@ -1,11 +1,11 @@
 use super::blur::BlurUniform;
 use super::blur_pass::BlurPass;
 use super::blur_pass::BlurPassSettings;
-use super::post_process::FxIOUniform;
-use super::post_process::FxOptions;
 use super::BlendPass;
 use super::ColorFx;
 use super::Downscale;
+use super::FxIOUniform;
+use super::FxOptions;
 use super::FxState;
 use crate::fx::blend::BlendSettings;
 use crate::fx::blend::BlendUniform;
@@ -100,40 +100,28 @@ impl PostFx for Bloom {
         gfx_state: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        let profiler = &mut gfx_state.profiler;
-        let device = &gfx_state.device;
-
-        profiler.begin_scope("Bloom Fx", c_pass, &gfx_state.device);
-        profiler.begin_scope("Split", c_pass, &gfx_state.device);
+        gfx_state
+            .profiler
+            .begin_scope("Bloom Fx", c_pass, &gfx_state.device);
 
         self.split_pass
-            .compute_split(fx_state, &self.blur_ctx.bg, c_pass);
+            .split(fx_state, gfx_state, &self.blur_ctx.bg, c_pass);
 
-        profiler.end_scope(c_pass).unwrap();
-
-        for (i, down) in self.downscale_passes.iter().enumerate() {
-            profiler.begin_scope(&format!("Downscale {}", i), c_pass, device);
-            down.downscale.compute(fx_state, c_pass);
-            profiler.end_scope(c_pass).unwrap();
+        for down in self.downscale_passes.iter() {
+            down.downscale.compute(fx_state, gfx_state, c_pass);
         }
 
-        for (i, up) in self.upscale_passes.iter().enumerate() {
-            profiler.begin_scope(&format!("Upscale {}", i), c_pass, device);
+        for up in self.upscale_passes.iter() {
             up.blend
-                .lerp_upscale_blend(fx_state, &self.blend_ctx.bg, c_pass);
-            profiler.end_scope(c_pass).unwrap();
+                .lerp_upscale(fx_state, gfx_state, &self.blend_ctx.bg, c_pass);
         }
 
-        profiler.begin_scope("Tonemapping", c_pass, device);
-        self.color.compute_tonemap(fx_state, c_pass);
-        profiler.end_scope(c_pass).unwrap();
+        self.color.compute_tonemap(fx_state, gfx_state, c_pass);
 
-        profiler.begin_scope("Blend", c_pass, device);
         self.blend
-            .lerp_upscale_blend(fx_state, &self.blend_ctx.bg, c_pass);
-        profiler.end_scope(c_pass).unwrap();
+            .lerp_upscale(fx_state, gfx_state, &self.blend_ctx.bg, c_pass);
 
-        profiler.end_scope(c_pass).unwrap();
+        gfx_state.profiler.end_scope(c_pass).unwrap();
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
@@ -218,8 +206,8 @@ impl Bloom {
         let split_pass = BlurPass::new(
             options,
             BlurPassSettings {
-                io_uniform: FxIOUniform::asymetric_unscaled(&options.fx_state, 0, 1),
                 blur_layout: &blur_ctx.bg_layout,
+                io_idx: (0, 1),
             },
         );
 

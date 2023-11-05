@@ -1,8 +1,5 @@
-use super::{
-    post_process::{FxIOUniform, FxOptions},
-    FxState,
-};
-use crate::{traits::CustomShader, util::UniformContext};
+use super::{FxIOUniform, FxOptions, FxState};
+use crate::{model::GfxState, traits::CustomShader, util::UniformContext};
 use egui_wgpu::wgpu;
 
 pub struct Downscale {
@@ -16,17 +13,29 @@ pub struct DownscaleSettings {
 }
 
 impl Downscale {
-    pub fn compute<'a>(&'a self, fx_state: &'a FxState, c_pass: &mut wgpu::ComputePass<'a>) {
+    pub fn compute<'a>(
+        &'a self,
+        fx_state: &'a FxState,
+        gfx_state: &mut GfxState,
+        c_pass: &mut wgpu::ComputePass<'a>,
+    ) {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
+
+        gfx_state.begin_scope(
+            &format!("Downscale {}", self.io_uniform.out_downscale),
+            c_pass,
+        );
 
         c_pass.set_pipeline(&self.pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
+
+        gfx_state.end_scope(c_pass);
     }
 
     pub fn resize(&mut self, options: &FxOptions) {
-        self.io_uniform.resize(&self.io_ctx, options);
+        self.io_uniform.resize(&self.io_ctx.buf, options);
     }
 
     pub fn new(options: &FxOptions, io_uniform: FxIOUniform) -> Self {

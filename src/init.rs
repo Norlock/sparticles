@@ -4,7 +4,7 @@ use crate::animations::sway_animation::RegisterSwayAnimation;
 use crate::animations::{RegisterForceAnimation, RegisterGravityAnimation, RegisterStrayAnimation};
 use crate::fx::bloom::RegisterBloomFx;
 use crate::fx::blur::RegisterBlurFx;
-use crate::fx::post_process::FxOptions;
+use crate::fx::FxOptions;
 use crate::fx::PostProcessState;
 use crate::fx::RegisterColorFx;
 use crate::model::{Camera, CreateEmitterOptions, EmitterState, EmitterUniform, GfxState};

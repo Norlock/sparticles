@@ -12,6 +12,7 @@ use egui_winit::winit::event::WindowEvent;
 use egui_winit::EventResponse;
 use wgpu_profiler::GpuProfiler;
 use wgpu_profiler::GpuProfilerSettings;
+use wgpu_profiler::ProfilerCommandRecorder;
 use winit::dpi::PhysicalSize;
 use winit::window;
 
@@ -35,6 +36,14 @@ pub struct GfxState {
 }
 
 impl GfxState {
+    pub fn begin_scope(&mut self, label: &str, pass: &mut impl ProfilerCommandRecorder) {
+        self.profiler.begin_scope(label, pass, &self.device);
+    }
+
+    pub fn end_scope(&mut self, pass: &mut impl ProfilerCommandRecorder) {
+        self.profiler.end_scope(pass).unwrap();
+    }
+
     pub async fn new(window: window::Window) -> Self {
         let instance = wgpu::Instance::default();
 
