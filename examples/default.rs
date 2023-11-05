@@ -22,7 +22,7 @@ impl AppSettings for CustomSettings {
 
         emitter.box_position.x = -3.;
         emitter.box_position.y = -3.;
-        emitter.particle_color = Vec4::from_rgb(175, 175, 255);
+        emitter.particle_color = Vec4::new(75., 75., 125., 1.0);
         emitter.particle_size = Range::new(0.25, 0.25);
         emitter.particle_speed = Range::new(5., 7.);
         emitter.spawn_count = 1;

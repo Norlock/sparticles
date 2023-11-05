@@ -8,24 +8,23 @@ var<storage, read> particles: array<Particle>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    // normal
     @location(0) color: vec4<f32>,
     @location(1) world_space: vec4<f32>,
-    @location(2) v_pos: vec4<f32>,
-    @location(3) uv: vec2<f32>,
+    @location(2) uv: vec4<f32>,
 };
+
+var<private> uvs: array<vec2<f32>, 4> = array<vec2<f32>, 4>(
+  vec2<f32>(0., 1. ),
+  vec2<f32>(1., 1.),
+  vec2<f32>(0., 0.),
+  vec2<f32>(1., 0.),
+);
 
 @vertex
 fn vs_main(
     @builtin(vertex_index) vert_idx: u32,
     @builtin(instance_index) instance_idx: u32,
 ) -> VertexOutput {
-    var uvs: array<vec2<f32>, 4> = array<vec2<f32>, 4>(
-      vec2<f32>(0., 1. ),
-      vec2<f32>(1., 1.),
-      vec2<f32>(0., 0.),
-      vec2<f32>(1., 0.),
-    );
 
     let p = particles[instance_idx];
 
@@ -38,14 +37,11 @@ fn vs_main(
     let world_space: vec4<f32> = 
         vec4<f32>(p.pos_size.xyz + camera.rotated_vertices[vert_idx].xyz * p.pos_size.w, 1.0);
 
-    let v_pos = camera.vertex_positions[vert_idx];
-
     var out: VertexOutput;
-    out.v_pos = vec4<f32>(v_pos, f32(instance_idx), 0.);
     out.color = p.color;
-    out.clip_position = camera.view_proj * world_space;
     out.world_space = world_space;
-    out.uv = uvs[vert_idx];
+    out.clip_position = camera.view_proj * world_space;
+    out.uv = vec4<f32>(uvs[vert_idx], f32(instance_idx), 0.);
 
     return out;
 }
@@ -57,10 +53,10 @@ var base_sampler: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let v_pos = in.v_pos.xy;
-    let len = length(v_pos);
+    let v_pos = in.uv.xy * 2. - 1.;
 
-    let texture_color = textureSample(base_texture, base_sampler, in.uv);
+    let len = length(v_pos);
+    let texture_color = textureSample(base_texture, base_sampler, in.uv.xy);
 
     if 1.0 < len {
         discard;
@@ -71,7 +67,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let x = v_pos.x;
     let y = v_pos.y;
-    let idx = in.v_pos.z;
+    let idx = in.uv.z;
 
     let normal = sqrt(1. - x * x - y * y);
 
@@ -79,5 +75,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     effect *= 1. - 0.02 / color.rgb;
     effect += 0.5;
 
-    return vec4<f32>(effect * texture_color.rgb, 1.0);
+    //let result = in.color
+    return vec4<f32>(texture_color.rgb * in.color.rgb, 1.0);
 }

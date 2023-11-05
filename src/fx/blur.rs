@@ -137,6 +137,8 @@ impl PostFx for Blur {
             ui.add(Slider::new(&mut blur.intensity, 0.9..=1.1).text("Blur intensity"));
         }
 
+        ui.checkbox(&mut self.enabled, "Enabled");
+
         if self.blur_uniform != blur {
             self.blur_uniform = blur;
             self.update_uniform = Some(true);

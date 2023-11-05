@@ -9,9 +9,9 @@ var<storage, read> light_particles: array<Particle>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) pos_uv: vec4<f32>,
-    @location(1) world_space: vec4<f32>,
-    @location(2) color: vec4<f32>,
+    @location(0) world_space: vec4<f32>,
+    @location(1) color: vec4<f32>,
+    @location(2) uv: vec2<f32>,
 };
 
 
@@ -43,10 +43,10 @@ fn vs_main(
     );
 
     var out: VertexOutput;
-    out.pos_uv = vec4<f32>(camera.vertex_positions[vert_idx], uvs[vert_idx]);
+    out.clip_position = camera.view_proj * world_space;
     out.world_space = world_space;
     out.color = p.color;
-    out.clip_position = camera.view_proj * world_space;
+    out.uv = uvs[vert_idx];
 
     return out;
 }
@@ -56,16 +56,16 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let len = length(in.pos_uv.xy);
+    let v_pos = in.uv.xy * 2. - 1.;
 
-    let texture_color = textureSample(base_texture, base_sampler, in.pos_uv.zw);
+    let texture_color = textureSample(base_texture, base_sampler, in.uv);
 
-    if (1.0 < len) {
+    if (1.0 < length(v_pos)) {
         discard;
     }
 
-    let x = in.pos_uv.x;
-    let y = in.pos_uv.y;
+    let x = v_pos.x;
+    let y = v_pos.y;
 
     let normal = vec3<f32>(x, y, sqrt(1. - x * x - y * y));
     let world_normal = (vec4<f32>(normal, 0.) * camera.view).xyz;

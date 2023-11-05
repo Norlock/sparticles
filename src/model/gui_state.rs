@@ -142,8 +142,7 @@ impl GuiState {
                     .id_source("total")
                     .display(&mut gui.performance_event)
                     .show(ui, |ui| {
-                        let mut total: f64 = 0.;
-                        Self::display_performance(ui, &mut total, &mut gui.profiling_results);
+                        let total = Self::display_performance(ui, &mut gui.profiling_results);
                         create_label(
                             ui,
                             format!("{} - {:.3}μs", "Total GPU time", total * 1_000_000.),
@@ -245,10 +244,12 @@ impl GuiState {
             });
     }
 
-    fn display_performance(ui: &mut Ui, total_time: &mut f64, results: &[GpuTimerScopeResult]) {
+    fn display_performance(ui: &mut Ui, results: &[GpuTimerScopeResult]) -> f64 {
+        let mut total_time = 0.;
+
         for scope in results.iter() {
             let time = scope.time.end - scope.time.start;
-            *total_time += time;
+            total_time += time;
             let display_value = format!("{} - {:.3}μs", scope.label, time * 1_000_000.);
 
             create_label(ui, display_value);
@@ -258,12 +259,12 @@ impl GuiState {
                     ui.add_space(5.);
                     CollapsingHeader::new("-- details --")
                         .id_source(&scope.label)
-                        .show(ui, |ui| {
-                            Self::display_performance(ui, total_time, &scope.nested_scopes)
-                        });
+                        .show(ui, |ui| Self::display_performance(ui, &scope.nested_scopes));
                 });
             }
         }
+
+        total_time
     }
 
     pub fn selected_emitter<'a>(
