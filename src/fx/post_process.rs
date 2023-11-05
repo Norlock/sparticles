@@ -14,8 +14,7 @@ pub struct PostProcessState {
     pub effects: Vec<Box<dyn PostFx>>,
     pub fx_state: FxState,
 
-    initialize_pipeline: wgpu::ComputePipeline,
-    finalize_pipeline: wgpu::RenderPipeline,
+    render_pipeline: wgpu::RenderPipeline,
 
     pub io_uniform: FxIOUniform,
     pub io_ctx: UniformContext,
@@ -87,29 +86,22 @@ impl PostProcessState {
     }
 
     pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
-        let profiler = &mut state.gfx_state.profiler;
+        let gfx_state = &mut state.gfx_state;
         let pp = &mut state.post_process;
         let fx_state = &mut pp.fx_state;
-        let device = &state.gfx_state.device;
 
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Post process pipeline"),
             timestamp_writes: None,
         });
 
-        profiler.begin_scope("Post fx compute", &mut c_pass, &device);
-        profiler.begin_scope("Init", &mut c_pass, &device);
-        c_pass.set_pipeline(&pp.initialize_pipeline);
-        c_pass.set_bind_group(0, &fx_state.bg, &[]);
-        c_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
-        c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
-        profiler.end_scope(&mut c_pass).unwrap();
+        gfx_state.begin_scope("Post fx compute", &mut c_pass);
 
         for fx in pp.effects.iter().filter(|fx| fx.enabled()) {
-            fx.compute(&fx_state, &mut state.gfx_state, &mut c_pass);
+            fx.compute(&fx_state, gfx_state, &mut c_pass);
         }
 
-        state.gfx_state.profiler.end_scope(&mut c_pass).unwrap();
+        gfx_state.end_scope(&mut c_pass);
     }
 
     pub fn render(
@@ -139,7 +131,7 @@ impl PostProcessState {
         profiler.begin_scope("Post fx render", &mut r_pass, &device);
         let pp = &mut state.post_process;
 
-        r_pass.set_pipeline(&pp.finalize_pipeline);
+        r_pass.set_pipeline(&pp.render_pipeline);
         r_pass.set_bind_group(0, &pp.fx_state.r_bg, &[]);
         r_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
         r_pass.draw(0..3, 0..1);
@@ -158,7 +150,6 @@ impl PostProcessState {
         let device = &gfx_state.device;
         let config = &gfx_state.surface_config;
 
-        let initialize_shader = device.create_shader("fx/initialize.wgsl", "Init post fx");
         let finalize_shader = device.create_shader("fx/finalize.wgsl", "Finalize post fx");
 
         let fx_state = FxState::new(gfx_state);
@@ -177,14 +168,6 @@ impl PostProcessState {
             bind_group_layouts: &[&fx_state.r_bg_layout, &io_ctx.bg_layout],
             push_constant_ranges: &[],
         });
-
-        let initialize_pipeline =
-            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Init pipeline"),
-                layout: Some(&c_pipeline_layout),
-                module: &initialize_shader,
-                entry_point: "init",
-            });
 
         let finalize_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Finalize pipeline"),
@@ -220,8 +203,7 @@ impl PostProcessState {
         Self {
             fx_state,
             effects,
-            initialize_pipeline,
-            finalize_pipeline,
+            render_pipeline: finalize_pipeline,
 
             io_uniform,
             io_ctx,
@@ -292,7 +274,6 @@ impl FxState {
 
     fn new(gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
-        let frame_view = gfx_state.create_frame_view();
         let depth_view = gfx_state.create_depth_view();
 
         let array_count = 16;
@@ -309,7 +290,7 @@ impl FxState {
                 },
                 count: NonZeroU32::new(array_count),
             },
-            // Frame
+            // Depth
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStages::COMPUTE,
@@ -320,20 +301,9 @@ impl FxState {
                 },
                 count: None,
             },
-            // Depth
-            wgpu::BindGroupLayoutEntry {
-                binding: 2,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Texture {
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    multisampled: false,
-                },
-                count: None,
-            },
             // Sampler
             wgpu::BindGroupLayoutEntry {
-                binding: 3,
+                binding: 2,
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 count: None,
@@ -399,14 +369,10 @@ impl FxState {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&frame_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
                     resource: wgpu::BindingResource::TextureView(&depth_view),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 3,
+                    binding: 2,
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
@@ -441,7 +407,7 @@ impl FxState {
             count_x,
             count_y,
             depth_view,
-            frame_view,
+            frame_view: tex_views.swap_remove(0),
         }
     }
 }

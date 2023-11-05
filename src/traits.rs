@@ -90,7 +90,7 @@ pub trait PostFx: HandleAction {
     fn compute<'a>(
         &'a self,
         fx_state: &'a FxState,
-        profiler: &mut GfxState,
+        gfx_state: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     );
 

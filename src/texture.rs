@@ -112,24 +112,6 @@ impl GfxState {
         device.create_texture(&desc).default_view()
     }
 
-    pub fn create_frame_view(&self) -> wgpu::TextureView {
-        let config = &self.surface_config;
-
-        self.device
-            .create_texture(&wgpu::TextureDescriptor {
-                label: Some("Frame view"),
-                size: self.tex_size(),
-                mip_level_count: 1,
-                sample_count: 1,
-                view_formats: &[],
-                dimension: wgpu::TextureDimension::D2,
-                format: config.format,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING
-                    | wgpu::TextureUsages::RENDER_ATTACHMENT,
-            })
-            .default_view()
-    }
-
     pub fn create_fx_view(&self) -> wgpu::TextureView {
         self.device
             .create_texture(&wgpu::TextureDescriptor {
@@ -140,7 +122,9 @@ impl GfxState {
                 view_formats: &[],
                 dimension: wgpu::TextureDimension::D2,
                 format: PostProcessState::TEXTURE_FORMAT,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::STORAGE_BINDING,
             })
             .default_view()
     }

@@ -1,4 +1,5 @@
 use super::{Camera, EmitterGuiState, EmitterUniform, GfxState, GuiState, State};
+use crate::fx::PostProcessState;
 use crate::texture::DiffuseCtx;
 use crate::traits::{CalculateBufferSize, CustomShader};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
@@ -489,7 +490,7 @@ impl GfxState {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: surface_config.format,
+                    format: PostProcessState::TEXTURE_FORMAT,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
