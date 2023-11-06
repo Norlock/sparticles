@@ -96,6 +96,7 @@ struct ColorAnimation {
     buffer: wgpu::Buffer,
     update_uniform: bool,
     selected_action: ListAction,
+    enabled: bool,
 }
 
 impl HandleAction for ColorAnimation {
@@ -115,7 +116,7 @@ impl HandleAction for ColorAnimation {
     }
 
     fn enabled(&self) -> bool {
-        true
+        self.enabled
     }
 }
 
@@ -180,6 +181,8 @@ impl ParticleAnimation for ColorAnimation {
             color_edit_button_rgba(ui, &mut to_color, Alpha::Opaque);
         });
 
+        ui.checkbox(&mut self.enabled, "Enabled");
+
         gui.from_color = from_color.to_array().into();
         gui.to_color = to_color.to_array().into();
 
@@ -219,6 +222,7 @@ impl ColorAnimation {
             uniform,
             update_uniform: false,
             selected_action: ListAction::None,
+            enabled: true,
         }
     }
 }

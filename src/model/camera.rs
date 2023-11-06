@@ -131,7 +131,7 @@ impl Camera {
             ..
         } = state;
 
-        if let Some(_) = events.get_reset_camera() {
+        if let Some(_) = events.reset_camera() {
             camera.pitch = 0.;
             camera.yaw = 0.;
             camera.position = glam::Vec3::new(0., 0., 10.);

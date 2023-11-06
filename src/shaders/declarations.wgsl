@@ -46,7 +46,6 @@ struct GaussianBlur {
     br_treshold: f32,
     radius: i32,
     sigma: f32,
-    hdr_mul: f32,
     intensity: f32,
 }
 

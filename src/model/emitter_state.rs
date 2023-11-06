@@ -45,17 +45,20 @@ impl<'a> EmitterState {
         &self.uniform.id
     }
 
-    pub fn update_emitter(state: &mut State, idx: usize, settings: EmitterSettings) {
+    pub fn update_emitter(state: &mut State, idx: usize) {
         let State {
             camera,
             lights,
             emitters,
             gfx_state,
+            gui,
             ..
         } = state;
 
+        let settings = gui.emitter_settings.as_ref().unwrap();
+
         let em = &mut emitters[idx];
-        em.uniform.update_settings(&settings);
+        em.uniform.update_settings(settings);
 
         if !settings.recreate {
             return;
@@ -64,10 +67,11 @@ impl<'a> EmitterState {
         em.recreate_emitter(gfx_state, Some(&lights.bg_layout), camera);
     }
 
-    pub fn update_lights(state: &mut State, settings: EmitterSettings) {
+    pub fn update_lights(state: &mut State) {
+        let settings = state.gui.emitter_settings.as_ref().expect("Should be set");
         let lights = &mut state.lights;
 
-        lights.uniform.update_settings(&settings);
+        lights.uniform.update_settings(settings);
 
         if !settings.recreate {
             return;
@@ -142,9 +146,9 @@ impl<'a> EmitterState {
             ..
         } = state;
 
-        if let Some(tag) = events.get_delete_emitter() {
+        if let Some(tag) = events.delete_emitter() {
             emitters.retain(|em| em.id() != &tag);
-        } else if let Some(tag) = events.get_create_emitter() {
+        } else if let Some(tag) = events.create_emitter() {
             let emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
                 camera,
                 emitter_uniform: EmitterUniform::new(tag),
@@ -164,7 +168,11 @@ impl<'a> EmitterState {
 
             ListAction::update_list(&mut emitter.emitter_animations);
 
-            for anim in emitter.emitter_animations.iter_mut() {
+            for anim in emitter
+                .emitter_animations
+                .iter_mut()
+                .filter(|item| item.enabled())
+            {
                 anim.animate(&mut emitter.uniform, clock);
             }
 
@@ -207,7 +215,11 @@ impl<'a> EmitterState {
             gfx_state.end_scope(&mut c_pass);
 
             gfx_state.begin_scope("Compute particle animations", &mut c_pass);
-            for anim in emitter.particle_animations.iter() {
+            for anim in emitter
+                .particle_animations
+                .iter()
+                .filter(|item| item.enabled())
+            {
                 anim.compute(emitter, clock, &mut c_pass);
             }
             gfx_state.end_scope(&mut c_pass);
@@ -586,9 +598,7 @@ impl GfxState {
             multiview: None,
         });
 
-        let gui = uniform.create_settings();
-
-        let em = EmitterState {
+        EmitterState {
             uniform,
             pipeline,
             render_pipeline,
@@ -603,11 +613,7 @@ impl GfxState {
             diffuse_ctx,
             shader,
             is_light,
-        };
-
-        println!("recreating {}", em.id());
-
-        em
+        }
     }
 }
 

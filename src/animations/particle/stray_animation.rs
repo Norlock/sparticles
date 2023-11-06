@@ -80,8 +80,9 @@ struct StrayAnimation {
     uniform: StrayUniform,
     buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
-    update_uniform: bool,
     selected_action: ListAction,
+    update_uniform: bool,
+    enabled: bool,
 }
 
 impl HandleAction for StrayAnimation {
@@ -103,7 +104,7 @@ impl HandleAction for StrayAnimation {
         }
     }
     fn enabled(&self) -> bool {
-        todo!()
+        self.enabled
     }
 }
 
@@ -164,6 +165,8 @@ impl ParticleAnimation for StrayAnimation {
                 .step_by(0.1)
                 .text("Stray degrees"),
         );
+
+        ui.checkbox(&mut self.enabled, "Enabled");
 
         gui.stray_radians = stray_degrees.to_radians();
 
@@ -233,6 +236,7 @@ impl StrayAnimation {
             buffer,
             update_uniform: false,
             selected_action: ListAction::None,
+            enabled: true,
         }
     }
 }

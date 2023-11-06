@@ -23,6 +23,8 @@ pub struct DiffusionAnimation {
 
     #[serde(skip_serializing, skip_deserializing)]
     selected_action: ListAction,
+
+    enabled: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -66,6 +68,7 @@ impl DiffusionAnimation {
             diff_depth: diff_depth_deg.to_radians(),
             selected_action: ListAction::None,
             gui,
+            enabled: true,
         }
     }
 }
@@ -87,7 +90,7 @@ impl HandleAction for DiffusionAnimation {
     }
 
     fn enabled(&self) -> bool {
-        todo!()
+        self.enabled
     }
 }
 
@@ -141,6 +144,8 @@ impl EmitterAnimation for DiffusionAnimation {
             ui.add(DragValue::new(&mut gui.diff_depth.x).speed(0.1));
             ui.add(DragValue::new(&mut gui.diff_depth.y).speed(0.1));
         });
+
+        ui.checkbox(&mut self.enabled, "Enabled");
 
         self.diff_width = gui.diff_width.to_radians();
         self.diff_depth = gui.diff_depth.to_radians();

@@ -46,6 +46,7 @@ pub struct EmitterUniform {
     /// Diffusion emission in radians
     pub diff_depth: f32,
 
+    pub hdr_mul: f32,
     pub particle_color: Vec4,
     pub particle_friction_coefficient: f32,
     pub particle_speed: Range,
@@ -57,6 +58,7 @@ pub struct EmitterUniform {
 }
 
 pub struct EmitterSettings {
+    pub id: String,
     pub spawn_count: u32,
     pub spawn_delay_sec: f32,
     pub particle_lifetime_sec: f32,
@@ -73,6 +75,9 @@ pub struct EmitterSettings {
     pub particle_speed_max: f32,
     pub particle_size_min: f32,
     pub particle_size_max: f32,
+
+    pub particle_color: Vec4,
+    pub hdr_mul: f32,
 }
 
 impl EmitterUniform {
@@ -105,6 +110,8 @@ impl EmitterUniform {
             box_dimensions,
             box_rotation,
 
+            hdr_mul: 1.0,
+
             diff_width: diffusion_width_rad,
             diff_depth: diffusion_depth_rad,
 
@@ -136,6 +143,9 @@ impl EmitterUniform {
         self.particle_size.0 = settings.particle_size_min;
         self.particle_size.1 = settings.particle_size_max;
 
+        self.particle_color = settings.particle_color;
+        self.hdr_mul = settings.hdr_mul;
+
         if settings.recreate {
             self.spawn_count = settings.spawn_count;
             self.spawn_delay_sec = settings.spawn_delay_sec;
@@ -145,18 +155,22 @@ impl EmitterUniform {
 
     pub fn create_settings(&self) -> EmitterSettings {
         EmitterSettings {
+            id: self.id.to_string(),
             spawn_count: self.spawn_count,
             spawn_delay_sec: self.spawn_delay_sec,
-            particle_lifetime_sec: self.particle_lifetime_sec,
             box_position: self.box_position,
             box_dimensions: self.box_dimensions,
             box_rotation_deg: self.box_rotation.to_degrees(),
             diff_width_deg: self.diff_width.to_degrees(),
             diff_depth_deg: self.diff_depth.to_degrees(),
+            particle_lifetime_sec: self.particle_lifetime_sec,
+            particle_color: self.particle_color,
+            hdr_mul: self.hdr_mul,
             particle_speed_min: self.particle_speed.0,
             particle_speed_max: self.particle_speed.1,
             particle_size_min: self.particle_size.0,
             particle_size_max: self.particle_size.1,
+
             recreate: false,
         }
     }
@@ -188,7 +202,6 @@ impl EmitterUniform {
     }
 
     pub fn create_buffer_content(&self) -> Vec<f32> {
-        //println!("col {:?}", self.particle_color);
         vec![
             self.delta_sec,
             self.elapsed_sec,
@@ -205,9 +218,9 @@ impl EmitterUniform {
             self.box_rotation.z,
             self.diff_width,
             self.diff_depth,
-            self.particle_color.x,
-            self.particle_color.y,
-            self.particle_color.z,
+            self.particle_color.x * self.hdr_mul,
+            self.particle_color.y * self.hdr_mul,
+            self.particle_color.z * self.hdr_mul,
             self.particle_color.w,
             self.particle_speed.0,
             self.particle_speed.1,

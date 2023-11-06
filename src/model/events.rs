@@ -1,4 +1,4 @@
-pub type Tag = String;
+pub type ID = String;
 
 pub enum ViewIOEvent {
     Add,
@@ -9,8 +9,8 @@ pub enum ViewIOEvent {
 #[derive(Default)]
 pub struct Events {
     reset_camera: Option<bool>,
-    create_emitter: Option<Tag>,
-    delete_emitter: Option<Tag>,
+    create_emitter: Option<ID>,
+    delete_emitter: Option<ID>,
     io_view: Option<ViewIOEvent>,
 }
 
@@ -20,26 +20,25 @@ impl Events {
         self.reset_camera = Some(true);
     }
 
-    /// Event will be removed when returned
-    pub fn get_reset_camera(&mut self) -> Option<bool> {
+    pub fn reset_camera(&mut self) -> Option<bool> {
         self.reset_camera.take()
     }
 
-    pub fn set_create_emitter(&mut self, tag: Tag) {
-        self.create_emitter = Some(tag);
+    pub fn set_create_emitter(&mut self, id: ID) {
+        self.create_emitter = Some(id);
     }
 
     /// Event will be removed when returned
-    pub fn get_create_emitter(&mut self) -> Option<Tag> {
+    pub fn create_emitter(&mut self) -> Option<ID> {
         self.create_emitter.take()
     }
 
-    pub fn set_delete_emitter(&mut self, tag: Tag) {
-        self.delete_emitter = Some(tag);
+    pub fn set_delete_emitter(&mut self, id: ID) {
+        self.delete_emitter = Some(id);
     }
 
     /// Event will be removed when returned
-    pub fn get_delete_emitter(&mut self) -> Option<String> {
+    pub fn delete_emitter(&mut self) -> Option<ID> {
         self.delete_emitter.take()
     }
 

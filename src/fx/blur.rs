@@ -66,7 +66,6 @@ pub struct BlurUniform {
     // How far to look
     pub radius: i32,
     pub sigma: f32,
-    pub hdr_mul: f32,
     pub intensity: f32,
 }
 
@@ -76,7 +75,6 @@ impl Default for BlurUniform {
             brightness_threshold: 0.6,
             radius: 4,
             sigma: 1.3,
-            hdr_mul: 25.,
             intensity: 1.00, // betere naam verzinnen
         }
     }
@@ -132,8 +130,7 @@ impl PostFx for Blur {
                 Slider::new(&mut blur.brightness_threshold, 0.0..=1.0).text("Brightness threshold"),
             );
             ui.add(Slider::new(&mut blur.sigma, 0.1..=3.0).text("Blur sigma"));
-            ui.add(Slider::new(&mut blur.hdr_mul, 1.0..=50.0).text("HDR multiplication"));
-            ui.add(Slider::new(&mut blur.radius, 2..=5).text("Blur radius"));
+            ui.add(Slider::new(&mut blur.radius, 2..=8).text("Blur radius"));
             ui.add(Slider::new(&mut blur.intensity, 0.9..=1.1).text("Blur intensity"));
         }
 

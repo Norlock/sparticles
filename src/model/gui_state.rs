@@ -1,4 +1,4 @@
-use super::{events::ViewIOEvent, EmitterState, GfxState, State};
+use super::{events::ViewIOEvent, EmitterSettings, EmitterState, GfxState, State};
 use crate::{
     fx::{FxOptions, PostProcessState},
     texture::IconTexture,
@@ -9,8 +9,10 @@ use egui::{Color32, RichText, Slider, Ui, Window};
 use egui_wgpu::wgpu;
 use egui_winit::{
     egui::{
-        self, load::SizedTexture, CollapsingHeader, ComboBox, DisplayEvent, ImageButton, Margin,
-        SetEvent, TextureId,
+        self,
+        color_picker::{color_edit_button_rgba, Alpha},
+        load::SizedTexture,
+        CollapsingHeader, ComboBox, DisplayEvent, ImageButton, Margin, Rgba, SetEvent, TextureId,
     },
     winit::event::{ElementState, KeyboardInput, VirtualKeyCode},
 };
@@ -37,6 +39,7 @@ pub struct GuiState {
 
     performance_event: Option<DisplayEvent>,
     display_event: Option<DisplayEvent>,
+    pub emitter_settings: Option<EmitterSettings>,
 }
 
 const CHEVRON_UP_ID: &str = "chevron-up";
@@ -50,6 +53,8 @@ enum Tab {
     ParticleAnimations,
     EmitterAnimations,
 }
+
+const WINDOW_MARGIN: f32 = 10.;
 
 impl GuiState {
     pub fn process_input(state: &mut State, input: &KeyboardInput, shift_pressed: bool) -> bool {
@@ -86,17 +91,15 @@ impl GuiState {
             return;
         }
 
-        let margin_size = 10.;
-
         Window::new("Sparticles settings")
             .vscroll(true)
             .frame(egui::Frame {
                 fill: Color32::from_rgb(0, 30, 0),
                 inner_margin: Margin {
-                    top: margin_size,
-                    left: margin_size,
-                    right: margin_size,
-                    bottom: margin_size,
+                    top: WINDOW_MARGIN,
+                    left: WINDOW_MARGIN,
+                    right: WINDOW_MARGIN,
+                    bottom: WINDOW_MARGIN,
                 },
                 ..Default::default()
             })
@@ -204,8 +207,8 @@ impl GuiState {
                             .expect("Expects a selected emitter");
 
                     if !emitter.is_light && ui.button("Remove emitter").clicked() {
-                        let tag = emitter.id().to_string();
-                        events.set_delete_emitter(tag);
+                        let id = emitter.id().to_string();
+                        events.set_delete_emitter(id);
                         gui.selected_emitter_id = 0;
                     }
                 });
@@ -281,13 +284,14 @@ impl GuiState {
     }
 
     fn emitter_animations_tab(state: &mut State, ui: &mut Ui) {
+        let gui = &mut state.gui;
+
         if let Some(emitter) = GuiState::selected_emitter(
             &mut state.emitters,
             &mut state.lights,
-            state.gui.selected_emitter_id,
+            gui.selected_emitter_id,
         ) {
             let registered_em_anims = &state.registered_em_anims;
-            let gui = &mut state.gui;
 
             emitter.ui_emitter_animations(ui, gui);
 
@@ -398,17 +402,28 @@ impl GuiState {
             profiling_results: Vec::new(),
             display_event: None,
             performance_event: None,
+            emitter_settings: None,
         }
     }
 
     fn emitter_settings_tab(state: &mut State, ui: &mut Ui) {
+        let mut emitter_settings;
         let gui = &mut state.gui;
+
         if let Some(emitter) = GuiState::selected_emitter(
             &mut state.emitters,
             &mut state.lights,
             gui.selected_emitter_id,
         ) {
-            let mut emitter_settings = emitter.uniform.create_settings();
+            emitter_settings = gui
+                .emitter_settings
+                .get_or_insert_with(|| emitter.uniform.create_settings());
+
+            if emitter.id() != &emitter_settings.id {
+                emitter_settings = gui
+                    .emitter_settings
+                    .insert(emitter.uniform.create_settings());
+            }
 
             ui.add_space(5.0);
 
@@ -435,6 +450,27 @@ impl GuiState {
                 ui.add(egui::DragValue::new(&mut emitter_settings.box_position.x).speed(0.1));
                 ui.add(egui::DragValue::new(&mut emitter_settings.box_position.y).speed(0.1));
                 ui.add(egui::DragValue::new(&mut emitter_settings.box_position.z).speed(0.1));
+            });
+
+            ui.add_space(5.0);
+
+            ui.horizontal(|ui| {
+                let col = emitter_settings.particle_color;
+                //println!("{}", &emitter_settings.id);
+                let mut particle_color = Rgba::from_rgba_unmultiplied(col.x, col.y, col.z, col.w);
+
+                if color_edit_button_rgba(ui, &mut particle_color, Alpha::Opaque).changed() {
+                    emitter_settings.particle_color.x = particle_color.r();
+                    emitter_settings.particle_color.y = particle_color.g();
+                    emitter_settings.particle_color.z = particle_color.b();
+                    emitter_settings.particle_color.w = particle_color.a();
+                };
+
+                ui.label("Particle color");
+                ui.add(
+                    Slider::new(&mut emitter_settings.hdr_mul, 1.0..=50.0)
+                        .text("HDR multiplication"),
+                );
             });
 
             ui.add_space(5.0);
@@ -508,11 +544,11 @@ impl GuiState {
                 );
             };
 
-            if state.emitters.len() == state.gui.selected_emitter_id {
-                EmitterState::update_lights(state, emitter_settings);
+            if state.emitters.len() == gui.selected_emitter_id {
+                EmitterState::update_lights(state);
             } else {
-                let em_idx = state.gui.selected_emitter_id;
-                EmitterState::update_emitter(state, em_idx, emitter_settings);
+                let em_idx = gui.selected_emitter_id;
+                EmitterState::update_emitter(state, em_idx);
             }
         }
     }

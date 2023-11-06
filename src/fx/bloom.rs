@@ -131,9 +131,7 @@ impl PostFx for Bloom {
         let mut blur = self.blur_uniform;
 
         GuiState::create_title(ui, "Split bloom");
-
         ui.add(Slider::new(&mut blur.brightness_threshold, 0.1..=5.0).text("Brightness treshhold"));
-        ui.add(Slider::new(&mut blur.hdr_mul, 1.0..=50.0).text("HDR multiplication"));
 
         GuiState::create_title(ui, "Blend");
         ui.add(Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0).text("IO mix"));

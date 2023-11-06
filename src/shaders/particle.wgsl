@@ -79,7 +79,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
         let distance = length(light_pos - in.world_space.xyz);
         let strength = 1.0 - distance * 0.04;
-        let ambient_color = light.color.rgb * strength;
+        let ambient_color = acesFilm(light.color.rgb) * strength;
 
         if (strength <= 0.0) {
             continue;

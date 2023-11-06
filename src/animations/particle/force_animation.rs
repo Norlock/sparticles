@@ -90,6 +90,7 @@ pub struct ForceAnimation {
     update_uniform: bool,
     should_animate: bool,
     selected_action: ListAction,
+    enabled: bool,
 }
 
 impl HandleAction for ForceAnimation {
@@ -111,7 +112,7 @@ impl HandleAction for ForceAnimation {
     }
 
     fn enabled(&self) -> bool {
-        todo!()
+        self.enabled
     }
 }
 
@@ -191,6 +192,8 @@ impl ParticleAnimation for ForceAnimation {
             ui.add(DragValue::new(&mut gui.mass_per_unit).speed(0.1));
         });
 
+        ui.checkbox(&mut self.enabled, "Enabled");
+
         if self.uniform != gui {
             self.update_uniform = true;
             self.uniform = gui;
@@ -258,6 +261,7 @@ impl ForceAnimation {
             update_uniform: false,
             should_animate: false,
             selected_action: ListAction::None,
+            enabled: true,
         }
     }
 }

@@ -53,11 +53,10 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    let copy = textureLoad(fx_tex[fx_io.in_idx], pos);
-    let hdr = copy.rgb * globals.hdr_mul;
+    let col = textureLoad(fx_tex[fx_io.in_idx], pos).rgb;
 
-    if any(vec3<f32>(globals.br_treshold) < hdr) {
-        textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(hdr, 1.0));
+    if any(vec3<f32>(globals.br_treshold) < col) {
+        textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(col, 1.0));
     } else {
         textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(0.0));
     }

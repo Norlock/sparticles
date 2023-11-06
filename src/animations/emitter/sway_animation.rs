@@ -25,6 +25,8 @@ pub struct SwayAnimation {
 
     #[serde(skip_serializing, skip_deserializing)]
     selected_action: ListAction,
+
+    enabled: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -70,6 +72,7 @@ impl SwayAnimation {
             pitch: pitch_deg.to_radians(),
             roll: roll_deg.to_radians(),
             selected_action: ListAction::None,
+            enabled: true,
             gui,
         }
     }
@@ -92,7 +95,7 @@ impl HandleAction for SwayAnimation {
     }
 
     fn enabled(&self) -> bool {
-        todo!()
+        self.enabled
     }
 }
 
@@ -152,6 +155,8 @@ impl EmitterAnimation for SwayAnimation {
             ui.add(DragValue::new(&mut gui.roll.x).speed(0.1));
             ui.add(DragValue::new(&mut gui.roll.y).speed(0.1));
         });
+
+        ui.checkbox(&mut self.enabled, "Enabled");
 
         self.yaw = gui.yaw.to_radians();
         self.pitch = gui.pitch.to_radians();

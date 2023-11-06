@@ -123,6 +123,7 @@ pub struct GravityAnimation {
     buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
     selected_action: ListAction,
+    enabled: bool,
 }
 
 impl HandleAction for GravityAnimation {
@@ -144,7 +145,7 @@ impl HandleAction for GravityAnimation {
     }
 
     fn enabled(&self) -> bool {
-        todo!()
+        self.enabled
     }
 }
 
@@ -245,6 +246,8 @@ impl ParticleAnimation for GravityAnimation {
             );
         });
 
+        ui.checkbox(&mut self.enabled, "Enabled");
+
         if self.uniform != gui {
             self.uniform = gui;
         }
@@ -309,6 +312,7 @@ impl GravityAnimation {
             buffer,
             bind_group,
             selected_action: ListAction::None,
+            enabled: true,
         }
     }
 }
