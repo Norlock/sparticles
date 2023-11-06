@@ -69,11 +69,11 @@ impl GuiState {
             VirtualKeyCode::T if !shift_pressed => {
                 events.set_io_view(ViewIOEvent::Add);
             }
-            VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
             VirtualKeyCode::Key1 => gui.selected_tab = Tab::EmitterSettings,
             VirtualKeyCode::Key2 => gui.selected_tab = Tab::PostFxSettings,
             VirtualKeyCode::Key3 => gui.selected_tab = Tab::ParticleAnimations,
             VirtualKeyCode::Key4 => gui.selected_tab = Tab::EmitterAnimations,
+            VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
             VirtualKeyCode::P => gui.performance_event.set(DisplayEvent::ToggleCollapse),
             _ => return false,
         }
@@ -289,7 +289,7 @@ impl GuiState {
             let registered_em_anims = &state.registered_em_anims;
             let gui = &mut state.gui;
 
-            emitter.gui_emitter_animations(ui, gui);
+            emitter.ui_emitter_animations(ui, gui);
 
             ui.separator();
 
@@ -322,7 +322,7 @@ impl GuiState {
         } = state;
 
         if let Some(emitter) = GuiState::selected_emitter(e, l, gui.selected_emitter_id) {
-            emitter.gui_particle_animations(ui, gui);
+            emitter.ui_particle_animations(ui, gui);
 
             ui.separator();
 
@@ -401,27 +401,6 @@ impl GuiState {
         }
     }
 
-    pub fn process_gui(state: &mut State) {
-        let State {
-            camera,
-            lights,
-            emitters,
-            gui,
-            gfx_state,
-            ..
-        } = state;
-
-        if !gui.enabled {
-            return;
-        }
-
-        if emitters.len() == gui.selected_emitter_id {
-            lights.process_gui(None, gfx_state, camera);
-        } else if let Some(emitter) = emitters.get_mut(gui.selected_emitter_id) {
-            emitter.process_gui(Some(&lights.bind_group_layout), gfx_state, camera);
-        }
-    }
-
     fn emitter_settings_tab(state: &mut State, ui: &mut Ui) {
         let gui = &mut state.gui;
         if let Some(emitter) = GuiState::selected_emitter(
@@ -429,44 +408,44 @@ impl GuiState {
             &mut state.lights,
             gui.selected_emitter_id,
         ) {
-            let emitter_gui = &mut emitter.gui;
+            let mut emitter_settings = emitter.uniform.create_settings();
 
             ui.add_space(5.0);
 
-            Self::create_degree_slider(ui, &mut emitter_gui.box_rotation_deg.x, "Box yaw");
-            Self::create_degree_slider(ui, &mut emitter_gui.box_rotation_deg.y, "Box pitch");
-            Self::create_degree_slider(ui, &mut emitter_gui.box_rotation_deg.z, "Box roll");
+            Self::create_degree_slider(ui, &mut emitter_settings.box_rotation_deg.x, "Box yaw");
+            Self::create_degree_slider(ui, &mut emitter_settings.box_rotation_deg.y, "Box pitch");
+            Self::create_degree_slider(ui, &mut emitter_settings.box_rotation_deg.z, "Box roll");
 
-            Self::create_degree_slider(ui, &mut emitter_gui.diff_width_deg, "Diffusion width");
-            Self::create_degree_slider(ui, &mut emitter_gui.diff_depth_deg, "Diffusion depth");
+            Self::create_degree_slider(ui, &mut emitter_settings.diff_width_deg, "Diffusion width");
+            Self::create_degree_slider(ui, &mut emitter_settings.diff_depth_deg, "Diffusion depth");
 
             ui.add_space(5.0);
             create_label(ui, "Box dimensions (w, h, d)");
 
             ui.horizontal(|ui| {
-                create_drag_value(ui, &mut emitter_gui.box_dimensions.x);
-                create_drag_value(ui, &mut emitter_gui.box_dimensions.y);
-                create_drag_value(ui, &mut emitter_gui.box_dimensions.z);
+                create_drag_value(ui, &mut emitter_settings.box_dimensions.x);
+                create_drag_value(ui, &mut emitter_settings.box_dimensions.y);
+                create_drag_value(ui, &mut emitter_settings.box_dimensions.z);
             });
 
             ui.add_space(5.0);
             create_label(ui, "Box position");
 
             ui.horizontal(|ui| {
-                ui.add(egui::DragValue::new(&mut emitter_gui.box_position.x).speed(0.1));
-                ui.add(egui::DragValue::new(&mut emitter_gui.box_position.y).speed(0.1));
-                ui.add(egui::DragValue::new(&mut emitter_gui.box_position.z).speed(0.1));
+                ui.add(egui::DragValue::new(&mut emitter_settings.box_position.x).speed(0.1));
+                ui.add(egui::DragValue::new(&mut emitter_settings.box_position.y).speed(0.1));
+                ui.add(egui::DragValue::new(&mut emitter_settings.box_position.z).speed(0.1));
             });
 
             ui.add_space(5.0);
             ui.add(
-                Slider::new(&mut emitter_gui.particle_speed_min, 0.0..=50.0)
+                Slider::new(&mut emitter_settings.particle_speed_min, 0.0..=50.0)
                     .text("Particle emit speed min"),
             );
             ui.add(
                 Slider::new(
-                    &mut emitter_gui.particle_speed_max,
-                    emitter_gui.particle_speed_min..=50.0,
+                    &mut emitter_settings.particle_speed_max,
+                    emitter_settings.particle_speed_min..=50.0,
                 )
                 .text("Particle emit speed max"),
             );
@@ -474,7 +453,7 @@ impl GuiState {
             create_label(ui, "Spawn itemings");
 
             ui.add(
-                egui::Slider::new(&mut emitter_gui.particle_lifetime_sec, 1.0..=40.0)
+                egui::Slider::new(&mut emitter_settings.particle_lifetime_sec, 1.0..=40.0)
                     .drag_value_speed(0.)
                     .max_decimals(1)
                     .step_by(0.1)
@@ -482,18 +461,20 @@ impl GuiState {
             );
 
             ui.add(
-                egui::Slider::new(&mut emitter_gui.spawn_delay_sec, 0.1..=20.0)
+                egui::Slider::new(&mut emitter_settings.spawn_delay_sec, 0.1..=20.0)
                     .drag_value_speed(0.)
                     .max_decimals(1)
                     .step_by(0.1)
                     .text("Spawn delay (sec)"),
             );
 
-            ui.add(egui::Slider::new(&mut emitter_gui.spawn_count, 1..=100).text("Spawn count"));
+            ui.add(
+                egui::Slider::new(&mut emitter_settings.spawn_count, 1..=100).text("Spawn count"),
+            );
 
             ui.add_space(5.0);
 
-            emitter_gui.recreate = ui.button("Update spawn settings").clicked();
+            emitter_settings.recreate = ui.button("Update spawn settings").clicked();
 
             ui.add_space(5.0);
 
@@ -502,13 +483,13 @@ impl GuiState {
             ui.add_space(5.0);
 
             ui.add(
-                Slider::new(&mut emitter_gui.particle_size_min, 0.01..=2.0)
+                Slider::new(&mut emitter_settings.particle_size_min, 0.01..=2.0)
                     .text("Particle size min"),
             );
             ui.add(
                 Slider::new(
-                    &mut emitter_gui.particle_size_max,
-                    emitter_gui.particle_size_min..=2.0,
+                    &mut emitter_settings.particle_size_max,
+                    emitter_settings.particle_size_min..=2.0,
                 )
                 .text("Particle size max"),
             );
@@ -526,6 +507,13 @@ impl GuiState {
                     &mut gui.texture_paths[gui.selected_texture],
                 );
             };
+
+            if state.emitters.len() == state.gui.selected_emitter_id {
+                EmitterState::update_lights(state, emitter_settings);
+            } else {
+                let em_idx = state.gui.selected_emitter_id;
+                EmitterState::update_emitter(state, em_idx, emitter_settings);
+            }
         }
     }
 

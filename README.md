@@ -7,6 +7,7 @@ GPU Particle system written in Rust + WGPU + EGUI
 - [ ] Seperate post fx settings per emitter
 - [ ] Create noise texture for effects
   - [ ] Create these textures in gui
+  - [ ] Create multiple at once using different color channels
 - [x] Export shader to file
 - [ ] Use rust-gpu, maybe?
 - [ ] keyboard struct

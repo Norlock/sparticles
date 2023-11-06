@@ -18,6 +18,7 @@ pub struct BlurPass {
 pub struct BlurPassSettings<'a> {
     pub blur_layout: &'a wgpu::BindGroupLayout,
     pub io_idx: (u32, u32),
+    pub downscale: f32,
 }
 
 impl BlurPass {
@@ -79,13 +80,14 @@ impl BlurPass {
         let BlurPassSettings {
             blur_layout,
             io_idx: (in_idx, out_idx),
+            downscale,
         } = settings;
 
         let device = &gfx_state.device;
         let blur_shader = device.create_shader("fx/gaussian_blur.wgsl", "Gaussian blur");
 
-        let io_ping = FxIOUniform::asymetric_unscaled(options.fx_state, in_idx, out_idx);
-        let io_pong = FxIOUniform::asymetric_unscaled(options.fx_state, out_idx, in_idx);
+        let io_ping = FxIOUniform::asymetric_scaled(options.fx_state, in_idx, out_idx, downscale);
+        let io_pong = FxIOUniform::asymetric_scaled(options.fx_state, out_idx, in_idx, downscale);
         let io_ctx = FxIOSwapCtx::new([io_ping, io_pong], device, "IO Swap blur");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

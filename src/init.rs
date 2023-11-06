@@ -125,12 +125,8 @@ impl InitSettings {
     ) -> InitEmitters {
         let lights = InitSettings::create_light_emitter(app_settings, gfx_state, camera);
 
-        let emitters = InitSettings::create_emitter(
-            app_settings,
-            gfx_state,
-            &lights.bind_group_layout,
-            camera,
-        );
+        let emitters =
+            InitSettings::create_emitter(app_settings, gfx_state, &lights.bg_layout, camera);
 
         InitEmitters {
             lights,
@@ -261,7 +257,7 @@ impl InitSettings {
         for emitter_export in import_emitters {
             let mut emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
                 emitter_uniform: emitter_export.emitter,
-                light_layout: Some(&lights.bind_group_layout),
+                light_layout: Some(&lights.bg_layout),
                 camera,
             });
 

@@ -64,16 +64,15 @@ impl GfxState {
 
         // Higher limits for Post FX
         let limits = wgpu::Limits {
-            max_sampled_textures_per_shader_stage: 64,
-            max_storage_textures_per_shader_stage: 64,
+            max_sampled_textures_per_shader_stage: 32,
+            max_storage_textures_per_shader_stage: 32,
             ..Default::default()
         };
 
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::TIMESTAMP_QUERY
-                        | wgpu::Features::TEXTURE_BINDING_ARRAY
+                    features: wgpu::Features::TEXTURE_BINDING_ARRAY
                         | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY
                         | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
                         | GpuProfiler::ALL_WGPU_TIMER_FEATURES,

@@ -190,6 +190,7 @@ impl Blur {
             BlurPassSettings {
                 blur_layout: &blur_ctx.bg_layout,
                 io_idx: (0, 1),
+                downscale: 1.,
             },
         );
 

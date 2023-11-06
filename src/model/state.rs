@@ -24,8 +24,7 @@ impl State {
 
         Camera::update(self);
         PostProcessState::update(self);
-        EmitterState::update_emitters(self);
-        GuiState::process_gui(self);
+        EmitterState::update(self);
     }
 
     pub fn render(&mut self) {

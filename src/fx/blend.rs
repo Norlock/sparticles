@@ -48,14 +48,19 @@ impl BlendPass {
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
+        let io_uniform = &self.io_uniform;
 
-        gfx_state.begin_scope(
-            &format!(
-                "Upscale from {} to {}",
-                self.io_uniform.in_downscale, self.io_uniform.out_downscale
-            ),
-            c_pass,
-        );
+        if io_uniform.in_downscale == 1 && io_uniform.out_downscale == 1 {
+            gfx_state.begin_scope("Lerp blend", c_pass);
+        } else {
+            gfx_state.begin_scope(
+                &format!(
+                    "Upscale from {} to {}",
+                    io_uniform.in_downscale, io_uniform.out_downscale
+                ),
+                c_pass,
+            );
+        }
         c_pass.set_pipeline(&self.lerp_upscale_pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);

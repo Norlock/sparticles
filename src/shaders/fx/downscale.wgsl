@@ -2,7 +2,7 @@
 @group(1) @binding(0) var<uniform> fx_io: FxIO; 
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn downscale(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let pos = global_invocation_id.xy;
 

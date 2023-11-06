@@ -78,7 +78,7 @@ impl PostProcessState {
     }
 
     pub fn frame_view(&self) -> &wgpu::TextureView {
-        &self.fx_state.frame_view
+        &self.fx_state.tex_views[0]
     }
 
     pub fn depth_view(&self) -> &wgpu::TextureView {
@@ -157,19 +157,13 @@ impl PostProcessState {
         let io_uniform = FxIOUniform::zero(&fx_state);
         let io_ctx = UniformContext::from_uniform(&io_uniform, device, "IO");
 
-        let c_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Post fx layout"),
-            bind_group_layouts: &[&fx_state.bg_layout, &io_ctx.bg_layout],
-            push_constant_ranges: &[],
-        });
-
         let r_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post fx layout"),
             bind_group_layouts: &[&fx_state.r_bg_layout, &io_ctx.bg_layout],
             push_constant_ranges: &[],
         });
 
-        let finalize_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Finalize pipeline"),
             layout: Some(&r_pipeline_layout),
             vertex: wgpu::VertexState {
@@ -178,7 +172,7 @@ impl PostProcessState {
                 buffers: &[],
             },
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                topology: wgpu::PrimitiveTopology::TriangleList,
                 ..Default::default()
             },
             depth_stencil: None,
@@ -189,7 +183,7 @@ impl PostProcessState {
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
                     blend: None,
-                    write_mask: wgpu::ColorWrites::ALL,
+                    write_mask: wgpu::ColorWrites::COLOR,
                 })],
             }),
             multiview: None,
@@ -203,7 +197,8 @@ impl PostProcessState {
         Self {
             fx_state,
             effects,
-            render_pipeline: finalize_pipeline,
+
+            render_pipeline,
 
             io_uniform,
             io_ctx,
@@ -254,10 +249,11 @@ pub struct FxState {
 
     pub tex_size: glam::Vec2,
     pub depth_view: wgpu::TextureView,
-    pub frame_view: wgpu::TextureView,
+
+    tex_views: Vec<wgpu::TextureView>,
 }
 
-const WORK_GROUP_SIZE: f32 = 8.;
+const WORK_GROUP_SIZE: f32 = 16.;
 
 impl FxState {
     pub fn count_in(&self, io_uniform: &FxIOUniform) -> (u32, u32) {
@@ -407,7 +403,7 @@ impl FxState {
             count_x,
             count_y,
             depth_view,
-            frame_view: tex_views.swap_remove(0),
+            tex_views,
         }
     }
 }

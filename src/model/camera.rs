@@ -252,17 +252,9 @@ impl Camera {
         let view_proj_arr = view_proj.to_cols_array().to_vec();
         let view_arr = view_mat.to_cols_array().to_vec();
         let rotated_vertices_arr = self.get_rotated_vertices(view_proj);
-        let vertex_positions_arr = self.vertex_positions.to_vec_f32();
         let view_pos_arr = self.position.to_vec_f32();
 
-        [
-            view_proj_arr,
-            view_arr,
-            rotated_vertices_arr,
-            vertex_positions_arr,
-            view_pos_arr,
-        ]
-        .concat()
+        [view_proj_arr, view_arr, rotated_vertices_arr, view_pos_arr].concat()
     }
 
     fn get_rotated_vertices(&self, view_proj: Mat4) -> Vec<f32> {

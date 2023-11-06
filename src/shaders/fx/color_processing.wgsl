@@ -14,7 +14,7 @@ fn gamma(col: vec3<f32>) -> vec3<f32> {
 }
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn general(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos = global_id.xy;
 
@@ -31,7 +31,7 @@ fn general(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn tonemap(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos = global_id.xy;
 

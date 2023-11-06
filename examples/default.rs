@@ -1,5 +1,5 @@
 #![allow(dead_code, unused)]
-use glam::{Vec2, Vec3, Vec4};
+use glam::{f32::Vec4, vec4, Vec2, Vec3};
 use sparticles::{
     animations::{
         ColorUniform, DiffusionAnimation, ForceUniform, GravityUniform, GravityUniformOptions,

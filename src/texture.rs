@@ -8,7 +8,7 @@ pub struct DiffuseCtx {
     pub sampler: wgpu::Sampler,
     pub view: wgpu::TextureView,
     pub bind_group: wgpu::BindGroup,
-    pub bind_group_layout: wgpu::BindGroupLayout,
+    pub bg_layout: wgpu::BindGroupLayout,
 }
 
 pub struct IconTexture;
@@ -123,6 +123,8 @@ impl GfxState {
                 dimension: wgpu::TextureDimension::D2,
                 format: PostProcessState::TEXTURE_FORMAT,
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::COPY_SRC
+                    | wgpu::TextureUsages::COPY_DST
                     | wgpu::TextureUsages::TEXTURE_BINDING
                     | wgpu::TextureUsages::STORAGE_BINDING,
             })
@@ -219,7 +221,7 @@ impl GfxState {
             sampler,
             view,
             bind_group,
-            bind_group_layout,
+            bg_layout: bind_group_layout,
         }
     }
 

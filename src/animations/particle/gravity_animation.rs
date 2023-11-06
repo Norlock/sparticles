@@ -162,7 +162,7 @@ impl ParticleAnimation for GravityAnimation {
         let nr = clock.get_bindgroup_nr();
 
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &emitter.bind_groups[nr], &[]);
+        compute_pass.set_bind_group(0, &emitter.bgs[nr], &[]);
         compute_pass.set_bind_group(1, &self.bind_group, &[]);
         compute_pass.dispatch_workgroups(emitter.dispatch_x_count, 1, 1);
     }
@@ -292,7 +292,7 @@ impl GravityAnimation {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Gravity animation layout"),
-            bind_group_layouts: &[&emitter.bind_group_layout, &animation_layout],
+            bind_group_layouts: &[&emitter.bg_layout, &animation_layout],
             push_constant_ranges: &[],
         });
 

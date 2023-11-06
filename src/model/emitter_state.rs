@@ -1,4 +1,4 @@
-use super::{Camera, EmitterGuiState, EmitterUniform, GfxState, GuiState, State};
+use super::{Camera, EmitterSettings, EmitterUniform, GfxState, GuiState, State};
 use crate::fx::PostProcessState;
 use crate::texture::DiffuseCtx;
 use crate::traits::{CalculateBufferSize, CustomShader};
@@ -6,7 +6,7 @@ use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
 use crate::util::ListAction;
 use crate::util::Persistence;
-use egui_wgpu::wgpu;
+use egui_wgpu::wgpu::{self, ShaderModule};
 use egui_winit::egui::{ScrollArea, Ui};
 use std::path::PathBuf;
 use std::{
@@ -23,14 +23,15 @@ pub struct EmitterState {
     render_pipeline: wgpu::RenderPipeline,
     particle_animations: Vec<Box<dyn ParticleAnimation>>,
     emitter_animations: Vec<Box<dyn EmitterAnimation>>,
+    shader: ShaderModule,
     diffuse_ctx: DiffuseCtx,
+    pipeline_layout: wgpu::PipelineLayout,
 
     pub uniform: EmitterUniform,
     pub dispatch_x_count: u32,
-    pub bind_groups: Vec<wgpu::BindGroup>,
-    pub bind_group_layout: wgpu::BindGroupLayout,
+    pub bgs: Vec<wgpu::BindGroup>,
+    pub bg_layout: wgpu::BindGroupLayout,
     pub is_light: bool,
-    pub gui: EmitterGuiState,
 }
 
 pub struct CreateEmitterOptions<'a> {
@@ -44,7 +45,93 @@ impl<'a> EmitterState {
         &self.uniform.id
     }
 
-    pub fn update_emitters(state: &mut State) {
+    pub fn update_emitter(state: &mut State, idx: usize, settings: EmitterSettings) {
+        let State {
+            camera,
+            lights,
+            emitters,
+            gfx_state,
+            ..
+        } = state;
+
+        let em = &mut emitters[idx];
+        em.uniform.update_settings(&settings);
+
+        if !settings.recreate {
+            return;
+        }
+
+        em.recreate_emitter(gfx_state, Some(&lights.bg_layout), camera);
+    }
+
+    pub fn update_lights(state: &mut State, settings: EmitterSettings) {
+        let lights = &mut state.lights;
+
+        lights.uniform.update_settings(&settings);
+
+        if !settings.recreate {
+            return;
+        }
+
+        let emitters = &mut state.emitters;
+        let gfx_state = &state.gfx_state;
+        let camera = &state.camera;
+
+        lights.recreate_emitter(gfx_state, None, camera);
+
+        let device = &gfx_state.device;
+
+        for em in emitters.iter_mut() {
+            em.pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Particle render Pipeline Layout"),
+                bind_group_layouts: &[
+                    &camera.bind_group_layout,
+                    &em.diffuse_ctx.bg_layout,
+                    &em.bg_layout,
+                    &lights.bg_layout,
+                ],
+                push_constant_ranges: &[],
+            });
+
+            em.render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&em.pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &em.shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &em.shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: PostProcessState::TEXTURE_FORMAT,
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleStrip,
+                    ..Default::default()
+                },
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: GfxState::DEPTH_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::Less,
+                    stencil: wgpu::StencilState::default(),
+                    bias: wgpu::DepthBiasState::default(),
+                }),
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: true,
+                },
+                multiview: None,
+            });
+        }
+    }
+
+    pub fn update(state: &mut State) {
         let State {
             clock,
             lights,
@@ -54,13 +141,14 @@ impl<'a> EmitterState {
             events,
             ..
         } = state;
+
         if let Some(tag) = events.get_delete_emitter() {
             emitters.retain(|em| em.id() != &tag);
         } else if let Some(tag) = events.get_create_emitter() {
             let emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
                 camera,
                 emitter_uniform: EmitterUniform::new(tag),
-                light_layout: Some(&lights.bind_group_layout),
+                light_layout: Some(&lights.bg_layout),
             });
 
             emitters.push(emitter);
@@ -102,9 +190,6 @@ impl<'a> EmitterState {
             ..
         } = state;
 
-        let profiler = &mut gfx_state.profiler;
-        let device = &gfx_state.device;
-
         let nr = clock.get_bindgroup_nr();
 
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -112,24 +197,20 @@ impl<'a> EmitterState {
             timestamp_writes: None,
         });
 
-        profiler.begin_scope("Compute", &mut c_pass, &device);
+        gfx_state.begin_scope("Compute", &mut c_pass);
 
         let mut compute = |emitter: &'a EmitterState| {
-            profiler.begin_scope(
-                &format!("Compute emitter: {}", emitter.id()),
-                &mut c_pass,
-                &device,
-            );
+            gfx_state.begin_scope(&format!("Compute emitter: {}", emitter.id()), &mut c_pass);
             c_pass.set_pipeline(&emitter.pipeline);
-            c_pass.set_bind_group(0, &emitter.bind_groups[nr], &[]);
+            c_pass.set_bind_group(0, &emitter.bgs[nr], &[]);
             c_pass.dispatch_workgroups(emitter.dispatch_x_count, 1, 1);
-            profiler.end_scope(&mut c_pass).unwrap();
+            gfx_state.end_scope(&mut c_pass);
 
-            profiler.begin_scope("Compute particle animations", &mut c_pass, &device);
+            gfx_state.begin_scope("Compute particle animations", &mut c_pass);
             for anim in emitter.particle_animations.iter() {
                 anim.compute(emitter, clock, &mut c_pass);
             }
-            profiler.end_scope(&mut c_pass).unwrap();
+            gfx_state.end_scope(&mut c_pass);
         };
 
         compute(lights);
@@ -138,7 +219,7 @@ impl<'a> EmitterState {
             compute(emitter);
         }
 
-        profiler.end_scope(&mut c_pass).unwrap();
+        gfx_state.end_scope(&mut c_pass);
     }
 
     pub fn render_particles(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
@@ -166,39 +247,38 @@ impl<'a> EmitterState {
             occlusion_query_set: None,
         });
 
-        let profiler = &mut state.gfx_state.profiler;
         let clock = &state.clock;
         let lights = &state.lights;
         let emitters = &state.emitters;
         let camera = &state.camera;
-        let device = &state.gfx_state.device;
+        let gfx_state = &mut state.gfx_state;
 
         let nr = clock.get_alt_bindgroup_nr();
 
-        profiler.begin_scope("Render", &mut r_pass, &device);
+        gfx_state.begin_scope("Render", &mut r_pass);
 
         // Light
-        profiler.begin_scope(&format!("Emitter: {}", lights.id()), &mut r_pass, &device);
+        gfx_state.begin_scope(&format!("Emitter: {}", lights.id()), &mut r_pass);
         r_pass.set_pipeline(&lights.render_pipeline);
         r_pass.set_bind_group(0, &camera.bind_group, &[]);
         r_pass.set_bind_group(1, &lights.diffuse_ctx.bind_group, &[]);
-        r_pass.set_bind_group(2, &lights.bind_groups[nr], &[]);
+        r_pass.set_bind_group(2, &lights.bgs[nr], &[]);
         r_pass.draw(0..4, 0..lights.particle_count() as u32);
-        profiler.end_scope(&mut r_pass).unwrap();
+        gfx_state.end_scope(&mut r_pass);
 
         // Normal
         for emitter in emitters.iter() {
-            profiler.begin_scope(&format!("Emitter: {}", emitter.id()), &mut r_pass, &device);
+            gfx_state.begin_scope(&format!("Emitter: {}", emitter.id()), &mut r_pass);
             r_pass.set_pipeline(&emitter.render_pipeline);
             r_pass.set_bind_group(0, &camera.bind_group, &[]);
             r_pass.set_bind_group(1, &emitter.diffuse_ctx.bind_group, &[]);
-            r_pass.set_bind_group(2, &emitter.bind_groups[nr], &[]);
-            r_pass.set_bind_group(3, &lights.bind_groups[nr], &[]);
+            r_pass.set_bind_group(2, &emitter.bgs[nr], &[]);
+            r_pass.set_bind_group(3, &lights.bgs[nr], &[]);
             r_pass.draw(0..4, 0..emitter.particle_count() as u32);
-            profiler.end_scope(&mut r_pass).unwrap();
+            gfx_state.end_scope(&mut r_pass);
         }
 
-        profiler.end_scope(&mut r_pass).unwrap();
+        gfx_state.end_scope(&mut r_pass);
     }
 
     pub fn recreate_emitter(
@@ -217,9 +297,13 @@ impl<'a> EmitterState {
             new_self.push_particle_animation(animation.recreate(gfx_state, &new_self));
         }
 
+        new_self.particle_animations.reverse();
+
         while let Some(animation) = self.emitter_animations.pop() {
             new_self.push_emitter_animation(animation);
         }
+
+        new_self.emitter_animations.reverse();
 
         *self = new_self;
     }
@@ -232,20 +316,7 @@ impl<'a> EmitterState {
         self.emitter_animations.push(animation);
     }
 
-    pub fn process_gui(
-        &mut self,
-        layout: Option<&wgpu::BindGroupLayout>,
-        gfx_state: &GfxState,
-        camera: &Camera,
-    ) {
-        self.uniform.process_gui(&self.gui);
-
-        if self.gui.recreate {
-            self.recreate_emitter(gfx_state, layout, camera);
-        }
-    }
-
-    pub fn gui_emitter_animations(&mut self, ui: &mut Ui, gui_state: &GuiState) {
+    pub fn ui_emitter_animations(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         ScrollArea::vertical()
             .auto_shrink([true; 2])
             .vscroll(true)
@@ -259,7 +330,7 @@ impl<'a> EmitterState {
             });
     }
 
-    pub fn gui_particle_animations(&mut self, ui: &mut Ui, gui_state: &GuiState) {
+    pub fn ui_particle_animations(&mut self, ui: &mut Ui, gui_state: &GuiState) {
         ScrollArea::vertical()
             .auto_shrink([true; 2])
             .vscroll(true)
@@ -332,8 +403,9 @@ impl GfxState {
             camera,
         } = options;
 
+        println!("init {}", uniform.particle_color);
+
         let device = &self.device;
-        let surface_config = &self.surface_config;
 
         let emitter_buf_content = uniform.create_buffer_content();
         let diffuse_ctx =
@@ -349,7 +421,7 @@ impl GfxState {
         };
 
         // Compute ---------
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 // Particles
                 wgpu::BindGroupLayoutEntry {
@@ -408,7 +480,7 @@ impl GfxState {
 
         for i in 0..2 {
             bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &bind_group_layout,
+                layout: &bg_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -435,7 +507,7 @@ impl GfxState {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Compute layout"),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[&bg_layout],
             push_constant_ranges: &[],
         });
 
@@ -458,8 +530,8 @@ impl GfxState {
                 label: Some("Particle render Pipeline Layout"),
                 bind_group_layouts: &[
                     &camera.bind_group_layout,
-                    &diffuse_ctx.bind_group_layout,
-                    &bind_group_layout,
+                    &diffuse_ctx.bg_layout,
+                    &bg_layout,
                     light_layout,
                 ],
                 push_constant_ranges: &[],
@@ -471,8 +543,8 @@ impl GfxState {
                 label: Some("Light particle render Pipeline Layout"),
                 bind_group_layouts: &[
                     &camera.bind_group_layout,
-                    &diffuse_ctx.bind_group_layout,
-                    &bind_group_layout,
+                    &diffuse_ctx.bg_layout,
+                    &bg_layout,
                 ],
                 push_constant_ranges: &[],
             });
@@ -514,23 +586,28 @@ impl GfxState {
             multiview: None,
         });
 
-        let gui = uniform.create_gui();
+        let gui = uniform.create_settings();
 
-        EmitterState {
+        let em = EmitterState {
             uniform,
             pipeline,
             render_pipeline,
-            bind_group_layout,
-            bind_groups,
+            pipeline_layout,
+            bg_layout,
+            bgs: bind_groups,
             particle_buffers,
             emitter_buffer,
             dispatch_x_count,
             particle_animations: vec![],
             emitter_animations: vec![],
             diffuse_ctx,
+            shader,
             is_light,
-            gui,
-        }
+        };
+
+        println!("recreating {}", em.id());
+
+        em
     }
 }
 

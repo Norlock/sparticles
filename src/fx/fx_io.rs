@@ -1,6 +1,6 @@
 use super::FxState;
+use crate::model::GfxState;
 use crate::util::CommonBuffer;
-use crate::{model::GfxState, util::UniformContext};
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use encase::ShaderType;
 use serde::{Deserialize, Serialize};
@@ -132,6 +132,18 @@ impl FxIOUniform {
                 out_idx,
                 in_downscale: 1.,
                 out_downscale: 1.,
+            },
+        )
+    }
+
+    pub fn asymetric_scaled(fx_state: &FxState, in_idx: u32, out_idx: u32, downscale: f32) -> Self {
+        Self::create(
+            fx_state,
+            FxIOUniformOptions {
+                in_idx,
+                out_idx,
+                in_downscale: downscale,
+                out_downscale: downscale,
             },
         )
     }

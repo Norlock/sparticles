@@ -62,7 +62,7 @@ fn in_color(in_pos: vec2<i32>) -> vec3<f32> {
 }
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn lerp_upscale_blend(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos = global_id.xy;
 
@@ -83,7 +83,7 @@ fn lerp_upscale_blend(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn lerp_simple_blend(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos = global_id.xy;
 
@@ -100,7 +100,7 @@ fn lerp_simple_blend(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn add_blend(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos = global_id.xy;
 

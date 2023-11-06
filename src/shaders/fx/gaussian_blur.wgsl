@@ -33,19 +33,19 @@ fn apply_blur(pos: vec2<i32>, offset: vec2<i32>) {
 }
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn apply_blur_x(@builtin(global_invocation_id) pos: vec3<u32>) {
     apply_blur(vec2<i32>(pos.xy), vec2<i32>(1, 0));
 }
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn apply_blur_y(@builtin(global_invocation_id) pos: vec3<u32>) {
     apply_blur(vec2<i32>(pos.xy), vec2<i32>(0, 1));
 }
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let pos = global_invocation_id.xy;
 
@@ -55,11 +55,6 @@ fn split_bloom(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     let copy = textureLoad(fx_tex[fx_io.in_idx], pos);
     let hdr = copy.rgb * globals.hdr_mul;
-
-    // Ping pong asymetric
-    if fx_io.in_idx != fx_io.out_idx {
-        textureStore(fx_tex[fx_io.in_idx], pos, copy);
-    }
 
     if any(vec3<f32>(globals.br_treshold) < hdr) {
         textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(hdr, 1.0));

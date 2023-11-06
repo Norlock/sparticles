@@ -1,5 +1,4 @@
 use egui_winit::winit;
-use egui_winit::winit::dpi::PhysicalSize;
 use init::AppSettings;
 use model::State;
 use winit::event::Event::*;
@@ -7,7 +6,6 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{self, WindowId};
 
 pub mod animations;
-pub mod debug;
 pub mod fx;
 pub mod init;
 pub mod math;

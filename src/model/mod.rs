@@ -11,7 +11,7 @@ pub mod state;
 
 pub use camera::Camera;
 pub use clock::Clock;
-pub use emitter::{EmitterGuiState, EmitterUniform, Range};
+pub use emitter::{EmitterSettings, EmitterUniform, Range};
 pub use emitter_state::{CreateEmitterOptions, EmitterState};
 pub use events::Events;
 pub use gfx_state::GfxState;

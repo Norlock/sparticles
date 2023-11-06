@@ -76,5 +76,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     effect += 0.5;
 
     //let result = in.color
-    return vec4<f32>(texture_color.rgb * in.color.rgb, 1.0);
+    return vec4<f32>(texture_color.rgb * effect, 1.0);
 }

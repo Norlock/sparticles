@@ -1,6 +1,6 @@
 use super::Clock;
 use crate::traits::{FromRGB, HandleAngles};
-use glam::{Vec3, Vec4};
+use glam::{f32::Vec3, f32::Vec4};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -56,7 +56,7 @@ pub struct EmitterUniform {
     pub texture_image: PathBuf,
 }
 
-pub struct EmitterGuiState {
+pub struct EmitterSettings {
     pub spawn_count: u32,
     pub spawn_delay_sec: f32,
     pub particle_lifetime_sec: f32,
@@ -122,29 +122,29 @@ impl EmitterUniform {
         }
     }
 
-    pub fn process_gui(&mut self, gui: &EmitterGuiState) {
-        self.box_rotation = gui.box_rotation_deg.to_radians();
-        self.box_dimensions = gui.box_dimensions;
-        self.box_position = gui.box_position;
+    pub fn update_settings(&mut self, settings: &EmitterSettings) {
+        self.box_rotation = settings.box_rotation_deg.to_radians();
+        self.box_dimensions = settings.box_dimensions;
+        self.box_position = settings.box_position;
 
-        self.diff_width = gui.diff_width_deg.to_radians();
-        self.diff_depth = gui.diff_depth_deg.to_radians();
+        self.diff_width = settings.diff_width_deg.to_radians();
+        self.diff_depth = settings.diff_depth_deg.to_radians();
 
-        self.particle_speed.0 = gui.particle_speed_min;
-        self.particle_speed.1 = gui.particle_speed_max;
+        self.particle_speed.0 = settings.particle_speed_min;
+        self.particle_speed.1 = settings.particle_speed_max;
 
-        self.particle_size.0 = gui.particle_size_min;
-        self.particle_size.1 = gui.particle_size_max;
+        self.particle_size.0 = settings.particle_size_min;
+        self.particle_size.1 = settings.particle_size_max;
 
-        if gui.recreate {
-            self.spawn_count = gui.spawn_count;
-            self.spawn_delay_sec = gui.spawn_delay_sec;
-            self.particle_lifetime_sec = gui.particle_lifetime_sec;
+        if settings.recreate {
+            self.spawn_count = settings.spawn_count;
+            self.spawn_delay_sec = settings.spawn_delay_sec;
+            self.particle_lifetime_sec = settings.particle_lifetime_sec;
         }
     }
 
-    pub fn create_gui(&self) -> EmitterGuiState {
-        EmitterGuiState {
+    pub fn create_settings(&self) -> EmitterSettings {
+        EmitterSettings {
             spawn_count: self.spawn_count,
             spawn_delay_sec: self.spawn_delay_sec,
             particle_lifetime_sec: self.particle_lifetime_sec,
@@ -188,6 +188,7 @@ impl EmitterUniform {
     }
 
     pub fn create_buffer_content(&self) -> Vec<f32> {
+        //println!("col {:?}", self.particle_color);
         vec![
             self.delta_sec,
             self.elapsed_sec,
