@@ -13,6 +13,11 @@ struct VertexOutput {
     @location(2) uv: vec4<f32>,
 };
 
+struct FragmentOutput {
+    @location(0) color: vec4<f32>,
+    @location(1) split: vec4<f32>,
+};
+
 var<private> uvs: array<vec2<f32>, 4> = array<vec2<f32>, 4>(
   vec2<f32>(0., 1. ),
   vec2<f32>(1., 1.),
@@ -52,7 +57,7 @@ var base_texture: texture_2d<f32>;
 var base_sampler: sampler;
 
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fs_main(in: VertexOutput) -> FragmentOutput {
     let v_pos = in.uv.xy * 2. - 1.;
 
     let len = length(v_pos);
@@ -75,5 +80,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     effect *= 1. - 0.02 / color.rgb;
     effect += 0.5;
 
-    return vec4<f32>(texture_color.rgb * in.color.rgb * effect, 1.0);
+    var out: FragmentOutput;
+    out.color = vec4<f32>(texture_color.rgb * in.color.rgb * effect, 1.0);
+
+    if any(vec3<f32>(1.0) < out.color.rgb) {
+        out.split = out.color;
+    } else {
+        out.split = vec4<f32>(0.);
+    }
+
+    return out;
 }

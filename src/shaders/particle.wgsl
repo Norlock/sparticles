@@ -12,8 +12,12 @@ struct VertexOutput {
     @location(0) world_space: vec4<f32>,
     @location(1) color: vec4<f32>,
     @location(2) uv: vec2<f32>,
-};
+}
 
+struct FragmentOutput {
+    @location(0) color: vec4<f32>,
+    @location(1) split: vec4<f32>,
+}
 
 var<private> uvs: array<vec2<f32>, 4> = array<vec2<f32>, 4>(
   vec2<f32>(0., 1. ),
@@ -55,7 +59,7 @@ fn vs_main(
 @group(1) @binding(1) var base_sampler: sampler;
 
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fs_main(in: VertexOutput) -> FragmentOutput {
     let v_pos = in.uv.xy * 2. - 1.;
 
     let texture_color = textureSample(base_texture, base_sampler, in.uv);
@@ -98,5 +102,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         result += diffuse_color + specular_color;
     }
 
-    return vec4<f32>(result * in.color.rgb * texture_color.rgb, in.color.a);
+    var out: FragmentOutput;
+    out.color = vec4<f32>(result * in.color.rgb * texture_color.rgb, in.color.a);
+
+    if any(vec3<f32>(1.0) < out.color.rgb) {
+        out.split = out.color;
+    } else {
+        out.split = vec4<f32>(0.);
+    }
+    return out;
 }

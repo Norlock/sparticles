@@ -100,12 +100,7 @@ impl PostFx for Bloom {
         gfx_state: &mut GfxState,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        gfx_state
-            .profiler
-            .begin_scope("Bloom Fx", c_pass, &gfx_state.device);
-
-        self.split_pass
-            .split(fx_state, gfx_state, &self.blur_ctx.bg, c_pass);
+        gfx_state.begin_scope("Bloom Fx", c_pass);
 
         for down in self.downscale_passes.iter() {
             down.downscale.compute(fx_state, gfx_state, c_pass);
@@ -121,17 +116,17 @@ impl PostFx for Bloom {
         self.blend
             .lerp_upscale(fx_state, gfx_state, &self.blend_ctx.bg, c_pass);
 
-        gfx_state.profiler.end_scope(c_pass).unwrap();
+        gfx_state.end_scope(c_pass);
     }
 
     fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
         self.selected_action = ui_state.create_li_header(ui, "Bloom settings");
         ui.add_space(5.0);
 
-        let mut blur = self.blur_uniform;
+        //let mut blur = self.blur_uniform;
 
-        GuiState::create_title(ui, "Split bloom");
-        ui.add(Slider::new(&mut blur.brightness_threshold, 0.1..=5.0).text("Brightness treshhold"));
+        //GuiState::create_title(ui, "Split bloom");
+        //ui.add(Slider::new(&mut blur.brightness_threshold, 0.1..=5.0).text("Brightness treshhold"));
 
         GuiState::create_title(ui, "Blend");
         ui.add(Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0).text("IO mix"));
@@ -141,10 +136,10 @@ impl PostFx for Bloom {
 
         ui.checkbox(&mut self.enabled, "Enabled");
 
-        if self.blur_uniform != blur {
-            self.blur_uniform = blur;
-            self.update_uniform = true;
-        }
+        //if self.blur_uniform != blur {
+        //self.blur_uniform = blur;
+        //self.update_uniform = true;
+        //}
     }
 
     fn update(&mut self, gfx_state: &GfxState) {

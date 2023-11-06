@@ -60,16 +60,15 @@ impl<'a> EmitterState {
         let em = &mut emitters[idx];
         em.uniform.update_settings(settings);
 
-        if !settings.recreate {
-            return;
+        if settings.recreate {
+            em.recreate_emitter(gfx_state, Some(&lights.bg_layout), camera);
         }
-
-        em.recreate_emitter(gfx_state, Some(&lights.bg_layout), camera);
     }
 
     pub fn update_lights(state: &mut State) {
         let settings = state.gui.emitter_settings.as_ref().expect("Should be set");
         let lights = &mut state.lights;
+        // TODO maybe copy_buf
 
         lights.uniform.update_settings(settings);
 
@@ -108,11 +107,18 @@ impl<'a> EmitterState {
                 fragment: Some(wgpu::FragmentState {
                     module: &em.shader,
                     entry_point: "fs_main",
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: PostProcessState::TEXTURE_FORMAT,
-                        blend: Some(wgpu::BlendState::REPLACE),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
+                    targets: &[
+                        Some(wgpu::ColorTargetState {
+                            format: PostProcessState::TEXTURE_FORMAT,
+                            blend: Some(wgpu::BlendState::REPLACE),
+                            write_mask: wgpu::ColorWrites::ALL,
+                        }),
+                        Some(wgpu::ColorTargetState {
+                            format: PostProcessState::TEXTURE_FORMAT,
+                            blend: Some(wgpu::BlendState::REPLACE),
+                            write_mask: wgpu::ColorWrites::COLOR,
+                        }),
+                    ],
                 }),
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleStrip,
@@ -239,14 +245,24 @@ impl<'a> EmitterState {
 
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: pp.frame_view(),
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
+            color_attachments: &[
+                Some(wgpu::RenderPassColorAttachment {
+                    view: pp.frame_view(),
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                }),
+                Some(wgpu::RenderPassColorAttachment {
+                    view: pp.split_view(),
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                }),
+            ],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: pp.depth_view(),
                 depth_ops: Some(wgpu::Operations {
@@ -573,11 +589,18 @@ impl GfxState {
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: PostProcessState::TEXTURE_FORMAT,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
+                targets: &[
+                    Some(wgpu::ColorTargetState {
+                        format: PostProcessState::TEXTURE_FORMAT,
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    }),
+                    Some(wgpu::ColorTargetState {
+                        format: PostProcessState::TEXTURE_FORMAT,
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::COLOR,
+                    }),
+                ],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleStrip,

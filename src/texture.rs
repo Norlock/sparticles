@@ -123,12 +123,36 @@ impl GfxState {
                 dimension: wgpu::TextureDimension::D2,
                 format: PostProcessState::TEXTURE_FORMAT,
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                    | wgpu::TextureUsages::COPY_SRC
-                    | wgpu::TextureUsages::COPY_DST
                     | wgpu::TextureUsages::TEXTURE_BINDING
                     | wgpu::TextureUsages::STORAGE_BINDING,
             })
             .default_view()
+    }
+
+    pub fn create_mip_fx_view(&self, mip_level: u32) -> wgpu::TextureView {
+        self.device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: None,
+                size: self.tex_size(),
+                mip_level_count: 5,
+                sample_count: 1,
+                view_formats: &[],
+                dimension: wgpu::TextureDimension::D2,
+                format: PostProcessState::TEXTURE_FORMAT,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::STORAGE_BINDING,
+            })
+            .create_view(&wgpu::TextureViewDescriptor {
+                label: Some("mip"),
+                format: None,
+                dimension: None,
+                aspect: wgpu::TextureAspect::All,
+                base_mip_level: mip_level,
+                mip_level_count: Some(1),
+                base_array_layer: 0,
+                array_layer_count: None,
+            })
     }
 
     pub fn create_diffuse_context(&self, texture_path: &str) -> DiffuseCtx {

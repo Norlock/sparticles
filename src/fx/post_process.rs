@@ -81,6 +81,10 @@ impl PostProcessState {
         &self.fx_state.tex_views[0]
     }
 
+    pub fn split_view(&self) -> &wgpu::TextureView {
+        &self.fx_state.tex_views[1]
+    }
+
     pub fn depth_view(&self) -> &wgpu::TextureView {
         &self.fx_state.depth_view
     }
@@ -307,7 +311,7 @@ impl FxState {
         ];
 
         let r_layout_entries = [
-            // Fx read + write
+            // Fx read
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::FRAGMENT,
