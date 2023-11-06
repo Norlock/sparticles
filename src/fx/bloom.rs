@@ -1,6 +1,3 @@
-use super::blur::BlurUniform;
-use super::blur_pass::BlurPass;
-use super::blur_pass::BlurPassSettings;
 use super::BlendPass;
 use super::ColorFx;
 use super::Downscale;
@@ -24,15 +21,15 @@ use egui_winit::egui::Ui;
 use serde::Deserialize;
 use serde::Serialize;
 
+enum UpdateAction {
+    UpdateBuffer,
+}
+
 pub struct Bloom {
     enabled: bool,
-    update_uniform: bool,
+    update_event: Option<UpdateAction>,
     selected_action: ListAction,
 
-    blur_uniform: BlurUniform,
-    blur_ctx: UniformContext,
-
-    split_pass: BlurPass,
     downscale_passes: Vec<DownscalePass>,
     upscale_passes: Vec<UpscalePass>,
     color: ColorFx,
@@ -52,8 +49,8 @@ struct UpscalePass {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BloomSettings {
-    pub blur_uniform: BlurUniform,
     pub blend_uniform: BlendUniform,
+    pub color: ColorFxUniform,
 }
 
 pub struct RegisterBloomFx;
@@ -72,7 +69,7 @@ impl RegisterPostFx for RegisterBloomFx {
         Box::new(Bloom::new(
             options,
             BloomSettings {
-                blur_uniform: BlurUniform::default(),
+                color: ColorFxUniform::default_srgb(),
                 blend_uniform: BlendUniform { io_mix: 0.5 },
             },
         ))
@@ -83,7 +80,6 @@ impl PostFx for Bloom {
     fn resize(&mut self, options: &FxOptions) {
         self.blend.resize(options);
         self.color.resize(options);
-        self.split_pass.resize(options);
 
         for dp in self.downscale_passes.iter_mut() {
             dp.downscale.resize(options);
@@ -123,36 +119,29 @@ impl PostFx for Bloom {
         self.selected_action = ui_state.create_li_header(ui, "Bloom settings");
         ui.add_space(5.0);
 
-        //let mut blur = self.blur_uniform;
-
-        //GuiState::create_title(ui, "Split bloom");
-        //ui.add(Slider::new(&mut blur.brightness_threshold, 0.1..=5.0).text("Brightness treshhold"));
-
         GuiState::create_title(ui, "Blend");
-        ui.add(Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0).text("IO mix"));
+        if ui
+            .add(Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0).text("IO mix"))
+            .changed()
+        {
+            self.update_event = Some(UpdateAction::UpdateBuffer);
+        }
 
         GuiState::create_title(ui, "Color correction");
         self.color.ui_gamma(ui);
 
         ui.checkbox(&mut self.enabled, "Enabled");
-
-        //if self.blur_uniform != blur {
-        //self.blur_uniform = blur;
-        //self.update_uniform = true;
-        //}
     }
 
     fn update(&mut self, gfx_state: &GfxState) {
-        let queue = &gfx_state.queue;
-        let io_content = CommonBuffer::uniform_content(&self.blend_uniform);
-        queue.write_buffer(&self.blend_ctx.buf, 0, &io_content);
-
-        if self.update_uniform {
-            let buffer_content = CommonBuffer::uniform_content(&self.blur_uniform);
-
-            queue.write_buffer(&self.blur_ctx.buf, 0, &buffer_content);
-            self.update_uniform = false;
-        }
+        match self.update_event.take() {
+            Some(UpdateAction::UpdateBuffer) => {
+                let queue = &gfx_state.queue;
+                let io_content = CommonBuffer::uniform_content(&self.blend_uniform);
+                queue.write_buffer(&self.blend_ctx.buf, 0, &io_content);
+            }
+            None => {}
+        };
 
         self.color.update(gfx_state);
     }
@@ -169,7 +158,7 @@ impl HandleAction for Bloom {
 
     fn export(&self) -> DynamicExport {
         let bloom_settings = BloomSettings {
-            blur_uniform: self.blur_uniform,
+            color: self.color.color_uniform,
             blend_uniform: self.blend_uniform,
         };
 
@@ -192,18 +181,6 @@ impl Bloom {
         } = options;
 
         let device = &gfx_state.device;
-
-        let blur_uniform = settings.blur_uniform;
-        let blur_ctx = UniformContext::from_uniform(&blur_uniform, device, "Blur");
-
-        let split_pass = BlurPass::new(
-            options,
-            BlurPassSettings {
-                blur_layout: &blur_ctx.bg_layout,
-                io_idx: (0, 1),
-                downscale: 1.0,
-            },
-        );
 
         let mut downscale_passes = Vec::new();
         let mut upscale_passes = Vec::new();
@@ -250,18 +227,15 @@ impl Bloom {
         );
 
         Self {
-            split_pass,
             downscale_passes,
             upscale_passes,
-            blur_ctx,
-            blur_uniform,
-            selected_action: ListAction::None,
             enabled: true,
-            update_uniform: false,
             blend,
             blend_ctx,
             blend_uniform,
             color,
+            update_event: None,
+            selected_action: ListAction::None,
         }
     }
 }

@@ -9,6 +9,10 @@ use egui_winit::egui::{self, Slider};
 use encase::ShaderType;
 use serde::{Deserialize, Serialize};
 
+pub enum UpdateAction {
+    UpdateBuffer,
+}
+
 #[allow(unused)]
 pub struct ColorFx {
     pub color_uniform: ColorFxUniform,
@@ -20,7 +24,7 @@ pub struct ColorFx {
     tonemap_pipeline: wgpu::ComputePipeline,
     selected_action: ListAction,
     enabled: bool,
-    pub update_event: Option<bool>,
+    update_event: Option<UpdateAction>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -101,28 +105,31 @@ impl PostFx for ColorFx {
     }
 
     fn update(&mut self, gfx_state: &GfxState) {
-        if self.update_event.take().is_none() {
-            return;
+        match self.update_event.take() {
+            Some(UpdateAction::UpdateBuffer) => {
+                let queue = &gfx_state.queue;
+                let color_content = CommonBuffer::uniform_content(&self.color_uniform);
+                queue.write_buffer(&self.color_buffer, 0, &color_content);
+            }
+            None => {}
         }
-
-        let queue = &gfx_state.queue;
-        let color_content = CommonBuffer::uniform_content(&self.color_uniform);
-        queue.write_buffer(&self.color_buffer, 0, &color_content);
     }
 
     fn create_ui(&mut self, ui: &mut egui::Ui, ui_state: &GuiState) {
         self.selected_action = ui_state.create_li_header(ui, "Color correction");
-        let mut uniform = self.color_uniform;
 
         self.ui_gamma(ui);
-        ui.add(Slider::new(&mut uniform.contrast, 0.1..=4.0).text("Contrast"));
-        ui.add(Slider::new(&mut uniform.brightness, 0.01..=1.0).text("Brightness"));
+        let contrast =
+            ui.add(Slider::new(&mut self.color_uniform.contrast, 0.1..=4.0).text("Contrast"));
+
+        let brightness =
+            ui.add(Slider::new(&mut self.color_uniform.brightness, 0.01..=1.0).text("Brightness"));
+
         ui.checkbox(&mut self.enabled, "Enabled");
 
-        if self.color_uniform != uniform {
-            self.update_event = Some(true);
-            self.color_uniform = uniform;
-        }
+        if contrast.changed() || brightness.changed() {
+            self.update_event = Some(UpdateAction::UpdateBuffer);
+        };
     }
 }
 
@@ -173,12 +180,9 @@ impl ColorFx {
     }
 
     pub fn ui_gamma(&mut self, ui: &mut egui::Ui) {
-        if ui
-            .add(Slider::new(&mut self.color_uniform.gamma, 0.1..=4.0).text("Gamma"))
+        ui.add(Slider::new(&mut self.color_uniform.gamma, 0.1..=4.0).text("Gamma"))
             .changed()
-        {
-            self.update_event = Some(true);
-        };
+            .then(|| self.update_event = Some(UpdateAction::UpdateBuffer));
     }
 
     pub fn new(options: &FxOptions, settings: ColorFxSettings) -> Self {
