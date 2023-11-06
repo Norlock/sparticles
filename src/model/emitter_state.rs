@@ -326,21 +326,15 @@ impl<'a> EmitterState {
         let new_buf_size = new_self.particle_buffers[0].size();
         let buf_size = old_buf_size.min(new_buf_size);
 
-        encoder.copy_buffer_to_buffer(
-            &self.particle_buffers[0],
-            0,
-            &new_self.particle_buffers[0],
-            0,
-            buf_size,
-        );
-
-        encoder.copy_buffer_to_buffer(
-            &self.particle_buffers[1],
-            0,
-            &new_self.particle_buffers[1],
-            0,
-            buf_size,
-        );
+        for i in 0..2 {
+            encoder.copy_buffer_to_buffer(
+                &self.particle_buffers[i],
+                0,
+                &new_self.particle_buffers[i],
+                0,
+                buf_size,
+            );
+        }
 
         while let Some(animation) = self.particle_animations.pop() {
             new_self.push_particle_animation(animation.recreate(gfx_state, &new_self));
@@ -614,11 +608,13 @@ impl GfxState {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[
+                    // Render output
                     Some(wgpu::ColorTargetState {
                         format: PostProcessState::TEXTURE_FORMAT,
                         blend: Some(wgpu::BlendState::REPLACE),
                         write_mask: wgpu::ColorWrites::ALL,
                     }),
+                    // Split bloom
                     Some(wgpu::ColorTargetState {
                         format: PostProcessState::TEXTURE_FORMAT,
                         blend: Some(wgpu::BlendState::REPLACE),
