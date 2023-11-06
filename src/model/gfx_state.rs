@@ -179,7 +179,7 @@ impl GfxState {
 
         state.gfx_state.ctx.begin_frame(input);
 
-        GuiState::update_gui(state);
+        GuiState::update_gui(state, encoder);
 
         let State { gfx_state, .. } = state;
 

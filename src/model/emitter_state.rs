@@ -1,4 +1,4 @@
-use super::{Camera, EmitterSettings, EmitterUniform, GfxState, GuiState, State};
+use super::{Camera, EmitterUniform, GfxState, GuiState, State};
 use crate::fx::PostProcessState;
 use crate::texture::DiffuseCtx;
 use crate::traits::{CalculateBufferSize, CustomShader};
@@ -45,7 +45,7 @@ impl<'a> EmitterState {
         &self.uniform.id
     }
 
-    pub fn update_emitter(state: &mut State, idx: usize) {
+    pub fn update_emitter(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
         let State {
             camera,
             lights,
@@ -57,15 +57,15 @@ impl<'a> EmitterState {
 
         let settings = gui.emitter_settings.as_ref().unwrap();
 
-        let em = &mut emitters[idx];
+        let em = &mut emitters[gui.selected_emitter_id];
         em.uniform.update_settings(settings);
 
         if settings.recreate {
-            em.recreate_emitter(gfx_state, Some(&lights.bg_layout), camera);
+            em.recreate_emitter(gfx_state, Some(&lights.bg_layout), camera, encoder);
         }
     }
 
-    pub fn update_lights(state: &mut State) {
+    pub fn update_lights(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
         let settings = state.gui.emitter_settings.as_ref().expect("Should be set");
         let lights = &mut state.lights;
         // TODO maybe copy_buf
@@ -80,7 +80,7 @@ impl<'a> EmitterState {
         let gfx_state = &state.gfx_state;
         let camera = &state.camera;
 
-        lights.recreate_emitter(gfx_state, None, camera);
+        lights.recreate_emitter(gfx_state, None, camera, encoder);
 
         let device = &gfx_state.device;
 
@@ -314,12 +314,33 @@ impl<'a> EmitterState {
         gfx_state: &GfxState,
         light_layout: Option<&wgpu::BindGroupLayout>,
         camera: &Camera,
+        encoder: &mut wgpu::CommandEncoder,
     ) {
         let mut new_self = gfx_state.create_emitter_state(CreateEmitterOptions {
             emitter_uniform: self.uniform.clone(),
             light_layout,
             camera,
         });
+
+        let old_buf_size = self.particle_buffers[0].size();
+        let new_buf_size = new_self.particle_buffers[0].size();
+        let buf_size = old_buf_size.min(new_buf_size);
+
+        encoder.copy_buffer_to_buffer(
+            &self.particle_buffers[0],
+            0,
+            &new_self.particle_buffers[0],
+            0,
+            buf_size,
+        );
+
+        encoder.copy_buffer_to_buffer(
+            &self.particle_buffers[1],
+            0,
+            &new_self.particle_buffers[1],
+            0,
+            buf_size,
+        );
 
         while let Some(animation) = self.particle_animations.pop() {
             new_self.push_particle_animation(animation.recreate(gfx_state, &new_self));
@@ -496,7 +517,10 @@ impl GfxState {
                 label: Some(&format!("Particle Buffer {}", i)),
                 mapped_at_creation: false,
                 size: uniform.particle_buffer_size(),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::STORAGE,
+                usage: wgpu::BufferUsages::VERTEX
+                    | wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST,
             }));
         }
 

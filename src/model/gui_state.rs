@@ -6,7 +6,7 @@ use crate::{
     util::Persistence,
 };
 use egui::{Color32, RichText, Slider, Ui, Window};
-use egui_wgpu::wgpu;
+use egui_wgpu::wgpu::{self, CommandEncoder};
 use egui_winit::{
     egui::{
         self,
@@ -23,6 +23,7 @@ pub struct GuiState {
     pub enabled: bool,
     pub new_emitter_tag: String,
     pub profiling_results: Vec<GpuTimerScopeResult>,
+    pub selected_emitter_id: usize,
 
     fps_text: String,
     cpu_time_text: String,
@@ -35,7 +36,6 @@ pub struct GuiState {
     selected_new_par_anim: usize,
     selected_new_em_anim: usize,
     selected_new_post_fx: usize,
-    selected_emitter_id: usize,
 
     performance_event: Option<DisplayEvent>,
     display_event: Option<DisplayEvent>,
@@ -86,7 +86,7 @@ impl GuiState {
         true
     }
 
-    pub fn update_gui(state: &mut State) {
+    pub fn update_gui(state: &mut State, encoder: &mut CommandEncoder) {
         if !state.gui.enabled {
             return;
         }
@@ -239,7 +239,7 @@ impl GuiState {
                 ui.separator();
 
                 match gui.selected_tab {
-                    Tab::EmitterSettings => GuiState::emitter_settings_tab(state, ui),
+                    Tab::EmitterSettings => GuiState::emitter_settings_tab(state, ui, encoder),
                     Tab::PostFxSettings => GuiState::post_fx_tab(state, ui),
                     Tab::ParticleAnimations => GuiState::particle_animations_tab(state, ui),
                     Tab::EmitterAnimations => GuiState::emitter_animations_tab(state, ui),
@@ -406,7 +406,7 @@ impl GuiState {
         }
     }
 
-    fn emitter_settings_tab(state: &mut State, ui: &mut Ui) {
+    fn emitter_settings_tab(state: &mut State, ui: &mut Ui, encoder: &mut CommandEncoder) {
         let mut emitter_settings;
         let gui = &mut state.gui;
 
@@ -455,15 +455,14 @@ impl GuiState {
             ui.add_space(5.0);
 
             ui.horizontal(|ui| {
-                let col = emitter_settings.particle_color;
-                //println!("{}", &emitter_settings.id);
+                let col = &mut emitter_settings.particle_color;
                 let mut particle_color = Rgba::from_rgba_unmultiplied(col.x, col.y, col.z, col.w);
 
                 if color_edit_button_rgba(ui, &mut particle_color, Alpha::Opaque).changed() {
-                    emitter_settings.particle_color.x = particle_color.r();
-                    emitter_settings.particle_color.y = particle_color.g();
-                    emitter_settings.particle_color.z = particle_color.b();
-                    emitter_settings.particle_color.w = particle_color.a();
+                    col.x = particle_color.r();
+                    col.y = particle_color.g();
+                    col.z = particle_color.b();
+                    col.w = particle_color.a();
                 };
 
                 ui.label("Particle color");
@@ -545,10 +544,10 @@ impl GuiState {
             };
 
             if state.emitters.len() == gui.selected_emitter_id {
-                EmitterState::update_lights(state);
+                EmitterState::update_lights(state, encoder);
             } else {
                 let em_idx = gui.selected_emitter_id;
-                EmitterState::update_emitter(state, em_idx);
+                EmitterState::update_emitter(state, encoder);
             }
         }
     }

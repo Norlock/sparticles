@@ -1,1 +1,1 @@
-[{"type":"bloom","data":{"blend_uniform":{"io_mix":0.75},"color":{"brightness":0.30000001192092896,"contrast":2.5,"gamma":1.649999976158142}}}]
+[{"type":"blur","data":{"blur_type":"Gaussian","blur_uniform":{"brightness_threshold":0.6000000238418579,"intensity":1.0,"radius":4,"sigma":1.2999999523162842}}},{"type":"bloom","data":{"blend_uniform":{"io_mix":0.6000000238418579},"color":{"brightness":0.30000001192092896,"contrast":2.5,"gamma":2.200000047683716}}}]
