@@ -88,7 +88,7 @@ impl FxIOUniform {
             });
         }
 
-        if 0 <= downscale_count - 1 {
+        if 0 < downscale_count - 1 {
             Self::create_downscale_list(
                 list,
                 fx_size,

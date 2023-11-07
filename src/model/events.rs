@@ -6,9 +6,13 @@ pub enum ViewIOEvent {
     Idx(u32),
 }
 
+pub enum EventAction {
+    Update,
+}
+
 #[derive(Default)]
 pub struct Events {
-    reset_camera: Option<bool>,
+    reset_camera: Option<EventAction>,
     create_emitter: Option<ID>,
     delete_emitter: Option<ID>,
     io_view: Option<ViewIOEvent>,
@@ -17,10 +21,10 @@ pub struct Events {
 /// Every event is consumed when fetched
 impl Events {
     pub fn set_reset_camera(&mut self) {
-        self.reset_camera = Some(true);
+        self.reset_camera = Some(EventAction::Update);
     }
 
-    pub fn reset_camera(&mut self) -> Option<bool> {
+    pub fn reset_camera(&mut self) -> Option<EventAction> {
         self.reset_camera.take()
     }
 

@@ -127,10 +127,6 @@ pub struct GravityAnimation {
 }
 
 impl HandleAction for GravityAnimation {
-    fn reset_action(&mut self) {
-        self.selected_action = ListAction::None;
-    }
-
     fn selected_action(&mut self) -> &mut ListAction {
         &mut self.selected_action
     }

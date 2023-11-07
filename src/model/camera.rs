@@ -22,8 +22,8 @@ pub struct Camera {
     pub pitch: f32,
     pub yaw: f32,
     pub roll: f32,
-    pub bind_group_layout: wgpu::BindGroupLayout,
-    pub bind_group: wgpu::BindGroup,
+    pub bg_layout: wgpu::BindGroupLayout,
+    pub bloom_treshold: f32, // To prepare for post FX
 
     look_at: Vec3,
     fov: f32,  // Field of view (frustum vertical degrees)
@@ -44,10 +44,15 @@ pub struct Camera {
     is_rotate_down_pressed: bool,
 
     vertex_positions: Mat4x2,
-    pub proj: Mat4,
+    proj: Mat4,
+    bg: wgpu::BindGroup,
 }
 
 impl Camera {
+    pub fn bg(&self) -> &wgpu::BindGroup {
+        &self.bg
+    }
+
     pub fn new(gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
 
@@ -71,7 +76,7 @@ impl Camera {
             mapped_at_creation: false,
         });
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
@@ -85,8 +90,8 @@ impl Camera {
             label: Some("camera_bind_group_layout"),
         });
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
+        let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bg_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: buffer.as_entire_binding(),
@@ -105,8 +110,9 @@ impl Camera {
             view_dir,
             look_at,
             buffer,
-            bind_group_layout,
-            bind_group,
+            bg_layout,
+            bg,
+            bloom_treshold: 1.0,
             vertex_positions,
             proj,
             is_forward_pressed: false,
@@ -131,7 +137,7 @@ impl Camera {
             ..
         } = state;
 
-        if let Some(_) = events.reset_camera() {
+        if events.reset_camera().is_some() {
             camera.pitch = 0.;
             camera.yaw = 0.;
             camera.position = glam::Vec3::new(0., 0., 10.);
@@ -254,7 +260,14 @@ impl Camera {
         let rotated_vertices_arr = self.get_rotated_vertices(view_proj);
         let view_pos_arr = self.position.to_vec_f32();
 
-        [view_proj_arr, view_arr, rotated_vertices_arr, view_pos_arr].concat()
+        [
+            view_proj_arr,
+            view_arr,
+            rotated_vertices_arr,
+            view_pos_arr,
+            vec![self.bloom_treshold],
+        ]
+        .concat()
     }
 
     fn get_rotated_vertices(&self, view_proj: Mat4) -> Vec<f32> {

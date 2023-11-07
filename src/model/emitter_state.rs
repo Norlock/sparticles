@@ -68,7 +68,6 @@ impl<'a> EmitterState {
     pub fn update_lights(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
         let settings = state.gui.emitter_settings.as_ref().expect("Should be set");
         let lights = &mut state.lights;
-        // TODO maybe copy_buf
 
         lights.uniform.update_settings(settings);
 
@@ -88,7 +87,7 @@ impl<'a> EmitterState {
             em.pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Particle render Pipeline Layout"),
                 bind_group_layouts: &[
-                    &camera.bind_group_layout,
+                    &camera.bg_layout,
                     &em.diffuse_ctx.bg_layout,
                     &em.bg_layout,
                     &lights.bg_layout,
@@ -288,7 +287,7 @@ impl<'a> EmitterState {
         // Light
         gfx_state.begin_scope(&format!("Emitter: {}", lights.id()), &mut r_pass);
         r_pass.set_pipeline(&lights.render_pipeline);
-        r_pass.set_bind_group(0, &camera.bind_group, &[]);
+        r_pass.set_bind_group(0, &camera.bg(), &[]);
         r_pass.set_bind_group(1, &lights.diffuse_ctx.bind_group, &[]);
         r_pass.set_bind_group(2, &lights.bgs[nr], &[]);
         r_pass.draw(0..4, 0..lights.particle_count() as u32);
@@ -298,7 +297,7 @@ impl<'a> EmitterState {
         for emitter in emitters.iter() {
             gfx_state.begin_scope(&format!("Emitter: {}", emitter.id()), &mut r_pass);
             r_pass.set_pipeline(&emitter.render_pipeline);
-            r_pass.set_bind_group(0, &camera.bind_group, &[]);
+            r_pass.set_bind_group(0, &camera.bg(), &[]);
             r_pass.set_bind_group(1, &emitter.diffuse_ctx.bind_group, &[]);
             r_pass.set_bind_group(2, &emitter.bgs[nr], &[]);
             r_pass.set_bind_group(3, &lights.bgs[nr], &[]);
@@ -575,7 +574,7 @@ impl GfxState {
             pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Particle render Pipeline Layout"),
                 bind_group_layouts: &[
-                    &camera.bind_group_layout,
+                    &camera.bg_layout,
                     &diffuse_ctx.bg_layout,
                     &bg_layout,
                     light_layout,
@@ -587,11 +586,7 @@ impl GfxState {
             shader = device.create_shader("light_particle.wgsl", "Light particle render");
             pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Light particle render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &camera.bind_group_layout,
-                    &diffuse_ctx.bg_layout,
-                    &bg_layout,
-                ],
+                bind_group_layouts: &[&camera.bg_layout, &diffuse_ctx.bg_layout, &bg_layout],
                 push_constant_ranges: &[],
             });
         }

@@ -81,14 +81,12 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
     effect += 0.5;
 
     var out: FragmentOutput;
-    //out.color = vec4<f32>(texture_color.rgb * in.color.rgb * effect, 1.0);
-    out.color = vec4<f32>(texture_color.rgb * in.color.rgb, 1.0);
+    out.color = vec4<f32>(texture_color.rgb * in.color.rgb * effect, 1.0);
+    //out.color = vec4<f32>(texture_color.rgb * in.color.rgb, 1.0);
 
-    if any(vec3<f32>(1.0) < out.color.rgb) {
+    if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;
-    } else {
-        out.split = vec4<f32>(0.);
-    }
+    } 
 
     return out;
 }

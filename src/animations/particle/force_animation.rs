@@ -107,10 +107,6 @@ impl HandleAction for ForceAnimation {
         &mut self.selected_action
     }
 
-    fn reset_action(&mut self) {
-        self.selected_action = ListAction::None;
-    }
-
     fn enabled(&self) -> bool {
         self.enabled
     }

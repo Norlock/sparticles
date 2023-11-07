@@ -8,6 +8,7 @@ use crate::fx::blend::BlendSettings;
 use crate::fx::blend::BlendUniform;
 use crate::fx::ColorFxSettings;
 use crate::fx::ColorFxUniform;
+use crate::model::Camera;
 use crate::model::GfxState;
 use crate::model::GuiState;
 use crate::traits::*;
@@ -21,13 +22,13 @@ use egui_winit::egui::Ui;
 use serde::Deserialize;
 use serde::Serialize;
 
-enum UpdateAction {
-    UpdateBuffer,
+enum UIAction {
+    UpdateBuffer(usize),
 }
 
 pub struct Bloom {
     enabled: bool,
-    update_event: Option<UpdateAction>,
+    update_event: Option<UIAction>,
     selected_action: ListAction,
 
     downscale_passes: Vec<DownscalePass>,
@@ -37,6 +38,8 @@ pub struct Bloom {
     blend_uniform: BlendUniform,
     blend_ctx: UniformContext,
     blend: BlendPass,
+
+    bloom_treshold: f32,
 }
 
 struct DownscalePass {
@@ -45,12 +48,16 @@ struct DownscalePass {
 
 struct UpscalePass {
     blend: BlendPass,
+    blend_uniform: BlendUniform,
+    blend_ctx: UniformContext,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BloomSettings {
-    pub blend_uniform: BlendUniform,
-    pub color: ColorFxUniform,
+    final_blend: BlendUniform,
+    upscale_blends: Vec<BlendUniform>,
+    color: ColorFxUniform,
+    bloom_treshold: f32,
 }
 
 pub struct RegisterBloomFx;
@@ -66,11 +73,19 @@ impl RegisterPostFx for RegisterBloomFx {
     }
 
     fn create_default(&self, options: &FxOptions) -> Box<dyn PostFx> {
+        let mut upscale_blends = Vec::new();
+
+        for _ in 0..5 {
+            upscale_blends.push(BlendUniform { io_mix: 0.5 });
+        }
+
         Box::new(Bloom::new(
             options,
             BloomSettings {
                 color: ColorFxUniform::default_srgb(),
-                blend_uniform: BlendUniform { io_mix: 0.5 },
+                final_blend: BlendUniform { io_mix: 0.5 },
+                bloom_treshold: 1.0,
+                upscale_blends,
             },
         ))
     }
@@ -104,7 +119,7 @@ impl PostFx for Bloom {
 
         for up in self.upscale_passes.iter() {
             up.blend
-                .lerp_upscale(fx_state, gfx_state, &self.blend_ctx.bg, c_pass);
+                .lerp_upscale(fx_state, gfx_state, &up.blend_ctx.bg, c_pass);
         }
 
         self.color.compute_tonemap(fx_state, gfx_state, c_pass);
@@ -119,12 +134,32 @@ impl PostFx for Bloom {
         self.selected_action = ui_state.create_li_header(ui, "Bloom settings");
         ui.add_space(5.0);
 
+        ui.add(Slider::new(&mut self.bloom_treshold, 0.0..=10.0).text("Brightness treshold"));
+
+        for (i, up) in self.upscale_passes.iter_mut().enumerate() {
+            let io_uniform = up.blend.io();
+            let text = format!(
+                "IO mix from downscale {} to {}",
+                io_uniform.in_downscale, io_uniform.out_downscale
+            );
+
+            if ui
+                .add(Slider::new(&mut up.blend_uniform.io_mix, 0.0..=1.0).text(&text))
+                .changed()
+            {
+                self.update_event = Some(UIAction::UpdateBuffer(i));
+            }
+        }
+
         GuiState::create_title(ui, "Blend");
         if ui
-            .add(Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0).text("IO mix"))
+            .add(
+                Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0)
+                    .text("IO mix bloom to frame"),
+            )
             .changed()
         {
-            self.update_event = Some(UpdateAction::UpdateBuffer);
+            self.update_event = Some(UIAction::UpdateBuffer(self.upscale_passes.len()));
         }
 
         GuiState::create_title(ui, "Color correction");
@@ -133,17 +168,25 @@ impl PostFx for Bloom {
         ui.checkbox(&mut self.enabled, "Enabled");
     }
 
-    fn update(&mut self, gfx_state: &GfxState) {
+    fn update(&mut self, gfx_state: &GfxState, camera: &mut Camera) {
+        camera.bloom_treshold = self.bloom_treshold;
+
         match self.update_event.take() {
-            Some(UpdateAction::UpdateBuffer) => {
+            Some(UIAction::UpdateBuffer(i)) => {
                 let queue = &gfx_state.queue;
-                let io_content = CommonBuffer::uniform_content(&self.blend_uniform);
-                queue.write_buffer(&self.blend_ctx.buf, 0, &io_content);
+
+                if let Some(up) = self.upscale_passes.get_mut(i) {
+                    let io_content = CommonBuffer::uniform_content(&up.blend_uniform);
+                    queue.write_buffer(&up.blend_ctx.buf, 0, &io_content);
+                } else {
+                    let io_content = CommonBuffer::uniform_content(&self.blend_uniform);
+                    queue.write_buffer(&self.blend_ctx.buf, 0, &io_content);
+                }
             }
             None => {}
         };
 
-        self.color.update(gfx_state);
+        self.color.update(gfx_state, camera);
     }
 }
 
@@ -152,14 +195,16 @@ impl HandleAction for Bloom {
         &mut self.selected_action
     }
 
-    fn reset_action(&mut self) {
-        self.selected_action = ListAction::None
-    }
-
     fn export(&self) -> DynamicExport {
         let bloom_settings = BloomSettings {
             color: self.color.color_uniform,
-            blend_uniform: self.blend_uniform,
+            final_blend: self.blend_uniform,
+            bloom_treshold: self.bloom_treshold,
+            upscale_blends: self
+                .upscale_passes
+                .iter()
+                .map(|up| up.blend_uniform)
+                .collect(),
         };
 
         DynamicExport {
@@ -185,11 +230,18 @@ impl Bloom {
         let mut downscale_passes = Vec::new();
         let mut upscale_passes = Vec::new();
 
-        let downscale_list =
-            FxIOUniform::create_downscale_list(&mut Vec::new(), &fx_state.tex_size, 5, 1, 1);
+        let downscale_count = settings.upscale_blends.len() as i32;
+        let downscale_list = FxIOUniform::create_downscale_list(
+            &mut Vec::new(),
+            &fx_state.tex_size,
+            downscale_count,
+            1,
+            1,
+        );
+
         let upscale_list = FxIOUniform::reverse_list(&downscale_list);
 
-        let blend_uniform = settings.blend_uniform;
+        let blend_uniform = settings.final_blend;
         let blend_ctx = UniformContext::from_uniform(&blend_uniform, device, "blend");
 
         for io_uniform in downscale_list {
@@ -198,7 +250,10 @@ impl Bloom {
             });
         }
 
-        for io_uniform in upscale_list {
+        for (i, io_uniform) in upscale_list.into_iter().enumerate() {
+            let blend_uniform = settings.upscale_blends[i];
+            let blend_ctx = UniformContext::from_uniform(&blend_uniform, device, "blend");
+
             upscale_passes.push(UpscalePass {
                 blend: BlendPass::new(
                     options,
@@ -207,6 +262,8 @@ impl Bloom {
                         blend_layout: &blend_ctx.bg_layout,
                     },
                 ),
+                blend_uniform,
+                blend_ctx,
             });
         }
 
@@ -214,7 +271,7 @@ impl Bloom {
             options,
             ColorFxSettings {
                 io_uniform: FxIOUniform::symetric_unscaled(options.fx_state, 1),
-                color_uniform: ColorFxUniform::default_srgb(),
+                color_uniform: settings.color,
             },
         );
 
@@ -236,6 +293,7 @@ impl Bloom {
             color,
             update_event: None,
             selected_action: ListAction::None,
+            bloom_treshold: settings.bloom_treshold,
         }
     }
 }

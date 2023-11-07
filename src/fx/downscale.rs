@@ -22,7 +22,10 @@ impl Downscale {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
         gfx_state.begin_scope(
-            &format!("Downscale {}", self.io_uniform.out_downscale),
+            &format!(
+                "Downscale from {} to {}",
+                self.io_uniform.in_downscale, self.io_uniform.out_downscale
+            ),
             c_pass,
         );
 

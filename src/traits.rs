@@ -1,6 +1,6 @@
 use crate::{
     fx::{FxOptions, FxState},
-    model::{Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
+    model::{Camera, Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
     util::persistence::DynamicExport,
     util::ListAction,
 };
@@ -85,7 +85,7 @@ pub trait EmitterAnimation: HandleAction {
 
 // Post FX
 pub trait PostFx: HandleAction {
-    fn update(&mut self, gfx_state: &GfxState);
+    fn update(&mut self, gfx_state: &GfxState, camera: &mut Camera);
 
     fn compute<'a>(
         &'a self,
@@ -109,7 +109,6 @@ pub trait RegisterPostFx {
 
 pub trait HandleAction {
     fn selected_action(&mut self) -> &mut ListAction;
-    fn reset_action(&mut self);
     fn export(&self) -> DynamicExport;
     fn enabled(&self) -> bool;
 }

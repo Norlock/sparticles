@@ -90,6 +90,10 @@ impl BlendPass {
         self.io_uniform.resize(&self.io_ctx.buf, options);
     }
 
+    pub fn io(&self) -> &FxIOUniform {
+        &self.io_uniform
+    }
+
     pub fn new(options: &FxOptions, settings: BlendSettings) -> Self {
         let FxOptions {
             gfx_state,

@@ -104,10 +104,6 @@ impl HandleAction for ColorAnimation {
         &mut self.selected_action
     }
 
-    fn reset_action(&mut self) {
-        self.selected_action = ListAction::None;
-    }
-
     fn export(&self) -> DynamicExport {
         let data = serde_json::to_value(self.uniform).unwrap();
         let tag = RegisterColorAnimation.tag().to_owned();

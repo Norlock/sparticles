@@ -546,7 +546,6 @@ impl GuiState {
             if state.emitters.len() == gui.selected_emitter_id {
                 EmitterState::update_lights(state, encoder);
             } else {
-                let em_idx = gui.selected_emitter_id;
                 EmitterState::update_emitter(state, encoder);
             }
         }

@@ -1,6 +1,6 @@
 use super::{FxIOUniform, FxOptions, FxState};
 use crate::{
-    model::{GfxState, GuiState},
+    model::{Camera, GfxState, GuiState},
     traits::{CustomShader, HandleAction, PostFx, RegisterPostFx},
     util::{CommonBuffer, DynamicExport, ListAction, UniformContext},
 };
@@ -73,7 +73,6 @@ impl ColorFxUniform {
     }
 
     pub fn default_rgb() -> Self {
-        // TODO find neutral settings
         Self {
             gamma: 1.0,
             contrast: 2.5,
@@ -104,7 +103,7 @@ impl PostFx for ColorFx {
         gfx_state.profiler.end_scope(c_pass).unwrap();
     }
 
-    fn update(&mut self, gfx_state: &GfxState) {
+    fn update(&mut self, gfx_state: &GfxState, camera: &mut Camera) {
         match self.update_event.take() {
             Some(UpdateAction::UpdateBuffer) => {
                 let queue = &gfx_state.queue;
@@ -136,10 +135,6 @@ impl PostFx for ColorFx {
 impl HandleAction for ColorFx {
     fn selected_action(&mut self) -> &mut ListAction {
         &mut self.selected_action
-    }
-
-    fn reset_action(&mut self) {
-        self.selected_action = ListAction::None;
     }
 
     fn export(&self) -> DynamicExport {

@@ -43,6 +43,7 @@ impl PostProcessState {
             post_process: pp,
             gfx_state,
             events,
+            camera,
             ..
         } = state;
 
@@ -68,10 +69,10 @@ impl PostProcessState {
             gfx_state.queue.write_buffer(&pp.io_ctx.buf, 0, &contents);
         }
 
-        let effects = &mut state.post_process.effects;
+        let effects = &mut pp.effects;
 
         for fx in effects.iter_mut() {
-            fx.update(&state.gfx_state);
+            fx.update(&state.gfx_state, camera);
         }
 
         ListAction::update_list(effects);
@@ -114,8 +115,7 @@ impl PostProcessState {
         encoder: &mut wgpu::CommandEncoder,
     ) {
         let clipped_primitives = GfxState::draw_gui(state, encoder);
-        let profiler = &mut state.gfx_state.profiler;
-        let device = &state.gfx_state.device;
+        let gfx_state = &mut state.gfx_state;
 
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Post process render"),
@@ -132,20 +132,21 @@ impl PostProcessState {
             occlusion_query_set: None,
         });
 
-        profiler.begin_scope("Post fx render", &mut r_pass, &device);
+        gfx_state.begin_scope("Post fx render", &mut r_pass);
         let pp = &mut state.post_process;
 
         r_pass.set_pipeline(&pp.render_pipeline);
         r_pass.set_bind_group(0, &pp.fx_state.r_bg, &[]);
         r_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
         r_pass.draw(0..3, 0..1);
-        profiler.end_scope(&mut r_pass).unwrap();
+        gfx_state.end_scope(&mut r_pass);
 
-        profiler.begin_scope("Render GUI", &mut r_pass, &device);
-        state.gfx_state.renderer.render(
+        let profiler = &mut gfx_state.profiler;
+        profiler.begin_scope("Render GUI", &mut r_pass, &gfx_state.device);
+        gfx_state.renderer.render(
             &mut r_pass,
             &clipped_primitives,
-            &state.gfx_state.screen_descriptor,
+            &gfx_state.screen_descriptor,
         );
         profiler.end_scope(&mut r_pass).unwrap();
     }

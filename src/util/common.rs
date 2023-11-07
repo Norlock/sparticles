@@ -38,10 +38,10 @@ impl ListAction {
                 list.remove(i);
                 continue;
             } else if 0 < i && list[i].selected_action() == &mut ListAction::MoveUp {
-                list[i].reset_action();
+                *list[i].selected_action() = ListAction::None;
                 list.swap(i, i - 1);
             } else if 0 < i && list[i - 1].selected_action() == &mut ListAction::MoveDown {
-                list[i - 1].reset_action();
+                *list[i - 1].selected_action() = ListAction::None;
                 list.swap(i, i - 1);
             }
 
@@ -61,7 +61,6 @@ impl UniformContext {
         let mut layout_entries = Vec::new();
         let mut entries = Vec::new();
 
-        // TODO pass as arg
         layout_entries.push(wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
