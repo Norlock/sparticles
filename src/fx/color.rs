@@ -103,7 +103,7 @@ impl PostFx for ColorFx {
         gfx_state.profiler.end_scope(c_pass).unwrap();
     }
 
-    fn update(&mut self, gfx_state: &GfxState, camera: &mut Camera) {
+    fn update(&mut self, gfx_state: &GfxState, _: &mut Camera) {
         match self.update_event.take() {
             Some(UpdateAction::UpdateBuffer) => {
                 let queue = &gfx_state.queue;
@@ -118,17 +118,10 @@ impl PostFx for ColorFx {
         self.selected_action = ui_state.create_li_header(ui, "Color correction");
 
         self.ui_gamma(ui);
-        let contrast =
-            ui.add(Slider::new(&mut self.color_uniform.contrast, 0.1..=4.0).text("Contrast"));
-
-        let brightness =
-            ui.add(Slider::new(&mut self.color_uniform.brightness, 0.01..=1.0).text("Brightness"));
+        self.ui_contrast(ui);
+        self.ui_brightness(ui);
 
         ui.checkbox(&mut self.enabled, "Enabled");
-
-        if contrast.changed() || brightness.changed() {
-            self.update_event = Some(UpdateAction::UpdateBuffer);
-        };
     }
 }
 
@@ -172,6 +165,18 @@ impl ColorFx {
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
         gfx_state.end_scope(c_pass);
+    }
+
+    pub fn ui_contrast(&mut self, ui: &mut egui::Ui) {
+        ui.add(Slider::new(&mut self.color_uniform.contrast, 0.1..=4.0).text("Contrast"))
+            .changed()
+            .then(|| self.update_event = Some(UpdateAction::UpdateBuffer));
+    }
+
+    pub fn ui_brightness(&mut self, ui: &mut egui::Ui) {
+        ui.add(Slider::new(&mut self.color_uniform.brightness, 0.01..=1.0).text("Brightness"))
+            .changed()
+            .then(|| self.update_event = Some(UpdateAction::UpdateBuffer));
     }
 
     pub fn ui_gamma(&mut self, ui: &mut egui::Ui) {

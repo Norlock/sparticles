@@ -35,7 +35,7 @@ fn vs_main(
 
     if (p.lifetime == -1.) {
         var out: VertexOutput;
-        out.clip_position = vec4<f32>(-9999.);
+        out.clip_position = camera.view_pos - 100.;
         return out;
     }
     
@@ -76,13 +76,13 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
 
     let normal = sqrt(1. - x * x - y * y);
 
-    var effect = create_layers(v_pos, normal, idx, em.elapsed_sec);
-    effect *= 1. - 0.02 / color.rgb;
-    effect += 0.5;
+    //var effect = create_layers(v_pos, normal, idx, em.elapsed_sec);
+    //effect *= 1. - 0.02 / color.rgb;
+    //effect += 0.5;
 
     var out: FragmentOutput;
-    out.color = vec4<f32>(texture_color.rgb * in.color.rgb * effect, 1.0);
-    //out.color = vec4<f32>(texture_color.rgb * in.color.rgb, 1.0);
+    //out.color = vec4<f32>(texture_color.rgb * in.color.rgb * effect, 1.0);
+    out.color = vec4<f32>(texture_color.rgb * in.color.rgb, 1.0);
 
     if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;

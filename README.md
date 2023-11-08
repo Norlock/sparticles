@@ -12,7 +12,7 @@ GPU Particle system written in Rust + WGPU + EGUI
 - [ ] Use rust-gpu, maybe?
 - [ ] keyboard struct
 - [x] Gui events to update
-- [ ] Fix recreate light emitter
+- [x] Fix recreate light emitter
 - [ ] Able to import models + materials
 
 ## Gui
@@ -30,6 +30,5 @@ GPU Particle system written in Rust + WGPU + EGUI
 - [x] Downscaled is just the same fx texture but uses only top left
 
 - [x] Simplify API and make only one post fx trait + register trait
-- [ ] Noise textures are updated once in a while
 - [x] Split gaussian again in hor ver
 - [ ] Displacement map

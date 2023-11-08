@@ -39,13 +39,13 @@ fn tonemap(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
 
-    let hdr_color = textureLoad(fx_tex[fx_io.in_idx], pos).rgb;      
+    let hdr = textureLoad(fx_tex[fx_io.in_idx], pos).rgb;      
 
     // tone mapping
-    var result = acesFilm(hdr_color);
+    var sdr = acesFilm(hdr);
 
     // also gamma correct
-    result = gamma(result);
+    sdr = gamma(sdr);
 
-    textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(result, 1.0));
+    textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(sdr, 1.0));
 }

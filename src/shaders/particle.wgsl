@@ -35,7 +35,7 @@ fn vs_main(
 
     if (p.lifetime == -1.) {
         var out: VertexOutput;
-        out.clip_position = vec4<f32>(-9999.);
+        out.clip_position = camera.view_pos - 100.;
         return out;
     }
     
