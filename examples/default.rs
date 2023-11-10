@@ -7,7 +7,7 @@ use sparticles::{
         RegisterStrayAnimation, StrayUniform, SwayAnimation,
     },
     init::{AppSettings, JsonImportMode},
-    model::{EmitterState, EmitterUniform, GfxState, LifeCycle, Range},
+    model::{emitter::ModelType, Boundry, EmitterState, EmitterUniform, GfxState, LifeCycle},
     traits::*,
 };
 
@@ -24,8 +24,8 @@ impl AppSettings for CustomSettings {
         emitter.box_position.y = -3.;
         emitter.particle_color = Vec4::new(0.9, 0.9, 0.9, 1.0);
         emitter.hdr_mul = 5.0;
-        emitter.particle_size = Range::new(0.25, 0.25);
-        emitter.particle_speed = Range::new(5., 7.);
+        emitter.particle_size = Boundry::new(0.25, 0.25);
+        emitter.particle_speed = Boundry::new(5., 7.);
         emitter.spawn_count = 1;
         emitter.spawn_delay_sec = 1.;
 
@@ -34,7 +34,10 @@ impl AppSettings for CustomSettings {
 
     fn emitters(&self) -> Vec<EmitterUniform> {
         let mut emitter = EmitterUniform::new(PARTICLE_ID.to_string());
-        emitter.spawn_count = 8;
+        emitter.spawn_count = 1;
+        emitter.spawn_delay_sec = 2.0;
+        emitter.model = ModelType::File("spaceship.glb".to_string());
+        //emitter.model = ModelType::File()
 
         vec![emitter]
     }
@@ -44,7 +47,7 @@ impl AppSettings for CustomSettings {
     }
 
     fn import_mode(&self) -> JsonImportMode {
-        JsonImportMode::Replace
+        JsonImportMode::Ignore
     }
 
     fn add_emitter_anim(&self, emitter: &mut EmitterState) {

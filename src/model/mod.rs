@@ -7,14 +7,16 @@ pub mod events;
 pub mod gfx_state;
 pub mod gui_state;
 pub mod life_cycle;
+pub mod mesh;
 pub mod state;
 
 pub use camera::Camera;
 pub use clock::Clock;
-pub use emitter::{EmitterSettings, EmitterUniform, Range};
+pub use emitter::{Boundry, EmitterSettings, EmitterUniform};
 pub use emitter_state::{CreateEmitterOptions, EmitterState};
 pub use events::Events;
 pub use gfx_state::GfxState;
 pub use gui_state::GuiState;
 pub use life_cycle::LifeCycle;
+pub use mesh::{Mesh, ModelVertex};
 pub use state::State;

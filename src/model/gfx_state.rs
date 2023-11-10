@@ -17,6 +17,7 @@ use winit::dpi::PhysicalSize;
 use winit::window;
 
 use crate::fx::PostProcessState;
+use crate::loader::Loader;
 
 use super::state::State;
 use super::EmitterState;

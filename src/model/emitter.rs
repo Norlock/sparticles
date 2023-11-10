@@ -1,4 +1,4 @@
-use super::Clock;
+use super::{events::ID, Clock};
 use crate::traits::{FromRGB, HandleAngles};
 use glam::{f32::Vec3, f32::Vec4};
 use serde::{Deserialize, Serialize};
@@ -13,13 +13,19 @@ pub struct EmitSpawnOptions {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct Range(f32, f32);
+pub struct Boundry(f32, f32);
 
-impl Range {
+impl Boundry {
     pub fn new(min: f32, max: f32) -> Self {
         assert!(min <= max, "Min must be smaller than max");
-        Range(min, max)
+        Boundry(min, max)
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ModelType {
+    Circle,
+    File(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,12 +55,13 @@ pub struct EmitterUniform {
     pub hdr_mul: f32,
     pub particle_color: Vec4,
     pub particle_friction_coefficient: f32,
-    pub particle_speed: Range,
-    pub particle_size: Range,
+    pub particle_speed: Boundry,
+    pub particle_size: Boundry,
     /// Mass per size 1
     pub particle_material_mass: f32,
     pub particle_lifetime_sec: f32,
     pub texture_image: PathBuf,
+    pub model: ModelType,
 }
 
 pub struct EmitterSettings {
@@ -81,7 +88,7 @@ pub struct EmitterSettings {
 }
 
 impl EmitterUniform {
-    pub fn new(id: String) -> Self {
+    pub fn new(id: ID) -> Self {
         let spawn_count: u32 = 6;
         let particle_lifetime_sec: f32 = 6.;
         let spawn_delay_sec: f32 = 0.5;
@@ -117,8 +124,8 @@ impl EmitterUniform {
 
             particle_material_mass: 5.,
             particle_lifetime_sec,
-            particle_speed: Range(10., 15.),
-            particle_size: Range(0.1, 0.15),
+            particle_speed: Boundry(10., 15.),
+            particle_size: Boundry(0.1, 0.15),
             particle_friction_coefficient: 0.99,
             particle_color: Vec4::from_rgb(0, 255, 0),
 
@@ -126,6 +133,7 @@ impl EmitterUniform {
             elapsed_sec: 0.,
             delta_sec: 0.0,
             texture_image,
+            model: ModelType::Circle,
         }
     }
 

@@ -1,5 +1,6 @@
 use egui_winit::winit;
 use init::AppSettings;
+use loader::Loader;
 use model::State;
 use winit::event::Event::*;
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -8,6 +9,7 @@ use winit::window::{self, WindowId};
 pub mod animations;
 pub mod fx;
 pub mod init;
+pub mod loader;
 pub mod math;
 pub mod model;
 pub mod shaders;

@@ -93,7 +93,7 @@ impl InitSettings {
         let mut emitters: Vec<EmitterState> = Vec::new();
 
         for emitter_uniform in app_settings.emitters() {
-            println!("{:?}", emitter_uniform);
+            //println!("{:?}", emitter_uniform);
             let is_unique = emitters
                 .iter()
                 .all(|emitter| emitter.uniform.id != emitter_uniform.id);

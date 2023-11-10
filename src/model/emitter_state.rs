@@ -1,5 +1,7 @@
-use super::{Camera, EmitterUniform, GfxState, GuiState, State};
+use super::{Camera, EmitterUniform, GfxState, GuiState, Mesh, ModelVertex, State};
 use crate::fx::PostProcessState;
+use crate::loader::Loader;
+use crate::model::emitter::ModelType;
 use crate::texture::DiffuseCtx;
 use crate::traits::{CalculateBufferSize, CustomShader};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
@@ -27,6 +29,7 @@ pub struct EmitterState {
     diffuse_ctx: DiffuseCtx,
     pipeline_layout: wgpu::PipelineLayout,
 
+    pub mesh: Mesh,
     pub uniform: EmitterUniform,
     pub dispatch_x_count: u32,
     pub bgs: Vec<wgpu::BindGroup>,
@@ -171,6 +174,8 @@ impl<'a> EmitterState {
 
             emitter.uniform.update(clock);
 
+            Mesh::update(emitter, queue, &camera);
+
             ListAction::update_list(&mut emitter.emitter_animations);
 
             for anim in emitter
@@ -285,23 +290,31 @@ impl<'a> EmitterState {
         gfx_state.begin_scope("Render", &mut r_pass);
 
         // Light
+        let l_mesh = &lights.mesh;
         gfx_state.begin_scope(&format!("Emitter: {}", lights.id()), &mut r_pass);
         r_pass.set_pipeline(&lights.render_pipeline);
+        r_pass.set_vertex_buffer(0, l_mesh.vertex_buffer.slice(..));
+        r_pass.set_index_buffer(l_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+
         r_pass.set_bind_group(0, &camera.bg(), &[]);
-        r_pass.set_bind_group(1, &lights.diffuse_ctx.bind_group, &[]);
+        r_pass.set_bind_group(1, &lights.diffuse_ctx.bg, &[]);
         r_pass.set_bind_group(2, &lights.bgs[nr], &[]);
-        r_pass.draw(0..4, 0..lights.particle_count() as u32);
+        r_pass.draw_indexed(l_mesh.indices_range(), 0, 0..lights.particle_count() as u32);
         gfx_state.end_scope(&mut r_pass);
 
         // Normal
-        for emitter in emitters.iter() {
-            gfx_state.begin_scope(&format!("Emitter: {}", emitter.id()), &mut r_pass);
-            r_pass.set_pipeline(&emitter.render_pipeline);
+        for em in emitters.iter() {
+            let e_mesh = &em.mesh;
+            gfx_state.begin_scope(&format!("Emitter: {}", em.id()), &mut r_pass);
+            r_pass.set_pipeline(&em.render_pipeline);
+            r_pass.set_vertex_buffer(0, e_mesh.vertex_buffer.slice(..));
+            r_pass.set_index_buffer(e_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+
             r_pass.set_bind_group(0, &camera.bg(), &[]);
-            r_pass.set_bind_group(1, &emitter.diffuse_ctx.bind_group, &[]);
-            r_pass.set_bind_group(2, &emitter.bgs[nr], &[]);
+            r_pass.set_bind_group(1, &em.diffuse_ctx.bg, &[]);
+            r_pass.set_bind_group(2, &em.bgs[nr], &[]);
             r_pass.set_bind_group(3, &lights.bgs[nr], &[]);
-            r_pass.draw(0..4, 0..emitter.particle_count() as u32);
+            r_pass.draw_indexed(e_mesh.indices_range(), 0, 0..em.particle_count() as u32);
             gfx_state.end_scope(&mut r_pass);
         }
 
@@ -444,8 +457,6 @@ impl GfxState {
             light_layout,
             camera,
         } = options;
-
-        println!("init {}", uniform.particle_color);
 
         let device = &self.device;
 
@@ -591,13 +602,24 @@ impl GfxState {
             });
         }
 
+        let mesh;
+
+        match &uniform.model {
+            ModelType::File(filename) => {
+                mesh = Loader::load_fbx(self, &filename).expect("Can't load mesh from file")
+            }
+            ModelType::Circle => {
+                mesh = Mesh::circle(self);
+            }
+        }
+
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[],
+                buffers: &[ModelVertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -618,7 +640,7 @@ impl GfxState {
                 ],
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                topology: wgpu::PrimitiveTopology::TriangleList,
                 ..Default::default()
             },
             depth_stencil: Some(wgpu::DepthStencilState {
@@ -651,6 +673,7 @@ impl GfxState {
             diffuse_ctx,
             shader,
             is_light,
+            mesh,
         }
     }
 }

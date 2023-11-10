@@ -17,3 +17,5 @@ serde = { version = "1.0.189", features = ["derive"] }
 egui-winit = { git = "https://github.com/norlock/egui.git", branch = "collapsing-header-events" }
 egui-wgpu = { git = "https://github.com/norlock/egui.git", branch = "collapsing-header-events" }
 wgpu-profiler = { version = "0.15.0" }
+gltf = "1.3.0"
+anyhow = "1.0.75"

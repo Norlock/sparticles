@@ -1,5 +1,4 @@
 use super::{gfx_state::GfxState, State};
-use crate::traits::ToVecF32;
 use egui_wgpu::wgpu;
 use egui_winit::winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use glam::*;
@@ -11,8 +10,6 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4 {
     z_axis: Vec4::new(0.0, 0.0, 0.5, 0.5),
     w_axis: Vec4::new(0.0, 0.0, 0.0, 1.0),
 };
-
-type Mat4x2 = [[f32; 2]; 4];
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -43,7 +40,6 @@ pub struct Camera {
     is_down_pressed: bool,
     is_rotate_down_pressed: bool,
 
-    vertex_positions: Mat4x2,
     proj: Mat4,
     bg: wgpu::BindGroup,
 }
@@ -59,7 +55,6 @@ impl Camera {
         let position = Vec3::new(0., 0., 10.);
         let view_dir = Vec3::new(0., 0., -10.);
         let look_at = position + view_dir;
-        let vertex_positions = vertex_positions();
         let pitch = 0.;
         let yaw = 0.;
         let roll = 0.;
@@ -113,7 +108,6 @@ impl Camera {
             bg_layout,
             bg,
             bloom_treshold: 1.0,
-            vertex_positions,
             proj,
             is_forward_pressed: false,
             is_backward_pressed: false,
@@ -247,70 +241,39 @@ impl Camera {
     }
 
     fn create_buffer_content(&mut self) -> Vec<f32> {
+        let view_mat = self.view_mat();
+        let view_proj = self.view_proj(&view_mat);
+
+        let mut result = Vec::new();
+        result.extend_from_slice(&view_proj.to_cols_array());
+        result.extend_from_slice(&view_mat.to_cols_array());
+        result.extend_from_slice(&self.position.extend(0.).to_array());
+        result.push(self.bloom_treshold);
+
+        result
+    }
+
+    pub fn view_mat(&self) -> Mat4 {
         let yaw_mat = Mat3::from_rotation_y(self.yaw);
         let pitch_mat = Mat3::from_rotation_x(self.pitch);
 
         let rotated_view_dir = yaw_mat * pitch_mat * self.view_dir;
-        let view_mat = Mat4::look_at_rh(self.position, self.position + rotated_view_dir, Vec3::Y);
-
-        let view_proj = OPENGL_TO_WGPU_MATRIX * self.proj * view_mat;
-
-        let view_proj_arr = view_proj.to_cols_array().to_vec();
-        let view_arr = view_mat.to_cols_array().to_vec();
-        let rotated_vertices_arr = self.get_rotated_vertices(view_proj);
-        let view_pos_arr = self.position.to_vec_f32();
-
-        [
-            view_proj_arr,
-            view_arr,
-            rotated_vertices_arr,
-            view_pos_arr,
-            vec![self.bloom_treshold],
-        ]
-        .concat()
+        Mat4::look_at_rh(self.position, self.position + rotated_view_dir, Vec3::Y)
     }
 
-    fn get_rotated_vertices(&self, view_proj: Mat4) -> Vec<f32> {
-        let camera_right = view_proj.row(0).truncate().normalize();
-        let camera_up = view_proj.row(1).truncate().normalize();
-
-        self.vertex_positions
-            .into_iter()
-            .map(|v_pos| camera_right * v_pos[0] + camera_up * v_pos[1])
-            .flat_map(|v3| vec![v3.x, v3.y, v3.z, 1.])
-            .collect::<Vec<f32>>()
+    pub fn view_proj(&self, view_mat: &Mat4) -> Mat4 {
+        OPENGL_TO_WGPU_MATRIX * self.proj * (*view_mat)
     }
-}
-
-impl ToVecF32 for Mat4x2 {
-    fn to_vec_f32(&self) -> Vec<f32> {
-        self.iter().flatten().copied().collect()
-    }
-}
-
-impl ToVecF32 for Vec3 {
-    fn to_vec_f32(&self) -> Vec<f32> {
-        vec![self.x, self.y, self.z, 0.0]
-    }
-}
-
-fn vertex_positions() -> Mat4x2 {
-    [
-        Vec2::new(-1., -1.).into(),
-        Vec2::new(1., -1.).into(),
-        Vec2::new(-1., 1.).into(),
-        Vec2::new(1., 1.).into(),
-    ]
 }
 
 fn buffer_size() -> u64 {
     let view_proj_size = 16;
     let view_mat_size = 16;
-    let rotated_vertices_size = 16;
-    let vertex_positions_size = 12;
     let view_pos_size = 4;
-    let f32_mem_size = 4;
+    let bloom_treshold_size = 4; // The most aligned member of that strut is aligned to 16. As such
+                                 // destruct is aligned to 16, instructs have their size rounded up to their alignment.
+                                 // So bloom treshold 1 == 4
 
-    (view_proj_size + view_mat_size + rotated_vertices_size + vertex_positions_size + view_pos_size)
-        * f32_mem_size
+    (view_proj_size + view_mat_size + view_pos_size + bloom_treshold_size)
+        * std::mem::size_of::<f32>() as u64
 }

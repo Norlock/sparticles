@@ -6,11 +6,19 @@ var<storage, read> particles: array<Particle>;
 
 @group(2) @binding(2) var<uniform> em: Emitter; 
 
+struct VertexInput {
+    @builtin(vertex_index) vert_idx: u32,
+    @builtin(instance_index) instance_idx: u32,
+    @location(0) position: vec3<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) normal: vec3<f32>,
+}
+
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) world_space: vec4<f32>,
-    @location(2) uv: vec4<f32>,
+    @location(2) uv: vec2<f32>,
 };
 
 struct FragmentOutput {
@@ -18,35 +26,24 @@ struct FragmentOutput {
     @location(1) split: vec4<f32>,
 };
 
-var<private> uvs: array<vec2<f32>, 4> = array<vec2<f32>, 4>(
-  vec2<f32>(0., 1. ),
-  vec2<f32>(1., 1.),
-  vec2<f32>(0., 0.),
-  vec2<f32>(1., 0.),
-);
-
 @vertex
-fn vs_main(
-    @builtin(vertex_index) vert_idx: u32,
-    @builtin(instance_index) instance_idx: u32,
-) -> VertexOutput {
-
-    let p = particles[instance_idx];
+fn vs_main(in: VertexInput) -> VertexOutput {
+    let p = particles[in.instance_idx];
 
     if (p.lifetime == -1.) {
         var out: VertexOutput;
-        out.clip_position = camera.view_pos - 100.;
+        out.clip_position = camera.view_pos - 1000.;
         return out;
     }
     
     let world_space: vec4<f32> = 
-        vec4<f32>(p.pos_size.xyz + camera.rotated_vertices[vert_idx].xyz * p.pos_size.w, 1.0);
+        vec4<f32>(p.pos_size.xyz + in.position * p.pos_size.w, 1.0);
 
     var out: VertexOutput;
     out.color = p.color;
     out.world_space = world_space;
     out.clip_position = camera.view_proj * world_space;
-    out.uv = vec4<f32>(uvs[vert_idx], f32(instance_idx), 0.);
+    out.uv = in.uv;
 
     return out;
 }
@@ -58,10 +55,10 @@ var base_sampler: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput {
-    let v_pos = in.uv.xy * 2. - 1.;
+    let v_pos = in.uv * 2. - 1.;
 
     let len = length(v_pos);
-    let texture_color = textureSample(base_texture, base_sampler, in.uv.xy);
+    let texture_color = textureSample(base_texture, base_sampler, in.uv);
 
     if 1.0 < len {
         discard;
@@ -72,7 +69,6 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
 
     let x = v_pos.x;
     let y = v_pos.y;
-    let idx = in.uv.z;
 
     let normal = sqrt(1. - x * x - y * y);
 

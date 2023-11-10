@@ -38,7 +38,6 @@ struct Emitter {
 struct CameraUniform {
     view_proj: mat4x4<f32>,
     view: mat4x4<f32>,
-    rotated_vertices: mat4x4<f32>,
     view_pos: vec4<f32>,
     bloom_treshold: f32,
 };

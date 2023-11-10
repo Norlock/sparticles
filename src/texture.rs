@@ -7,7 +7,7 @@ use std::fs;
 pub struct DiffuseCtx {
     pub sampler: wgpu::Sampler,
     pub view: wgpu::TextureView,
-    pub bind_group: wgpu::BindGroup,
+    pub bg: wgpu::BindGroup,
     pub bg_layout: wgpu::BindGroupLayout,
 }
 
@@ -244,7 +244,7 @@ impl GfxState {
         DiffuseCtx {
             sampler,
             view,
-            bind_group,
+            bg: bind_group,
             bg_layout: bind_group_layout,
         }
     }

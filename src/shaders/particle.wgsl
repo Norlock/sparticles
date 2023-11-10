@@ -7,6 +7,14 @@ var<storage, read> particles: array<Particle>;
 @group(3) @binding(0) 
 var<storage, read> light_particles: array<Particle>;
 
+struct VertexInput {
+    @builtin(vertex_index) vert_idx: u32,
+    @builtin(instance_index) instance_idx: u32,
+    @location(0) position: vec3<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) normal: vec3<f32>,
+}
+
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) world_space: vec4<f32>,
@@ -19,30 +27,20 @@ struct FragmentOutput {
     @location(1) split: vec4<f32>,
 }
 
-var<private> uvs: array<vec2<f32>, 4> = array<vec2<f32>, 4>(
-  vec2<f32>(0., 1. ),
-  vec2<f32>(1., 1.),
-  vec2<f32>(0., 0.),
-  vec2<f32>(1., 0.),
-);
-
 @vertex
-fn vs_main(
-    @builtin(vertex_index) vert_idx: u32,
-    @builtin(instance_index) instance_idx: u32,
-) -> VertexOutput {
-    let p = particles[instance_idx];
+fn vs_main(in: VertexInput) -> VertexOutput {
+    let p = particles[in.instance_idx];
 
     if (p.lifetime == -1.) {
         var out: VertexOutput;
-        out.clip_position = camera.view_pos - 100.;
+        out.clip_position = camera.view_pos - 1000.;
         return out;
     }
     
     let world_space: vec4<f32> = 
         vec4<f32>(
             p.pos_size.xyz + 
-            camera.rotated_vertices[vert_idx].xyz * 
+            in.position * 
             p.pos_size.w, 1.0
     );
 
@@ -50,7 +48,7 @@ fn vs_main(
     out.clip_position = camera.view_proj * world_space;
     out.world_space = world_space;
     out.color = p.color;
-    out.uv = uvs[vert_idx];
+    out.uv = in.uv;
 
     return out;
 }
@@ -60,7 +58,7 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput {
-    let v_pos = in.uv.xy * 2. - 1.;
+    let v_pos = in.uv * 2. - 1.;
 
     let texture_color = textureSample(base_texture, base_sampler, in.uv);
 
