@@ -155,6 +155,43 @@ impl GfxState {
             })
     }
 
+    pub fn create_diffuse_texture(&self, bytes: &[u8]) -> wgpu::Texture {
+        let device = &self.device;
+        let diffuse_image = image::load_from_memory(&bytes).unwrap();
+        let diffuse_rgba = diffuse_image.to_rgba8();
+        let dimensions = diffuse_image.dimensions();
+
+        let texture_size = wgpu::Extent3d {
+            width: dimensions.0,
+            height: dimensions.1,
+            depth_or_array_layers: 1,
+        };
+
+        let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            label: Some("diffuse_texture"),
+            view_formats: &[],
+        });
+
+        self.queue.write_texture(
+            diffuse_texture.as_image_copy(),
+            &diffuse_rgba,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * dimensions.0),
+                rows_per_image: Some(dimensions.1),
+            },
+            texture_size,
+        );
+
+        let view = diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
+    }
+
     pub fn create_diffuse_context(&self, texture_path: &str) -> DiffuseCtx {
         let device = &self.device;
 

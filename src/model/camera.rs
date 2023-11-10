@@ -28,7 +28,6 @@ pub struct Camera {
     far: f32,  // What is too far to show
     buffer: wgpu::Buffer,
 
-    // TODO last_key_pressed
     is_forward_pressed: bool,
     is_backward_pressed: bool,
     is_left_pressed: bool,

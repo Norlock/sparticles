@@ -1,3 +1,7 @@
+use super::state::State;
+use super::EmitterState;
+use super::GuiState;
+use crate::fx::PostProcessState;
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::CommandEncoder;
@@ -15,13 +19,6 @@ use wgpu_profiler::GpuProfilerSettings;
 use wgpu_profiler::ProfilerCommandRecorder;
 use winit::dpi::PhysicalSize;
 use winit::window;
-
-use crate::fx::PostProcessState;
-use crate::loader::Loader;
-
-use super::state::State;
-use super::EmitterState;
-use super::GuiState;
 
 pub struct GfxState {
     pub device: wgpu::Device,

@@ -13,6 +13,11 @@ pub struct Mesh {
     pub index_buffer: wgpu::Buffer,
 }
 
+pub struct Material {
+    pub name: String,
+    pub diffuse_texture: wgpu::Texture,
+}
+
 impl Mesh {
     pub fn update(emitter: &mut EmitterState, queue: &wgpu::Queue, camera: &Camera) {
         match emitter.uniform.model {

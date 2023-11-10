@@ -18,5 +18,5 @@ pub use events::Events;
 pub use gfx_state::GfxState;
 pub use gui_state::GuiState;
 pub use life_cycle::LifeCycle;
-pub use mesh::{Mesh, ModelVertex};
+pub use mesh::{Material, Mesh, ModelVertex};
 pub use state::State;

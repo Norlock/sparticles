@@ -1,6 +1,6 @@
-use egui_wgpu::wgpu::{self, util::DeviceExt};
+use egui_wgpu::wgpu::{self, util::DeviceExt, Texture};
 
-use crate::model::{GfxState, Mesh, ModelVertex};
+use crate::model::{self, GfxState, Mesh, ModelVertex};
 
 pub struct Loader;
 
@@ -84,6 +84,47 @@ impl Loader {
             contents: bytemuck::cast_slice(&indices),
             usage: wgpu::BufferUsages::INDEX,
         });
+
+        let mut materials = Vec::new();
+
+        for material in gltf.materials() {
+            println!("Looping thru materials");
+            let pbr = material.pbr_metallic_roughness();
+            let base_color_texture = &pbr.base_color_texture();
+            let texture_source = &pbr
+                .base_color_texture()
+                .map(|tex| {
+                    println!("Grabbing diffuse tex");
+                    dbg!(&tex.texture().source());
+                    tex.texture().source().source()
+                })
+                .expect("texture");
+
+            match texture_source {
+                gltf::image::Source::View { view, mime_type } => {
+                    let diffuse_texture = Texture::from_bytes(
+                        device,
+                        queue,
+                        &buffer_data[view.buffer().index()],
+                        file_name,
+                    )
+                    .expect("Couldn't load diffuse");
+
+                    materials.push(model::Material {
+                        name: material.name().unwrap_or("Default Material").to_string(),
+                        diffuse_texture,
+                    });
+                }
+                gltf::image::Source::Uri { uri, mime_type } => {
+                    let diffuse_texture = load_texture(uri, device, queue).await?;
+
+                    materials.push(model::Material {
+                        name: material.name().unwrap_or("Default Material").to_string(),
+                        diffuse_texture,
+                    });
+                }
+            };
+        }
 
         Ok(Mesh {
             label: filename.to_string(),
