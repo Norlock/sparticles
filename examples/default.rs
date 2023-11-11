@@ -36,7 +36,7 @@ impl AppSettings for CustomSettings {
         let mut emitter = EmitterUniform::new(PARTICLE_ID.to_string());
         emitter.spawn_count = 1;
         emitter.spawn_delay_sec = 2.0;
-        emitter.model = ModelType::File("spaceship.glb".to_string());
+        emitter.model = ModelType::File("StarSparrow.glb".to_string());
         //emitter.model = ModelType::File()
 
         vec![emitter]

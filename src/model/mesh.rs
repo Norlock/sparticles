@@ -15,7 +15,7 @@ pub struct Mesh {
 
 pub struct Material {
     pub name: String,
-    pub diffuse_texture: wgpu::Texture,
+    pub texture: wgpu::Texture,
 }
 
 impl Mesh {

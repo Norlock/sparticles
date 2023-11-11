@@ -401,10 +401,9 @@ impl<'a> EmitterState {
 
     pub fn update_diffuse(&mut self, gfx_state: &GfxState, path: &mut PathBuf) {
         self.uniform.texture_image = path.to_path_buf();
-        self.diffuse_ctx = gfx_state.create_diffuse_context(
-            path.to_str()
-                .expect("failed to convert to str from pathbuf"),
-        );
+        let tex =
+            gfx_state.diffuse_from_string(path.to_str().expect("Failed to convert pathbuf to str"));
+        self.diffuse_ctx = gfx_state.create_diffuse_context(&tex);
     }
 
     pub fn particle_count(&self) -> u64 {
@@ -461,8 +460,6 @@ impl GfxState {
         let device = &self.device;
 
         let emitter_buf_content = uniform.create_buffer_content();
-        let diffuse_ctx =
-            self.create_diffuse_context(uniform.texture_image.to_str().expect("Texture not found"));
 
         let particle_buffer_size = NonZeroU64::new(uniform.particle_buffer_size());
         let emitter_buffer_size = emitter_buf_content.cal_buffer_size();
@@ -578,6 +575,27 @@ impl GfxState {
         let shader;
         let pipeline_layout;
         let is_light;
+        let mesh;
+        let diffuse_ctx;
+
+        match &uniform.model {
+            ModelType::File(filename) => {
+                let mut load =
+                    Loader::load_gltf(self, &filename).expect("Can't load mesh from file");
+
+                // TODO fix
+                mesh = load.meshes.swap_remove(0);
+                diffuse_ctx = self.create_diffuse_context(&load.materials[0].texture);
+            }
+            ModelType::Circle => {
+                mesh = Mesh::circle(self);
+
+                let tex = self.diffuse_from_string(
+                    uniform.texture_image.to_str().expect("Texture not found"),
+                );
+                diffuse_ctx = self.create_diffuse_context(&tex);
+            }
+        }
 
         if let Some(light_layout) = &light_layout {
             is_light = false;
@@ -600,17 +618,6 @@ impl GfxState {
                 bind_group_layouts: &[&camera.bg_layout, &diffuse_ctx.bg_layout, &bg_layout],
                 push_constant_ranges: &[],
             });
-        }
-
-        let mesh;
-
-        match &uniform.model {
-            ModelType::File(filename) => {
-                mesh = Loader::load_fbx(self, &filename).expect("Can't load mesh from file")
-            }
-            ModelType::Circle => {
-                mesh = Mesh::circle(self);
-            }
         }
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
