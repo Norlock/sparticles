@@ -127,7 +127,6 @@ impl CommonBuffer {
 
 impl<T: std::fmt::Debug> Splitting<T> for Vec<T> {
     fn split_item_mut(&mut self, idx: usize) -> (&mut T, OtherIterMut<T>) {
-        //fn split_item_mut(&mut self, idx: usize) -> (&mut T, &mut [T]) {
         assert!(idx < self.len());
 
         let (head, rest) = self.split_at_mut(idx);

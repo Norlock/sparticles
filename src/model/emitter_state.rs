@@ -1,4 +1,4 @@
-use super::material::MaterialCtx;
+use super::state::FastFetch;
 use super::{Camera, EmitterUniform, GfxState, GuiState, Mesh, ModelVertex, State};
 use crate::fx::PostProcessState;
 use crate::loader::{Model, BUILTIN_ID};
@@ -95,15 +95,10 @@ impl<'a> EmitterState {
 
                 let device = &gfx_state.device;
 
+                let (em, others) = emitters.split_item_mut(gui.selected_emitter_id);
+
                 for other in others {
-                    // TODO function
-                    let mat_layout = &collection
-                        .get(&other.uniform.material.collection_key)
-                        .expect("Collection should exist")
-                        .materials
-                        .get(&other.uniform.material.material_key)
-                        .expect("Material should exist")
-                        .bg_layout;
+                    let mat_layout = &collection.get_mat(&other.uniform.material).bg_layout;
 
                     other.pipeline_layout =
                         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -283,22 +278,8 @@ impl<'a> EmitterState {
         gfx_state.begin_scope("Render", &mut r_pass);
 
         for em in emitters.iter() {
-            // TODO in a function
-            let mesh_ref = &em.uniform.mesh;
-            let mesh = collection
-                .get(&mesh_ref.collection_key)
-                .expect("Should exist")
-                .meshes
-                .get(&mesh_ref.mesh_key)
-                .expect("Should exist");
-
-            let mat_ref = &em.uniform.material;
-            let mat = collection
-                .get(&mat_ref.collection_key)
-                .expect("Should exist")
-                .materials
-                .get(&mat_ref.material_key)
-                .expect("Should exist");
+            let mesh = collection.get_mesh(&em.uniform.mesh);
+            let mat = collection.get_mat(&em.uniform.material);
 
             gfx_state.begin_scope(&format!("Emitter: {}", em.id()), &mut r_pass);
             r_pass.set_pipeline(&em.render_pipeline);
@@ -312,6 +293,7 @@ impl<'a> EmitterState {
             if !em.is_light {
                 r_pass.set_bind_group(3, &emitters[0].bgs[nr], &[]);
             }
+
             r_pass.draw_indexed(mesh.indices_range(), 0, 0..em.particle_count() as u32);
             gfx_state.end_scope(&mut r_pass);
         }
@@ -472,7 +454,7 @@ impl<'a> EmitterState {
                 // Emitter
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,

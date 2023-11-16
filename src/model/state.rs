@@ -1,4 +1,6 @@
-use super::{Camera, Clock, EmitterState, Events, GfxState, GuiState};
+use super::{
+    Camera, Clock, EmitterState, Events, GfxState, GuiState, Material, MaterialRef, Mesh, MeshRef,
+};
 use crate::init::{InitEmitters, InitSettings};
 use crate::loader::{Model, BUILTIN_ID};
 use crate::traits::*;
@@ -19,6 +21,35 @@ pub struct State {
     pub registered_post_fx: Vec<Box<dyn RegisterPostFx>>,
     pub events: Events,
     pub collection: HashMap<ID, Model>,
+}
+
+pub trait FastFetch {
+    fn get_mesh(&self, mesh_ref: &MeshRef) -> &Mesh;
+    fn get_mat(&self, mat_ref: &MaterialRef) -> &Material;
+}
+
+impl FastFetch for HashMap<ID, Model> {
+    fn get_mesh(&self, mesh_ref: &MeshRef) -> &Mesh {
+        self.get(&mesh_ref.collection_key)
+            .expect(&format!(
+                "Collection doesn't exist: {:?}",
+                &mesh_ref.collection_key
+            ))
+            .meshes
+            .get(&mesh_ref.mesh_key)
+            .expect(&format!("Mesh doesn't exist: {:?}", &mesh_ref.mesh_key))
+    }
+
+    fn get_mat(&self, mat_ref: &MaterialRef) -> &Material {
+        self.get(&mat_ref.collection_key)
+            .expect(&format!(
+                "Collection doesn't exist: {:?}",
+                &mat_ref.collection_key
+            ))
+            .materials
+            .get(&mat_ref.material_key)
+            .expect(&format!("Mesh doesn't exist: {:?}", &mat_ref.material_key))
+    }
 }
 
 impl State {

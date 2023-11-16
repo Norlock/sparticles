@@ -195,8 +195,7 @@ impl GuiState {
                         events.set_reset_camera();
                     }
 
-                    let emitter = GuiState::selected_emitter(emitters, gui.selected_emitter_id)
-                        .expect("Expects a selected emitter");
+                    let emitter = &emitters[gui.selected_emitter_id];
 
                     if !emitter.is_light && ui.button("Remove emitter").clicked() {
                         let id = emitter.id().to_string();
@@ -262,79 +261,62 @@ impl GuiState {
         total_time
     }
 
-    pub fn selected_emitter<'a>(
-        emitters: &'a mut [EmitterState],
-        idx: usize,
-    ) -> Option<&'a mut EmitterState> {
-        emitters
-            .iter_mut()
-            .enumerate()
-            .find(|item| item.0 == idx)
-            .map(|item| item.1)
-    }
-
     fn emitter_animations_tab(state: &mut State, ui: &mut Ui) {
         let gui = &mut state.gui;
 
-        if let Some(emitter) =
-            GuiState::selected_emitter(&mut state.emitters, gui.selected_emitter_id)
-        {
-            let registered_em_anims = &state.registered_em_anims;
+        let emitter = &mut state.emitters[gui.selected_emitter_id];
+        let registered_em_anims = &state.registered_em_anims;
 
-            emitter.ui_emitter_animations(ui, gui);
+        emitter.ui_emitter_animations(ui, gui);
 
-            ui.separator();
+        ui.separator();
 
-            ui.horizontal(|ui| {
-                let sel_animation = &mut gui.selected_new_em_anim;
+        ui.horizontal(|ui| {
+            let sel_animation = &mut gui.selected_new_em_anim;
 
-                ComboBox::from_id_source("new-particle-animation").show_index(
-                    ui,
-                    sel_animation,
-                    registered_em_anims.len(),
-                    |i| registered_em_anims[i].tag(),
-                );
+            ComboBox::from_id_source("new-particle-animation").show_index(
+                ui,
+                sel_animation,
+                registered_em_anims.len(),
+                |i| registered_em_anims[i].tag(),
+            );
 
-                if ui.button("Add animation").clicked() {
-                    emitter.push_emitter_animation(
-                        registered_em_anims[*sel_animation].create_default(),
-                    );
-                }
-            });
-        }
+            if ui.button("Add animation").clicked() {
+                emitter
+                    .push_emitter_animation(registered_em_anims[*sel_animation].create_default());
+            }
+        });
     }
 
     fn particle_animations_tab(state: &mut State, ui: &mut Ui) {
         let State {
-            emitters: e,
+            emitters,
             gui,
             registered_par_anims,
             ..
         } = state;
 
-        if let Some(emitter) = GuiState::selected_emitter(e, gui.selected_emitter_id) {
-            emitter.ui_particle_animations(ui, gui);
+        let emitter = &mut emitters[gui.selected_emitter_id];
+        emitter.ui_particle_animations(ui, gui);
 
-            ui.separator();
+        ui.separator();
 
-            ui.horizontal(|ui| {
-                let sel_animation = &mut gui.selected_new_par_anim;
+        ui.horizontal(|ui| {
+            let sel_animation = &mut gui.selected_new_par_anim;
 
-                ComboBox::from_id_source("new-particle-animation").show_index(
-                    ui,
-                    sel_animation,
-                    registered_par_anims.len(),
-                    |i| registered_par_anims[i].tag(),
+            ComboBox::from_id_source("new-particle-animation").show_index(
+                ui,
+                sel_animation,
+                registered_par_anims.len(),
+                |i| registered_par_anims[i].tag(),
+            );
+
+            if ui.button("Add animation").clicked() {
+                emitter.push_particle_animation(
+                    registered_par_anims[*sel_animation].create_default(&state.gfx_state, emitter),
                 );
-
-                if ui.button("Add animation").clicked() {
-                    emitter.push_particle_animation(
-                        registered_par_anims[*sel_animation]
-                            .create_default(&state.gfx_state, emitter),
-                    );
-                }
-            });
-        }
+            }
+        });
     }
 
     fn create_icons(gfx_state: &mut GfxState) -> HashMap<String, TextureId> {
@@ -394,142 +376,135 @@ impl GuiState {
     }
 
     fn emitter_settings_tab(state: &mut State, ui: &mut Ui, encoder: &mut CommandEncoder) {
-        let mut emitter_settings;
         let gui = &mut state.gui;
 
-        if let Some(emitter) =
-            GuiState::selected_emitter(&mut state.emitters, gui.selected_emitter_id)
-        {
+        let emitter = &mut state.emitters[gui.selected_emitter_id];
+        let mut emitter_settings = gui
+            .emitter_settings
+            .get_or_insert_with(|| emitter.uniform.create_settings());
+
+        if emitter.id() != &emitter_settings.id {
             emitter_settings = gui
                 .emitter_settings
-                .get_or_insert_with(|| emitter.uniform.create_settings());
+                .insert(emitter.uniform.create_settings());
+        }
 
-            if emitter.id() != &emitter_settings.id {
-                emitter_settings = gui
-                    .emitter_settings
-                    .insert(emitter.uniform.create_settings());
-            }
+        ui.add_space(5.0);
 
-            ui.add_space(5.0);
+        Self::create_degree_slider(ui, &mut emitter_settings.box_rotation_deg.x, "Box yaw");
+        Self::create_degree_slider(ui, &mut emitter_settings.box_rotation_deg.y, "Box pitch");
+        Self::create_degree_slider(ui, &mut emitter_settings.box_rotation_deg.z, "Box roll");
 
-            Self::create_degree_slider(ui, &mut emitter_settings.box_rotation_deg.x, "Box yaw");
-            Self::create_degree_slider(ui, &mut emitter_settings.box_rotation_deg.y, "Box pitch");
-            Self::create_degree_slider(ui, &mut emitter_settings.box_rotation_deg.z, "Box roll");
+        Self::create_degree_slider(ui, &mut emitter_settings.diff_width_deg, "Diffusion width");
+        Self::create_degree_slider(ui, &mut emitter_settings.diff_depth_deg, "Diffusion depth");
 
-            Self::create_degree_slider(ui, &mut emitter_settings.diff_width_deg, "Diffusion width");
-            Self::create_degree_slider(ui, &mut emitter_settings.diff_depth_deg, "Diffusion depth");
+        ui.add_space(5.0);
+        create_label(ui, "Box dimensions (w, h, d)");
 
-            ui.add_space(5.0);
-            create_label(ui, "Box dimensions (w, h, d)");
+        ui.horizontal(|ui| {
+            create_drag_value(ui, &mut emitter_settings.box_dimensions.x);
+            create_drag_value(ui, &mut emitter_settings.box_dimensions.y);
+            create_drag_value(ui, &mut emitter_settings.box_dimensions.z);
+        });
 
-            ui.horizontal(|ui| {
-                create_drag_value(ui, &mut emitter_settings.box_dimensions.x);
-                create_drag_value(ui, &mut emitter_settings.box_dimensions.y);
-                create_drag_value(ui, &mut emitter_settings.box_dimensions.z);
-            });
+        ui.add_space(5.0);
+        create_label(ui, "Box position");
 
-            ui.add_space(5.0);
-            create_label(ui, "Box position");
+        ui.horizontal(|ui| {
+            ui.add(egui::DragValue::new(&mut emitter_settings.box_position.x).speed(0.1));
+            ui.add(egui::DragValue::new(&mut emitter_settings.box_position.y).speed(0.1));
+            ui.add(egui::DragValue::new(&mut emitter_settings.box_position.z).speed(0.1));
+        });
 
-            ui.horizontal(|ui| {
-                ui.add(egui::DragValue::new(&mut emitter_settings.box_position.x).speed(0.1));
-                ui.add(egui::DragValue::new(&mut emitter_settings.box_position.y).speed(0.1));
-                ui.add(egui::DragValue::new(&mut emitter_settings.box_position.z).speed(0.1));
-            });
+        ui.add_space(5.0);
 
-            ui.add_space(5.0);
+        ui.horizontal(|ui| {
+            let col = &mut emitter_settings.particle_color;
+            let mut particle_color = Rgba::from_rgba_unmultiplied(col.x, col.y, col.z, col.w);
 
-            ui.horizontal(|ui| {
-                let col = &mut emitter_settings.particle_color;
-                let mut particle_color = Rgba::from_rgba_unmultiplied(col.x, col.y, col.z, col.w);
-
-                if color_edit_button_rgba(ui, &mut particle_color, Alpha::Opaque).changed() {
-                    col.x = particle_color.r();
-                    col.y = particle_color.g();
-                    col.z = particle_color.b();
-                    col.w = particle_color.a();
-                };
-
-                ui.label("Particle color");
-                ui.add(
-                    Slider::new(&mut emitter_settings.hdr_mul, 1.0..=50.0)
-                        .text("HDR multiplication"),
-                );
-            });
-
-            ui.add_space(5.0);
-            ui.add(
-                Slider::new(&mut emitter_settings.particle_speed_min, 0.0..=50.0)
-                    .text("Particle emit speed min"),
-            );
-            ui.add(
-                Slider::new(
-                    &mut emitter_settings.particle_speed_max,
-                    emitter_settings.particle_speed_min..=50.0,
-                )
-                .text("Particle emit speed max"),
-            );
-            ui.add_space(5.0);
-            create_label(ui, "Spawn itemings");
-
-            ui.add(
-                egui::Slider::new(&mut emitter_settings.particle_lifetime_sec, 1.0..=40.0)
-                    .drag_value_speed(0.)
-                    .max_decimals(1)
-                    .step_by(0.1)
-                    .text("Particle lifetime (sec)"),
-            );
-
-            ui.add(
-                egui::Slider::new(&mut emitter_settings.spawn_delay_sec, 0.1..=20.0)
-                    .drag_value_speed(0.)
-                    .max_decimals(1)
-                    .step_by(0.1)
-                    .text("Spawn delay (sec)"),
-            );
-
-            ui.add(
-                egui::Slider::new(&mut emitter_settings.spawn_count, 1..=100).text("Spawn count"),
-            );
-
-            ui.add_space(5.0);
-
-            emitter_settings.recreate = ui.button("Update spawn settings").clicked();
-
-            ui.add_space(5.0);
-
-            create_label(ui, "Particle settings");
-
-            ui.add_space(5.0);
-
-            ui.add(
-                Slider::new(&mut emitter_settings.particle_size_min, 0.01..=2.0)
-                    .text("Particle size min"),
-            );
-            ui.add(
-                Slider::new(
-                    &mut emitter_settings.particle_size_max,
-                    emitter_settings.particle_size_min..=2.0,
-                )
-                .text("Particle size max"),
-            );
-
-            let combo_texture = ComboBox::from_label("Select texture").show_index(
-                ui,
-                &mut gui.selected_texture,
-                gui.texture_paths.len(),
-                |i| gui.texture_paths[i].rich_text(),
-            );
-
-            if combo_texture.changed() {
-                emitter.update_diffuse(
-                    &state.gfx_state,
-                    &mut gui.texture_paths[gui.selected_texture],
-                );
+            if color_edit_button_rgba(ui, &mut particle_color, Alpha::Opaque).changed() {
+                col.x = particle_color.r();
+                col.y = particle_color.g();
+                col.z = particle_color.b();
+                col.w = particle_color.a();
             };
 
-            EmitterState::update_emitter(state, encoder);
-        }
+            ui.label("Particle color");
+            ui.add(
+                Slider::new(&mut emitter_settings.hdr_mul, 1.0..=50.0).text("HDR multiplication"),
+            );
+        });
+
+        ui.add_space(5.0);
+        ui.add(
+            Slider::new(&mut emitter_settings.particle_speed_min, 0.0..=50.0)
+                .text("Particle emit speed min"),
+        );
+        ui.add(
+            Slider::new(
+                &mut emitter_settings.particle_speed_max,
+                emitter_settings.particle_speed_min..=50.0,
+            )
+            .text("Particle emit speed max"),
+        );
+        ui.add_space(5.0);
+        create_label(ui, "Spawn itemings");
+
+        ui.add(
+            egui::Slider::new(&mut emitter_settings.particle_lifetime_sec, 1.0..=40.0)
+                .drag_value_speed(0.)
+                .max_decimals(1)
+                .step_by(0.1)
+                .text("Particle lifetime (sec)"),
+        );
+
+        ui.add(
+            egui::Slider::new(&mut emitter_settings.spawn_delay_sec, 0.1..=20.0)
+                .drag_value_speed(0.)
+                .max_decimals(1)
+                .step_by(0.1)
+                .text("Spawn delay (sec)"),
+        );
+
+        ui.add(egui::Slider::new(&mut emitter_settings.spawn_count, 1..=100).text("Spawn count"));
+
+        ui.add_space(5.0);
+
+        emitter_settings.recreate = ui.button("Update spawn settings").clicked();
+
+        ui.add_space(5.0);
+
+        create_label(ui, "Particle settings");
+
+        ui.add_space(5.0);
+
+        ui.add(
+            Slider::new(&mut emitter_settings.particle_size_min, 0.01..=2.0)
+                .text("Particle size min"),
+        );
+        ui.add(
+            Slider::new(
+                &mut emitter_settings.particle_size_max,
+                emitter_settings.particle_size_min..=2.0,
+            )
+            .text("Particle size max"),
+        );
+
+        let combo_texture = ComboBox::from_label("Select texture").show_index(
+            ui,
+            &mut gui.selected_texture,
+            gui.texture_paths.len(),
+            |i| gui.texture_paths[i].rich_text(),
+        );
+
+        if combo_texture.changed() {
+            emitter.update_diffuse(
+                &state.gfx_state,
+                &mut gui.texture_paths[gui.selected_texture],
+            );
+        };
+
+        EmitterState::update_emitter(state, encoder);
     }
 
     fn post_fx_tab(state: &mut State, ui: &mut Ui) {
