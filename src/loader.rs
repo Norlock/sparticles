@@ -1,13 +1,21 @@
-use egui_wgpu::wgpu::{self, util::DeviceExt};
-
+use crate::model::material::MaterialCtx;
 use crate::model::{GfxState, Material, Mesh, ModelVertex};
+use crate::util::ID;
+use egui_wgpu::wgpu::{self, util::DeviceExt};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
-pub struct Loader {
-    pub meshes: Vec<Mesh>,
-    pub materials: Vec<Material>,
+pub const CIRCLE_ID: &'static str = "circle";
+pub const DEFAULT_MATERIAL_ID: &'static str = "white-img";
+pub const BUILTIN_ID: &'static str = "builtin";
+
+pub struct Model {
+    pub id: ID,
+    pub materials: HashMap<ID, Material>,
+    pub meshes: HashMap<ID, Mesh>,
 }
 
-pub async fn load_binary(filename: &str) -> anyhow::Result<Vec<u8>> {
+async fn load_binary(filename: &str) -> anyhow::Result<Vec<u8>> {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("src/assets/models")
         .join(filename);
@@ -18,18 +26,31 @@ pub async fn load_binary(filename: &str) -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub async fn load_texture(filename: &str, gfx_state: &GfxState) -> anyhow::Result<wgpu::Texture> {
+async fn load_texture(filename: &str, gfx_state: &GfxState) -> anyhow::Result<wgpu::Texture> {
     println!("file: {:?}", filename);
     let data = load_binary(filename).await?;
 
-    let res = Ok(gfx_state.diffuse_from_bytes(&data));
-    println!("success");
-
-    res
-    //texture::Texture::from_bytes(device, queue, &data, file_name)
+    Ok(gfx_state.diffuse_from_bytes(&data))
 }
 
-impl Loader {
+impl Model {
+    pub fn load_builtin(gfx_state: &GfxState) -> Self {
+        // TODO create default material
+        let mut texture_image = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        texture_image.push("src/assets/textures/1x1.png");
+
+        let mut meshes = HashMap::new();
+        meshes.insert(CIRCLE_ID.to_string(), Mesh::circle(gfx_state));
+
+        let materials = Material::create_builtin(gfx_state);
+
+        Self {
+            id: BUILTIN_ID.to_string(),
+            materials,
+            meshes,
+        }
+    }
+
     pub fn load_gltf(gfx_state: &GfxState, filename: &str) -> anyhow::Result<Self> {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("src/assets/models")
@@ -52,58 +73,85 @@ impl Loader {
                     };
                 }
                 gltf::buffer::Source::Uri(uri) => {
-                    let bin: Vec<u8> = std::fs::read(uri)?;
-                    buffer_data.push(bin);
+                    buffer_data.push(std::fs::read(uri)?);
                     println!("Found uri not saving")
                 }
             }
         }
 
-        let mut materials = Vec::new();
-
-        for material in gltf.materials() {
-            println!("Looping thru materials");
-            let pbr = material.pbr_metallic_roughness();
-            let base_color_texture = pbr.base_color_texture();
-
-            let texture_source = base_color_texture
-                .map(|tex| {
-                    println!("Grabbing diffuse tex");
-                    //dbg!(&tex.texture().source());
-                    tex.texture().source().source()
-                })
-                .expect("Expect diffuse texture");
-
-            match texture_source {
+        let fetch_texture = |tex: gltf::Texture<'_>| -> wgpu::Texture {
+            match tex.source().source() {
                 gltf::image::Source::View { view, mime_type: _ } => {
-                    println!("{:?}", view.offset());
-                    let offset = view.offset();
-                    let diffuse_texture = gfx_state.diffuse_from_bytes(
-                        &buffer_data[view.buffer().index()][offset..offset + view.length()],
-                    );
+                    let start = view.offset();
+                    let end = start + view.length();
+                    let buf_idx = view.buffer().index();
 
-                    materials.push(Material {
-                        name: material.name().unwrap_or("Default Material").to_string(),
-                        texture: diffuse_texture,
-                    });
+                    gfx_state.diffuse_from_bytes(&buffer_data[buf_idx][start..end])
                 }
                 gltf::image::Source::Uri { uri, mime_type: _ } => {
-                    let diffuse_texture = pollster::block_on(load_texture(uri, gfx_state))?;
-
-                    materials.push(Material {
-                        name: material.name().unwrap_or("Default Material").to_string(),
-                        texture: diffuse_texture,
-                    });
+                    pollster::block_on(load_texture(uri, gfx_state)).expect("Can't load diffuse")
                 }
-            };
+            }
+        };
+
+        let mut materials: HashMap<ID, Material> = HashMap::new();
+
+        for (i, material) in gltf.materials().enumerate() {
+            let diffuse_tex: wgpu::Texture;
+            let metallic_roughness_tex: wgpu::Texture;
+            let normal_tex: wgpu::Texture;
+            let emissive_tex: wgpu::Texture;
+
+            let pbr = material.pbr_metallic_roughness();
+
+            if let Some(tex) = pbr.base_color_texture() {
+                diffuse_tex = fetch_texture(tex.texture());
+            } else {
+                todo!("create default texture");
+            }
+
+            if let Some(tex) = pbr.metallic_roughness_texture() {
+                metallic_roughness_tex = fetch_texture(tex.texture());
+            } else {
+                todo!("create default texture");
+            }
+
+            if let Some(tex) = material.normal_texture() {
+                normal_tex = fetch_texture(tex.texture());
+            } else {
+                todo!("create default texture");
+            }
+
+            if let Some(tex) = material.emissive_texture() {
+                emissive_tex = fetch_texture(tex.texture());
+            } else {
+                todo!("create default texture");
+            }
+
+            let id = material
+                .name()
+                .map(|name| name.to_string())
+                .unwrap_or_else(|| format!("material-{}", i));
+
+            println!("Importing material: {:?}", &id);
+
+            materials.insert(
+                id,
+                Material::new(MaterialCtx {
+                    gfx_state,
+                    diffuse_tex,
+                    emissive_tex,
+                    metallic_roughness_tex,
+                    normal_tex,
+                }),
+            );
         }
 
-        let mut meshes = Vec::new();
+        let mut meshes: HashMap<ID, Mesh> = HashMap::new();
 
         for scene in gltf.scenes() {
             for node in scene.nodes() {
                 if let Some(mesh) = node.mesh() {
-                    println!("is a mesh");
                     let mut vertices = Vec::new();
                     let mut indices = Vec::new();
 
@@ -151,22 +199,32 @@ impl Loader {
                             usage: wgpu::BufferUsages::INDEX,
                         });
 
-                    meshes.push(Mesh {
-                        label: filename.to_string(),
-                        vertices,
-                        indices,
-                        vertex_buffer,
-                        index_buffer,
-                    });
+                    let id = mesh
+                        .name()
+                        .map(|name| name.to_string())
+                        .unwrap_or_else(|| format!("mesh-{}", materials.len()));
+
+                    println!("Importing mesh: {:?}", &id);
+
+                    meshes.insert(
+                        id,
+                        Mesh {
+                            indices,
+                            vertices,
+                            vertex_buffer,
+                            index_buffer,
+                        },
+                    );
                 } else {
                     println!("Not a mesh! {}", node.name().unwrap_or("no name"));
                 }
             }
         }
 
-        println!("mat {:?}", materials.len());
-        println!("mesh {:?}", meshes.len());
-
-        Ok(Self { meshes, materials })
+        Ok(Self {
+            id: filename.to_string(),
+            materials,
+            meshes,
+        })
     }
 }

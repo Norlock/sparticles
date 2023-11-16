@@ -7,7 +7,10 @@ use sparticles::{
         RegisterStrayAnimation, StrayUniform, SwayAnimation,
     },
     init::{AppSettings, JsonImportMode},
-    model::{emitter::ModelType, Boundry, EmitterState, EmitterUniform, GfxState, LifeCycle},
+    model::{
+        emitter::{MaterialRef, MeshRef},
+        Boundry, EmitterState, EmitterUniform, GfxState, LifeCycle,
+    },
     traits::*,
 };
 
@@ -36,7 +39,10 @@ impl AppSettings for CustomSettings {
         let mut emitter = EmitterUniform::new(PARTICLE_ID.to_string());
         emitter.spawn_count = 1;
         emitter.spawn_delay_sec = 2.0;
-        emitter.model = ModelType::File("StarSparrow.glb".to_string());
+        emitter.material = MaterialRef {
+            collection_key: "StarSparrow.glb".to_string(),
+            material_key: "StarSparrowPurple".to_string(),
+        };
         //emitter.model = ModelType::File()
 
         vec![emitter]

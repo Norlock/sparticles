@@ -1,4 +1,4 @@
-pub type ID = String;
+use crate::util::ID;
 
 pub enum ViewIOEvent {
     Add,

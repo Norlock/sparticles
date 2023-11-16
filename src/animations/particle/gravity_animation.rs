@@ -181,11 +181,7 @@ impl ParticleAnimation for GravityAnimation {
         }
     }
 
-    fn recreate(
-        self: Box<Self>,
-        gfx_state: &GfxState,
-        emitter: &EmitterState,
-    ) -> Box<dyn ParticleAnimation> {
+    fn recreate(&self, gfx_state: &GfxState, emitter: &EmitterState) -> Box<dyn ParticleAnimation> {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
 

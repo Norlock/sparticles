@@ -50,7 +50,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
 @group(1) @binding(0)
 var base_texture: texture_2d<f32>;
-@group(1) @binding(1)
+@group(1) @binding(4)
 var base_sampler: sampler;
 
 @fragment

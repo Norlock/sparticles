@@ -1,6 +1,5 @@
 use egui_winit::winit;
 use init::AppSettings;
-use loader::Loader;
 use model::State;
 use winit::event::Event::*;
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -15,7 +14,7 @@ pub mod model;
 pub mod shaders;
 pub mod texture;
 pub mod traits;
-mod util;
+pub mod util;
 
 pub fn start(init_app: impl AppSettings) {
     env_logger::init();

@@ -108,7 +108,6 @@ impl GuiState {
             .show(&state.gfx_state.ctx.clone(), |ui| {
                 let State {
                     clock,
-                    lights,
                     emitters,
                     gui,
                     gfx_state,
@@ -119,13 +118,12 @@ impl GuiState {
 
                 // Update gui info
                 if clock.frame() % 20 == 0 {
-                    let particle_count: u64 = lights.particle_count()
-                        + emitters.iter().map(|s| s.particle_count()).sum::<u64>();
+                    let count: u64 = emitters.iter().map(|s| s.particle_count()).sum();
 
                     gui.cpu_time_text = clock.frame_time_text();
                     gui.fps_text = clock.fps_text();
                     gui.elapsed_text = clock.elapsed_text();
-                    gui.particle_count_text = format!("Particle count: {}", particle_count);
+                    gui.particle_count_text = format!("Particle count: {}", count);
 
                     let prof = &mut gfx_state.profiler;
                     let queue = &gfx_state.queue;
@@ -154,11 +152,7 @@ impl GuiState {
 
                 ui.separator();
 
-                let emitter_txts: Vec<&str> = emitters
-                    .iter()
-                    .map(|em| em.id())
-                    .chain([lights.id()])
-                    .collect();
+                let emitter_txts: Vec<&str> = emitters.iter().map(|em| em.id()).collect();
 
                 ui.horizontal(|ui| {
                     ComboBox::from_id_source("select-emitter").show_index(
@@ -176,8 +170,7 @@ impl GuiState {
                     );
 
                     let is_enabled = 3 <= gui.new_emitter_tag.len()
-                        && emitters.iter().all(|em| em.id() != &gui.new_emitter_tag)
-                        && lights.id() != &gui.new_emitter_tag;
+                        && emitters.iter().all(|em| em.id() != &gui.new_emitter_tag);
 
                     if ui
                         .add_enabled(is_enabled, egui::Button::new("Add emitter"))
@@ -194,7 +187,7 @@ impl GuiState {
 
                 ui.horizontal(|ui| {
                     if ui.button("Export settings").clicked() {
-                        EmitterState::export(emitters, lights);
+                        EmitterState::export(emitters);
                         PostProcessState::export(post_process);
                     }
 
@@ -202,9 +195,8 @@ impl GuiState {
                         events.set_reset_camera();
                     }
 
-                    let emitter =
-                        GuiState::selected_emitter(emitters, lights, gui.selected_emitter_id)
-                            .expect("Expects a selected emitter");
+                    let emitter = GuiState::selected_emitter(emitters, gui.selected_emitter_id)
+                        .expect("Expects a selected emitter");
 
                     if !emitter.is_light && ui.button("Remove emitter").clicked() {
                         let id = emitter.id().to_string();
@@ -272,12 +264,10 @@ impl GuiState {
 
     pub fn selected_emitter<'a>(
         emitters: &'a mut [EmitterState],
-        lights: &'a mut EmitterState,
         idx: usize,
     ) -> Option<&'a mut EmitterState> {
         emitters
             .iter_mut()
-            .chain([lights])
             .enumerate()
             .find(|item| item.0 == idx)
             .map(|item| item.1)
@@ -286,11 +276,9 @@ impl GuiState {
     fn emitter_animations_tab(state: &mut State, ui: &mut Ui) {
         let gui = &mut state.gui;
 
-        if let Some(emitter) = GuiState::selected_emitter(
-            &mut state.emitters,
-            &mut state.lights,
-            gui.selected_emitter_id,
-        ) {
+        if let Some(emitter) =
+            GuiState::selected_emitter(&mut state.emitters, gui.selected_emitter_id)
+        {
             let registered_em_anims = &state.registered_em_anims;
 
             emitter.ui_emitter_animations(ui, gui);
@@ -319,13 +307,12 @@ impl GuiState {
     fn particle_animations_tab(state: &mut State, ui: &mut Ui) {
         let State {
             emitters: e,
-            lights: l,
             gui,
             registered_par_anims,
             ..
         } = state;
 
-        if let Some(emitter) = GuiState::selected_emitter(e, l, gui.selected_emitter_id) {
+        if let Some(emitter) = GuiState::selected_emitter(e, gui.selected_emitter_id) {
             emitter.ui_particle_animations(ui, gui);
 
             ui.separator();
@@ -410,11 +397,9 @@ impl GuiState {
         let mut emitter_settings;
         let gui = &mut state.gui;
 
-        if let Some(emitter) = GuiState::selected_emitter(
-            &mut state.emitters,
-            &mut state.lights,
-            gui.selected_emitter_id,
-        ) {
+        if let Some(emitter) =
+            GuiState::selected_emitter(&mut state.emitters, gui.selected_emitter_id)
+        {
             emitter_settings = gui
                 .emitter_settings
                 .get_or_insert_with(|| emitter.uniform.create_settings());
@@ -543,11 +528,7 @@ impl GuiState {
                 );
             };
 
-            if state.emitters.len() == gui.selected_emitter_id {
-                EmitterState::update_lights(state, encoder);
-            } else {
-                EmitterState::update_emitter(state, encoder);
-            }
+            EmitterState::update_emitter(state, encoder);
         }
     }
 

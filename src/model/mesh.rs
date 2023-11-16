@@ -1,42 +1,32 @@
+use super::{Camera, GfxState};
+use crate::{loader::CIRCLE_ID, util::ID};
 use bytemuck::{Pod, Zeroable};
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use glam::Vec2;
-use std::ops::Range;
-
-use super::{emitter::ModelType, Camera, EmitterState, GfxState};
+use std::{collections::HashMap, ops::Range};
 
 pub struct Mesh {
-    pub label: String,
     pub vertices: Vec<ModelVertex>,
     pub indices: Vec<u32>,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
 }
 
-pub struct Material {
-    pub name: String,
-    pub texture: wgpu::Texture,
-}
-
 impl Mesh {
-    pub fn update(emitter: &mut EmitterState, queue: &wgpu::Queue, camera: &Camera) {
-        match emitter.uniform.model {
-            ModelType::Circle => {
-                let mesh = &mut emitter.mesh;
-                let view_mat = camera.view_mat();
-                let view_proj = camera.view_proj(&view_mat);
-                let camera_right = view_proj.row(0).truncate().normalize();
-                let camera_up = view_proj.row(1).truncate().normalize();
+    pub fn update(meshes: &mut HashMap<ID, Mesh>, queue: &wgpu::Queue, camera: &Camera) {
+        if let Some(mesh) = meshes.get_mut(CIRCLE_ID) {
+            let view_mat = camera.view_mat();
+            let view_proj = camera.view_proj(&view_mat);
+            let camera_right = view_proj.row(0).truncate().normalize();
+            let camera_up = view_proj.row(1).truncate().normalize();
 
-                mesh.vertices.iter_mut().enumerate().for_each(|(i, v)| {
-                    v.position = (camera_right * VERTEX_POSITIONS[i][0]
-                        + camera_up * VERTEX_POSITIONS[i][1])
-                        .into();
-                });
+            mesh.vertices.iter_mut().enumerate().for_each(|(i, v)| {
+                v.position = (camera_right * VERTEX_POSITIONS[i][0]
+                    + camera_up * VERTEX_POSITIONS[i][1])
+                    .into();
+            });
 
-                queue.write_buffer(&mesh.vertex_buffer, 0, bytemuck::cast_slice(&mesh.vertices));
-            }
-            _ => {}
+            queue.write_buffer(&mesh.vertex_buffer, 0, bytemuck::cast_slice(&mesh.vertices));
         }
     }
 
@@ -78,7 +68,6 @@ impl Mesh {
         });
 
         Mesh {
-            label: "Circle".to_string(),
             vertices,
             indices,
             vertex_buffer,

@@ -1,15 +1,15 @@
+use super::material::MaterialCtx;
 use super::{Camera, EmitterUniform, GfxState, GuiState, Mesh, ModelVertex, State};
 use crate::fx::PostProcessState;
-use crate::loader::Loader;
-use crate::model::emitter::ModelType;
-use crate::texture::DiffuseCtx;
-use crate::traits::{CalculateBufferSize, CustomShader};
+use crate::loader::{Model, BUILTIN_ID};
+use crate::traits::{CalculateBufferSize, CustomShader, Splitting};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
 use crate::util::ListAction;
-use crate::util::Persistence;
+use crate::util::{Persistence, ID};
 use egui_wgpu::wgpu::{self, ShaderModule};
 use egui_winit::egui::{ScrollArea, Ui};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{
     fmt::{Debug, Formatter},
@@ -20,16 +20,15 @@ use wgpu::util::DeviceExt;
 #[allow(unused)]
 pub struct EmitterState {
     pipeline: wgpu::ComputePipeline,
-    particle_buffers: Vec<wgpu::Buffer>,
-    emitter_buffer: wgpu::Buffer,
+    pipeline_layout: wgpu::PipelineLayout,
     render_pipeline: wgpu::RenderPipeline,
+
+    emitter_buffer: wgpu::Buffer,
+    particle_buffers: Vec<wgpu::Buffer>,
     particle_animations: Vec<Box<dyn ParticleAnimation>>,
     emitter_animations: Vec<Box<dyn EmitterAnimation>>,
     shader: ShaderModule,
-    diffuse_ctx: DiffuseCtx,
-    pipeline_layout: wgpu::PipelineLayout,
 
-    pub mesh: Mesh,
     pub uniform: EmitterUniform,
     pub dispatch_x_count: u32,
     pub bgs: Vec<wgpu::BindGroup>,
@@ -37,10 +36,27 @@ pub struct EmitterState {
     pub is_light: bool,
 }
 
+pub enum EmitterType<'a> {
+    Lights,
+    Normal {
+        lights_layout: &'a wgpu::BindGroupLayout,
+    },
+}
+
 pub struct CreateEmitterOptions<'a> {
-    pub emitter_uniform: EmitterUniform,
-    pub light_layout: Option<&'a wgpu::BindGroupLayout>,
+    pub uniform: EmitterUniform,
+    pub gfx_state: &'a GfxState,
     pub camera: &'a Camera,
+    pub collection: &'a HashMap<ID, Model>,
+    pub emitter_type: EmitterType<'a>,
+}
+
+pub struct RecreateEmitterOptions<'a> {
+    pub old_self: &'a mut EmitterState,
+    pub gfx_state: &'a GfxState,
+    pub camera: &'a Camera,
+    pub collection: &'a HashMap<ID, Model>,
+    pub emitter_type: EmitterType<'a>,
 }
 
 impl<'a> EmitterState {
@@ -51,130 +67,112 @@ impl<'a> EmitterState {
     pub fn update_emitter(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
         let State {
             camera,
-            lights,
             emitters,
             gfx_state,
             gui,
+            collection,
             ..
         } = state;
 
         let settings = gui.emitter_settings.as_ref().unwrap();
 
-        let em = &mut emitters[gui.selected_emitter_id];
+        let (em, mut others) = emitters.split_item_mut(gui.selected_emitter_id);
+
         em.uniform.update_settings(settings);
 
         if settings.recreate {
-            em.recreate_emitter(gfx_state, Some(&lights.bg_layout), camera, encoder);
-        }
-    }
+            if em.is_light {
+                EmitterState::recreate_emitter(
+                    RecreateEmitterOptions {
+                        old_self: em,
+                        gfx_state,
+                        camera,
+                        collection,
+                        emitter_type: EmitterType::Lights,
+                    },
+                    encoder,
+                );
 
-    pub fn update_lights(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
-        let settings = state.gui.emitter_settings.as_ref().expect("Should be set");
-        let lights = &mut state.lights;
+                let device = &gfx_state.device;
 
-        lights.uniform.update_settings(settings);
+                for other in others {
+                    // TODO function
+                    let mat_layout = &collection
+                        .get(&other.uniform.material.collection_key)
+                        .expect("Collection should exist")
+                        .materials
+                        .get(&other.uniform.material.material_key)
+                        .expect("Material should exist")
+                        .bg_layout;
 
-        if !settings.recreate {
-            return;
-        }
+                    other.pipeline_layout =
+                        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                            label: Some("Particle render Pipeline Layout"),
+                            bind_group_layouts: &[
+                                &camera.bg_layout,
+                                mat_layout,
+                                &other.bg_layout,
+                                &em.bg_layout,
+                            ],
+                            push_constant_ranges: &[],
+                        });
 
-        let emitters = &mut state.emitters;
-        let gfx_state = &state.gfx_state;
-        let camera = &state.camera;
+                    other.render_pipeline =
+                        Self::create_pipeline(&em.shader, &em.pipeline_layout, device);
+                }
+            } else {
+                let lights = others.next().unwrap();
 
-        lights.recreate_emitter(gfx_state, None, camera, encoder);
-
-        let device = &gfx_state.device;
-
-        for em in emitters.iter_mut() {
-            em.pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Particle render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &camera.bg_layout,
-                    &em.diffuse_ctx.bg_layout,
-                    &em.bg_layout,
-                    &lights.bg_layout,
-                ],
-                push_constant_ranges: &[],
-            });
-
-            em.render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("Render Pipeline"),
-                layout: Some(&em.pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &em.shader,
-                    entry_point: "vs_main",
-                    buffers: &[],
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &em.shader,
-                    entry_point: "fs_main",
-                    targets: &[
-                        Some(wgpu::ColorTargetState {
-                            format: PostProcessState::TEXTURE_FORMAT,
-                            blend: Some(wgpu::BlendState::REPLACE),
-                            write_mask: wgpu::ColorWrites::ALL,
-                        }),
-                        Some(wgpu::ColorTargetState {
-                            format: PostProcessState::TEXTURE_FORMAT,
-                            blend: Some(wgpu::BlendState::REPLACE),
-                            write_mask: wgpu::ColorWrites::COLOR,
-                        }),
-                    ],
-                }),
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleStrip,
-                    ..Default::default()
-                },
-                depth_stencil: Some(wgpu::DepthStencilState {
-                    format: GfxState::DEPTH_FORMAT,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::Less,
-                    stencil: wgpu::StencilState::default(),
-                    bias: wgpu::DepthBiasState::default(),
-                }),
-                multisample: wgpu::MultisampleState {
-                    count: 1,
-                    mask: !0,
-                    alpha_to_coverage_enabled: true,
-                },
-                multiview: None,
-            });
+                EmitterState::recreate_emitter(
+                    RecreateEmitterOptions {
+                        old_self: em,
+                        gfx_state,
+                        camera,
+                        collection,
+                        emitter_type: EmitterType::Normal {
+                            lights_layout: &lights.bg_layout,
+                        },
+                    },
+                    encoder,
+                );
+            }
         }
     }
 
     pub fn update(state: &mut State) {
         let State {
             clock,
-            lights,
             emitters,
             gfx_state,
             camera,
             events,
+            collection,
             ..
         } = state;
 
         if let Some(tag) = events.delete_emitter() {
             emitters.retain(|em| em.id() != &tag);
-        } else if let Some(tag) = events.create_emitter() {
-            let emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
+        } else if let Some(id) = events.create_emitter() {
+            let options = CreateEmitterOptions {
                 camera,
-                emitter_uniform: EmitterUniform::new(tag),
-                light_layout: Some(&lights.bg_layout),
-            });
+                uniform: EmitterUniform::new(id),
+                collection,
+                emitter_type: EmitterType::Normal {
+                    lights_layout: &emitters[0].bg_layout,
+                },
+                gfx_state,
+            };
 
-            emitters.push(emitter);
+            emitters.push(Self::new(options));
         }
 
-        let mut all_emitters: Vec<&mut EmitterState> = vec![lights];
-        all_emitters.append(&mut emitters.iter_mut().collect::<Vec<&mut EmitterState>>());
-
-        for emitter in all_emitters.iter_mut() {
+        if let Some(model) = collection.get_mut(BUILTIN_ID) {
             let queue = &mut gfx_state.queue;
+            Mesh::update(&mut model.meshes, queue, &camera);
+        }
 
+        for emitter in emitters.iter_mut() {
             emitter.uniform.update(clock);
-
-            Mesh::update(emitter, queue, &camera);
 
             ListAction::update_list(&mut emitter.emitter_animations);
 
@@ -189,7 +187,9 @@ impl<'a> EmitterState {
             let buffer_content_raw = emitter.uniform.create_buffer_content();
             let buffer_content = bytemuck::cast_slice(&buffer_content_raw);
 
-            queue.write_buffer(&emitter.emitter_buffer, 0, buffer_content);
+            gfx_state
+                .queue
+                .write_buffer(&emitter.emitter_buffer, 0, buffer_content);
 
             ListAction::update_list(&mut emitter.particle_animations);
 
@@ -202,7 +202,6 @@ impl<'a> EmitterState {
     pub fn compute_particles(state: &'a mut State, encoder: &'a mut wgpu::CommandEncoder) {
         let State {
             clock,
-            lights,
             emitters,
             gfx_state,
             ..
@@ -217,7 +216,7 @@ impl<'a> EmitterState {
 
         gfx_state.begin_scope("Compute", &mut c_pass);
 
-        let mut compute = |emitter: &'a EmitterState| {
+        for emitter in emitters.iter() {
             gfx_state.begin_scope(&format!("Compute emitter: {}", emitter.id()), &mut c_pass);
             c_pass.set_pipeline(&emitter.pipeline);
             c_pass.set_bind_group(0, &emitter.bgs[nr], &[]);
@@ -233,12 +232,6 @@ impl<'a> EmitterState {
                 anim.compute(emitter, clock, &mut c_pass);
             }
             gfx_state.end_scope(&mut c_pass);
-        };
-
-        compute(lights);
-
-        for emitter in emitters.iter() {
-            compute(emitter);
         }
 
         gfx_state.end_scope(&mut c_pass);
@@ -280,87 +273,83 @@ impl<'a> EmitterState {
         });
 
         let clock = &state.clock;
-        let lights = &state.lights;
         let emitters = &state.emitters;
         let camera = &state.camera;
         let gfx_state = &mut state.gfx_state;
+        let collection = &mut state.collection;
 
         let nr = clock.get_alt_bindgroup_nr();
 
         gfx_state.begin_scope("Render", &mut r_pass);
 
-        // Light
-        let l_mesh = &lights.mesh;
-        gfx_state.begin_scope(&format!("Emitter: {}", lights.id()), &mut r_pass);
-        r_pass.set_pipeline(&lights.render_pipeline);
-        r_pass.set_vertex_buffer(0, l_mesh.vertex_buffer.slice(..));
-        r_pass.set_index_buffer(l_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-
-        r_pass.set_bind_group(0, &camera.bg(), &[]);
-        r_pass.set_bind_group(1, &lights.diffuse_ctx.bg, &[]);
-        r_pass.set_bind_group(2, &lights.bgs[nr], &[]);
-        r_pass.draw_indexed(l_mesh.indices_range(), 0, 0..lights.particle_count() as u32);
-        gfx_state.end_scope(&mut r_pass);
-
-        // Normal
         for em in emitters.iter() {
-            let e_mesh = &em.mesh;
+            // TODO in a function
+            let mesh_ref = &em.uniform.mesh;
+            let mesh = collection
+                .get(&mesh_ref.collection_key)
+                .expect("Should exist")
+                .meshes
+                .get(&mesh_ref.mesh_key)
+                .expect("Should exist");
+
+            let mat_ref = &em.uniform.material;
+            let mat = collection
+                .get(&mat_ref.collection_key)
+                .expect("Should exist")
+                .materials
+                .get(&mat_ref.material_key)
+                .expect("Should exist");
+
             gfx_state.begin_scope(&format!("Emitter: {}", em.id()), &mut r_pass);
             r_pass.set_pipeline(&em.render_pipeline);
-            r_pass.set_vertex_buffer(0, e_mesh.vertex_buffer.slice(..));
-            r_pass.set_index_buffer(e_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            r_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+            r_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
             r_pass.set_bind_group(0, &camera.bg(), &[]);
-            r_pass.set_bind_group(1, &em.diffuse_ctx.bg, &[]);
+            r_pass.set_bind_group(1, &mat.bg, &[]);
             r_pass.set_bind_group(2, &em.bgs[nr], &[]);
-            r_pass.set_bind_group(3, &lights.bgs[nr], &[]);
-            r_pass.draw_indexed(e_mesh.indices_range(), 0, 0..em.particle_count() as u32);
+
+            if !em.is_light {
+                r_pass.set_bind_group(3, &emitters[0].bgs[nr], &[]);
+            }
+            r_pass.draw_indexed(mesh.indices_range(), 0, 0..em.particle_count() as u32);
             gfx_state.end_scope(&mut r_pass);
         }
 
         gfx_state.end_scope(&mut r_pass);
     }
 
-    pub fn recreate_emitter(
-        &mut self,
-        gfx_state: &GfxState,
-        light_layout: Option<&wgpu::BindGroupLayout>,
-        camera: &Camera,
-        encoder: &mut wgpu::CommandEncoder,
-    ) {
-        let mut new_self = gfx_state.create_emitter_state(CreateEmitterOptions {
-            emitter_uniform: self.uniform.clone(),
-            light_layout,
-            camera,
+    pub fn recreate_emitter(options: RecreateEmitterOptions, encoder: &mut wgpu::CommandEncoder) {
+        let old_self = options.old_self;
+
+        let mut new_self = Self::new(CreateEmitterOptions {
+            uniform: old_self.uniform.clone(),
+            gfx_state: options.gfx_state,
+            camera: options.camera,
+            collection: options.collection,
+            emitter_type: options.emitter_type,
         });
 
-        let old_buf_size = self.particle_buffers[0].size();
-        let new_buf_size = new_self.particle_buffers[0].size();
-        let buf_size = old_buf_size.min(new_buf_size);
+        let gfx_state = options.gfx_state;
 
         for i in 0..2 {
-            encoder.copy_buffer_to_buffer(
-                &self.particle_buffers[i],
-                0,
-                &new_self.particle_buffers[i],
-                0,
-                buf_size,
-            );
+            let old_buf = &old_self.particle_buffers[i];
+            let new_buf = &new_self.particle_buffers[i];
+            let buf_size = old_buf.size().min(new_buf.size());
+            encoder.copy_buffer_to_buffer(old_buf, 0, new_buf, 0, buf_size);
         }
 
-        while let Some(animation) = self.particle_animations.pop() {
-            new_self.push_particle_animation(animation.recreate(gfx_state, &new_self));
+        for i in 0..old_self.particle_animations.len() {
+            let animation = old_self.particle_animations[i].recreate(gfx_state, &new_self);
+            new_self.push_particle_animation(animation);
         }
 
-        new_self.particle_animations.reverse();
+        std::mem::swap(
+            &mut new_self.emitter_animations,
+            &mut old_self.emitter_animations,
+        );
 
-        while let Some(animation) = self.emitter_animations.pop() {
-            new_self.push_emitter_animation(animation);
-        }
-
-        new_self.emitter_animations.reverse();
-
-        *self = new_self;
+        *old_self = new_self;
     }
 
     pub fn push_particle_animation(&mut self, animation: Box<dyn ParticleAnimation>) {
@@ -400,33 +389,20 @@ impl<'a> EmitterState {
     }
 
     pub fn update_diffuse(&mut self, gfx_state: &GfxState, path: &mut PathBuf) {
-        self.uniform.texture_image = path.to_path_buf();
-        let tex =
-            gfx_state.diffuse_from_string(path.to_str().expect("Failed to convert pathbuf to str"));
-        self.diffuse_ctx = gfx_state.create_diffuse_context(&tex);
+        // TODO think about diffuse textures change without a model
+
+        //self.uniform.texture_image = path.to_path_buf();
+        //let tex =
+        //gfx_state.diffuse_from_string(path.to_str().expect("Failed to convert pathbuf to str"));
+        //self.diffuse_ctx = gfx_state.create_diffuse_context(&tex);
     }
 
     pub fn particle_count(&self) -> u64 {
         self.uniform.particle_count()
     }
 
-    pub fn export(emitters: &[EmitterState], lights: &EmitterState) {
+    pub fn export(emitters: &[EmitterState]) {
         let mut to_export = Vec::new();
-
-        to_export.push(ExportEmitter {
-            particle_animations: lights
-                .particle_animations
-                .iter()
-                .map(|anim| anim.export())
-                .collect(),
-            emitter: lights.uniform.clone(),
-            is_light: true,
-            emitter_animations: lights
-                .emitter_animations
-                .iter()
-                .map(|anim| anim.export())
-                .collect(),
-        });
 
         for emitter in emitters.iter() {
             to_export.push(ExportEmitter {
@@ -447,27 +423,25 @@ impl<'a> EmitterState {
 
         Persistence::write_to_file(to_export, ExportType::EmitterStates);
     }
-}
 
-impl GfxState {
-    pub fn create_emitter_state(&self, options: CreateEmitterOptions<'_>) -> EmitterState {
-        let CreateEmitterOptions {
-            emitter_uniform: uniform,
-            light_layout,
-            camera,
-        } = options;
+    pub fn new(options: CreateEmitterOptions) -> Self {
+        let gfx_state = options.gfx_state;
+        let camera = options.camera;
+        let uniform = options.uniform;
+        let collection = options.collection;
 
-        let device = &self.device;
-
+        let device = &gfx_state.device;
         let emitter_buf_content = uniform.create_buffer_content();
-
         let particle_buffer_size = NonZeroU64::new(uniform.particle_buffer_size());
         let emitter_buffer_size = emitter_buf_content.cal_buffer_size();
 
-        let visibility = if light_layout.is_none() {
-            wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX_FRAGMENT
-        } else {
-            wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX
+        let visibility = match &options.emitter_type {
+            EmitterType::Lights => {
+                wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX_FRAGMENT
+            }
+            EmitterType::Normal { lights_layout: _ } => {
+                wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX
+            }
         };
 
         // Compute ---------
@@ -575,54 +549,66 @@ impl GfxState {
         let shader;
         let pipeline_layout;
         let is_light;
-        let mesh;
-        let diffuse_ctx;
 
-        match &uniform.model {
-            ModelType::File(filename) => {
-                let mut load =
-                    Loader::load_gltf(self, &filename).expect("Can't load mesh from file");
+        let model = collection.get(&uniform.material.collection_key).unwrap();
+        let material = model
+            .materials
+            .get(&uniform.material.material_key)
+            .expect("Material doesn't exist");
 
-                // TODO fix
-                mesh = load.meshes.swap_remove(0);
-                diffuse_ctx = self.create_diffuse_context(&load.materials[0].texture);
+        match &options.emitter_type {
+            EmitterType::Lights => {
+                shader = device.create_shader("light_particle.wgsl", "Light particle render");
+                pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Light particle render Pipeline Layout"),
+                    bind_group_layouts: &[&camera.bg_layout, &material.bg_layout, &bg_layout],
+                    push_constant_ranges: &[],
+                });
+                is_light = true;
             }
-            ModelType::Circle => {
-                mesh = Mesh::circle(self);
-
-                let tex = self.diffuse_from_string(
-                    uniform.texture_image.to_str().expect("Texture not found"),
-                );
-                diffuse_ctx = self.create_diffuse_context(&tex);
+            EmitterType::Normal { lights_layout } => {
+                shader = device.create_shader("particle.wgsl", "Particle render");
+                pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Particle render Pipeline Layout"),
+                    bind_group_layouts: &[
+                        &camera.bg_layout,
+                        &material.bg_layout,
+                        &bg_layout,
+                        lights_layout,
+                    ],
+                    push_constant_ranges: &[],
+                });
+                is_light = false;
             }
         }
 
-        if let Some(light_layout) = &light_layout {
-            is_light = false;
-            shader = device.create_shader("particle.wgsl", "Particle render");
-            pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Particle render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &camera.bg_layout,
-                    &diffuse_ctx.bg_layout,
-                    &bg_layout,
-                    light_layout,
-                ],
-                push_constant_ranges: &[],
-            });
-        } else {
-            is_light = true;
-            shader = device.create_shader("light_particle.wgsl", "Light particle render");
-            pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Light particle render Pipeline Layout"),
-                bind_group_layouts: &[&camera.bg_layout, &diffuse_ctx.bg_layout, &bg_layout],
-                push_constant_ranges: &[],
-            });
-        }
+        let render_pipeline = Self::create_pipeline(&shader, &pipeline_layout, device);
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        EmitterState {
+            uniform,
+            pipeline,
+            render_pipeline,
+            pipeline_layout,
+            bg_layout,
+            bgs: bind_groups,
+            particle_buffers,
+            emitter_buffer,
+            dispatch_x_count,
+            particle_animations: vec![],
+            emitter_animations: vec![],
+            shader,
+            is_light,
+        }
+    }
+
+    fn create_pipeline(
+        shader: &ShaderModule,
+        layout: &wgpu::PipelineLayout,
+        device: &wgpu::Device,
+    ) -> wgpu::RenderPipeline {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
-            layout: Some(&pipeline_layout),
+            layout: Some(&layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
@@ -632,13 +618,11 @@ impl GfxState {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[
-                    // Render output
                     Some(wgpu::ColorTargetState {
                         format: PostProcessState::TEXTURE_FORMAT,
                         blend: Some(wgpu::BlendState::REPLACE),
                         write_mask: wgpu::ColorWrites::ALL,
                     }),
-                    // Split bloom
                     Some(wgpu::ColorTargetState {
                         format: PostProcessState::TEXTURE_FORMAT,
                         blend: Some(wgpu::BlendState::REPLACE),
@@ -647,7 +631,7 @@ impl GfxState {
                 ],
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
                 ..Default::default()
             },
             depth_stencil: Some(wgpu::DepthStencilState {
@@ -663,27 +647,11 @@ impl GfxState {
                 alpha_to_coverage_enabled: true,
             },
             multiview: None,
-        });
-
-        EmitterState {
-            uniform,
-            pipeline,
-            render_pipeline,
-            pipeline_layout,
-            bg_layout,
-            bgs: bind_groups,
-            particle_buffers,
-            emitter_buffer,
-            dispatch_x_count,
-            particle_animations: vec![],
-            emitter_animations: vec![],
-            diffuse_ctx,
-            shader,
-            is_light,
-            mesh,
-        }
+        })
     }
 }
+
+impl GfxState {}
 
 impl Debug for EmitterState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

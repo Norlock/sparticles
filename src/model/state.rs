@@ -1,13 +1,15 @@
 use super::{Camera, Clock, EmitterState, Events, GfxState, GuiState};
 use crate::init::{InitEmitters, InitSettings};
+use crate::loader::{Model, BUILTIN_ID};
 use crate::traits::*;
+use crate::util::ID;
 use crate::{fx::PostProcessState, AppSettings};
 use egui_winit::winit::{dpi::PhysicalSize, event::KeyboardInput, window::Window};
+use std::collections::HashMap;
 
 pub struct State {
     pub camera: Camera,
     pub clock: Clock,
-    pub lights: EmitterState,
     pub emitters: Vec<EmitterState>,
     pub gui: GuiState,
     pub post_process: PostProcessState,
@@ -16,6 +18,7 @@ pub struct State {
     pub registered_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
     pub registered_post_fx: Vec<Box<dyn RegisterPostFx>>,
     pub events: Events,
+    pub collection: HashMap<ID, Model>,
 }
 
 impl State {
@@ -52,13 +55,35 @@ impl State {
 
         let clock = Clock::new();
         let camera = Camera::new(&gfx_state);
+        let mut collection = HashMap::new();
+
+        let builtin = Model::load_builtin(&gfx_state);
+        collection.insert(builtin.id.to_string(), builtin);
+
+        for em in app_settings.emitters().iter() {
+            let mesh_key = &em.mesh.collection_key;
+            let mat_key = &em.material.collection_key;
+
+            if (mesh_key != &BUILTIN_ID) && !collection.contains_key(mesh_key) {
+                collection.insert(
+                    mesh_key.to_string(),
+                    Model::load_gltf(&gfx_state, mesh_key).expect("Can't load model"),
+                );
+            }
+
+            if (mat_key != &BUILTIN_ID) && !collection.contains_key(mat_key) {
+                collection.insert(
+                    mat_key.to_string(),
+                    Model::load_gltf(&gfx_state, mat_key).expect("Can't load model"),
+                );
+            }
+        }
 
         let InitEmitters {
-            lights,
             emitters,
             registered_em_anims,
             registered_par_anims,
-        } = InitSettings::create_emitters(&app_settings, &gfx_state, &camera);
+        } = InitSettings::create_emitters(&app_settings, &gfx_state, &camera, &collection);
 
         let mut post_process = PostProcessState::new(&gfx_state, &app_settings);
         let registered_post_fx =
@@ -70,7 +95,6 @@ impl State {
             clock,
             camera,
             emitters,
-            lights,
             gui,
             post_process,
             gfx_state,
@@ -78,6 +102,7 @@ impl State {
             registered_em_anims,
             registered_post_fx,
             events: Events::default(),
+            collection,
         }
     }
 }

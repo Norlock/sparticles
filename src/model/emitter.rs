@@ -1,5 +1,7 @@
-use super::{events::ID, Clock};
+use super::Clock;
+use crate::loader::{BUILTIN_ID, CIRCLE_ID, DEFAULT_MATERIAL_ID};
 use crate::traits::{FromRGB, HandleAngles};
+use crate::util::ID;
 use glam::{f32::Vec3, f32::Vec4};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -23,14 +25,20 @@ impl Boundry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ModelType {
-    Circle,
-    File(String),
+pub struct MeshRef {
+    pub collection_key: ID,
+    pub mesh_key: ID,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaterialRef {
+    pub collection_key: ID,
+    pub material_key: ID,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmitterUniform {
-    pub id: String,
+    pub id: ID,
     spawn_from: u32,
     spawn_until: u32,
     spawn_batches_count: u32,
@@ -60,8 +68,8 @@ pub struct EmitterUniform {
     /// Mass per size 1
     pub particle_material_mass: f32,
     pub particle_lifetime_sec: f32,
-    pub texture_image: PathBuf,
-    pub model: ModelType,
+    pub mesh: MeshRef,
+    pub material: MaterialRef,
 }
 
 pub struct EmitterSettings {
@@ -132,8 +140,15 @@ impl EmitterUniform {
             iteration: 1000,
             elapsed_sec: 0.,
             delta_sec: 0.0,
-            texture_image,
-            model: ModelType::Circle,
+
+            material: MaterialRef {
+                collection_key: BUILTIN_ID.to_string(),
+                material_key: DEFAULT_MATERIAL_ID.to_string(),
+            },
+            mesh: MeshRef {
+                collection_key: BUILTIN_ID.to_string(),
+                mesh_key: CIRCLE_ID.to_string(),
+            },
         }
     }
 

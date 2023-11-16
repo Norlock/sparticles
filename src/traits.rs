@@ -6,7 +6,11 @@ use crate::{
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
-use std::num::NonZeroU64;
+use std::{
+    fmt::Display,
+    num::NonZeroU64,
+    slice::{Iter, IterMut},
+};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -68,11 +72,7 @@ pub trait ParticleAnimation: HandleAction {
         compute_pass: &mut wgpu::ComputePass<'a>,
     );
 
-    fn recreate(
-        self: Box<Self>,
-        gfx_state: &GfxState,
-        emitter: &EmitterState,
-    ) -> Box<dyn ParticleAnimation>;
+    fn recreate(&self, gfx_state: &GfxState, emitter: &EmitterState) -> Box<dyn ParticleAnimation>;
 
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState);
     fn create_ui(&mut self, ui: &mut Ui, gui: &GuiState);
@@ -129,4 +129,10 @@ pub trait CalculateBufferSize {
 pub trait HandleAngles {
     fn to_degrees(&self) -> Self;
     fn to_radians(&self) -> Self;
+}
+
+pub type OtherIterMut<'a, T> = std::iter::Chain<IterMut<'a, T>, IterMut<'a, T>>;
+
+pub trait Splitting<T: std::fmt::Debug> {
+    fn split_item_mut(&mut self, idx: usize) -> (&mut T, OtherIterMut<T>);
 }

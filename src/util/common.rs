@@ -1,11 +1,15 @@
-use crate::traits::HandleAction;
+use crate::traits::{HandleAction, OtherIterMut, Splitting};
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use encase::{private::WriteInto, ShaderType, UniformBuffer};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Display, Formatter, Result},
     num::NonZeroU64,
+    rc::Rc,
 };
+
+pub type ID = String;
+pub type Tag = Rc<str>;
 
 #[derive(PartialEq, Serialize, Deserialize, Default)]
 pub enum ListAction {
@@ -118,5 +122,23 @@ impl CommonBuffer {
         let mut buffer = UniformBuffer::new(Vec::new());
         buffer.write(&uniform).unwrap();
         buffer.into_inner()
+    }
+}
+
+impl<T: std::fmt::Debug> Splitting<T> for Vec<T> {
+    fn split_item_mut(&mut self, idx: usize) -> (&mut T, OtherIterMut<T>) {
+        //fn split_item_mut(&mut self, idx: usize) -> (&mut T, &mut [T]) {
+        assert!(idx < self.len());
+
+        let (head, rest) = self.split_at_mut(idx);
+        //println!("idx {:?}", idx);
+        //println!("left {:?}", head);
+        //println!("right {:?}", rest);
+
+        let (item, tail) = rest.split_first_mut().unwrap();
+
+        let others = head.iter_mut().chain(tail.iter_mut());
+
+        (item, others)
     }
 }

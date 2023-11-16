@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::animations::color_animation::RegisterColorAnimation;
 use crate::animations::diffusion_animation::RegisterDiffusionAnimation;
 use crate::animations::sway_animation::RegisterSwayAnimation;
@@ -7,11 +9,13 @@ use crate::fx::blur::RegisterBlurFx;
 use crate::fx::FxOptions;
 use crate::fx::PostProcessState;
 use crate::fx::RegisterColorFx;
-use crate::model::{Camera, CreateEmitterOptions, EmitterState, EmitterUniform, GfxState};
+use crate::loader::Model;
+use crate::model::{
+    Camera, CreateEmitterOptions, EmitterState, EmitterType, EmitterUniform, GfxState,
+};
 use crate::traits::*;
 use crate::util::persistence::ExportEmitter;
-use crate::util::Persistence;
-use egui_wgpu::wgpu;
+use crate::util::{Persistence, ID};
 
 pub enum JsonImportMode {
     /// (Default) Will replace existing emitters with files
@@ -55,10 +59,14 @@ pub trait AppSettings {
     fn register_custom_post_fx(&self) -> Vec<Box<dyn RegisterPostFx>> {
         vec![]
     }
+
+    // TODO
+    // fn get_models_path() -> String {}
+
+    // fn get_export_path
 }
 
 pub struct InitEmitters {
-    pub lights: EmitterState,
     pub emitters: Vec<EmitterState>,
     pub registered_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
     pub registered_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
@@ -67,33 +75,31 @@ pub struct InitEmitters {
 pub struct InitSettings;
 
 impl InitSettings {
-    fn create_light_emitter(
+    fn code_emitters(
         app_settings: &impl AppSettings,
         gfx_state: &GfxState,
+        collection: &HashMap<ID, Model>,
         camera: &Camera,
-    ) -> EmitterState {
-        let mut lights = gfx_state.create_emitter_state(CreateEmitterOptions {
+    ) -> Vec<EmitterState> {
+        let mut emitters: Vec<EmitterState> = Vec::new();
+
+        let uniform = app_settings.light();
+        assert!(!&uniform.id.is_empty(), "Id can not be empty");
+
+        let mut lights = EmitterState::new(CreateEmitterOptions {
+            uniform,
             camera,
-            emitter_uniform: app_settings.light(),
-            light_layout: None,
+            collection,
+            gfx_state,
+            emitter_type: EmitterType::Lights,
         });
 
         app_settings.add_particle_anim(&mut lights, gfx_state);
         app_settings.add_emitter_anim(&mut lights);
 
-        lights
-    }
-
-    fn create_emitter(
-        app_settings: &impl AppSettings,
-        gfx_state: &GfxState,
-        light_layout: &wgpu::BindGroupLayout,
-        camera: &Camera,
-    ) -> Vec<EmitterState> {
-        let mut emitters: Vec<EmitterState> = Vec::new();
+        emitters.push(lights);
 
         for emitter_uniform in app_settings.emitters() {
-            //println!("{:?}", emitter_uniform);
             let is_unique = emitters
                 .iter()
                 .all(|emitter| emitter.uniform.id != emitter_uniform.id);
@@ -101,10 +107,14 @@ impl InitSettings {
             assert!(!emitter_uniform.id.is_empty(), "Id can not be empty");
             assert!(is_unique, "Emitters require an unique ID");
 
-            let mut emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
+            let mut emitter = EmitterState::new(CreateEmitterOptions {
+                uniform: emitter_uniform,
                 camera,
-                emitter_uniform,
-                light_layout: Some(light_layout),
+                collection,
+                gfx_state,
+                emitter_type: EmitterType::Normal {
+                    lights_layout: &emitters[0].bg_layout,
+                },
             });
 
             app_settings.add_particle_anim(&mut emitter, gfx_state);
@@ -114,26 +124,6 @@ impl InitSettings {
         }
 
         emitters
-    }
-
-    fn code_emitters(
-        app_settings: &impl AppSettings,
-        gfx_state: &GfxState,
-        camera: &Camera,
-        registered_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
-        registered_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
-    ) -> InitEmitters {
-        let lights = InitSettings::create_light_emitter(app_settings, gfx_state, camera);
-
-        let emitters =
-            InitSettings::create_emitter(app_settings, gfx_state, &lights.bg_layout, camera);
-
-        InitEmitters {
-            lights,
-            emitters,
-            registered_em_anims,
-            registered_par_anims,
-        }
     }
 
     pub fn create_post_fx(
@@ -162,6 +152,7 @@ impl InitSettings {
         app_settings: &impl AppSettings,
         gfx_state: &GfxState,
         camera: &Camera,
+        collection: &HashMap<ID, Model>,
     ) -> InitEmitters {
         let mut registered_par_anims = app_settings.register_custom_particle_animations();
         registered_par_anims.push(Box::new(RegisterColorAnimation));
@@ -174,30 +165,35 @@ impl InitSettings {
         registered_em_anims.push(Box::new(RegisterDiffusionAnimation));
 
         match app_settings.import_mode() {
-            JsonImportMode::Ignore => Self::code_emitters(
-                app_settings,
-                gfx_state,
-                camera,
-                registered_par_anims,
-                registered_em_anims,
-            ),
+            JsonImportMode::Ignore => {
+                let emitters =
+                    InitSettings::code_emitters(app_settings, gfx_state, collection, camera);
+
+                InitEmitters {
+                    emitters,
+                    registered_em_anims,
+                    registered_par_anims,
+                }
+            }
             JsonImportMode::Replace => match Persistence::import_emitter_states() {
-                Ok(val) => Self::json_emitters(
-                    val,
+                Ok(exported_emitters) => Self::json_emitters(
+                    exported_emitters,
                     gfx_state,
                     camera,
+                    collection,
                     registered_par_anims,
                     registered_em_anims,
                 ),
                 Err(err) => {
                     println!("{}", err.msg);
-                    Self::code_emitters(
-                        app_settings,
-                        gfx_state,
-                        camera,
-                        registered_par_anims,
+                    let emitters =
+                        InitSettings::code_emitters(app_settings, gfx_state, collection, camera);
+
+                    InitEmitters {
+                        emitters,
                         registered_em_anims,
-                    )
+                        registered_par_anims,
+                    }
                 }
             },
         }
@@ -207,6 +203,7 @@ impl InitSettings {
         mut import_emitters: Vec<ExportEmitter>,
         gfx_state: &GfxState,
         camera: &Camera,
+        collection: &HashMap<ID, Model>,
         registered_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
         registered_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
     ) -> InitEmitters {
@@ -227,10 +224,12 @@ impl InitSettings {
 
         let lights_export = lights_export.unwrap();
 
-        let mut lights = gfx_state.create_emitter_state(CreateEmitterOptions {
-            emitter_uniform: lights_export.emitter,
-            light_layout: None,
+        let mut lights = EmitterState::new(CreateEmitterOptions {
+            uniform: lights_export.emitter,
             camera,
+            collection,
+            gfx_state,
+            emitter_type: EmitterType::Lights,
         });
 
         // Import animations
@@ -255,10 +254,14 @@ impl InitSettings {
         }
 
         for emitter_export in import_emitters {
-            let mut emitter = gfx_state.create_emitter_state(CreateEmitterOptions {
-                emitter_uniform: emitter_export.emitter,
-                light_layout: Some(&lights.bg_layout),
+            let mut emitter = EmitterState::new(CreateEmitterOptions {
+                uniform: emitter_export.emitter,
                 camera,
+                collection,
+                gfx_state,
+                emitter_type: EmitterType::Normal {
+                    lights_layout: &lights.bg_layout,
+                },
             });
 
             for export_animation in emitter_export.particle_animations {
@@ -285,7 +288,6 @@ impl InitSettings {
         }
 
         InitEmitters {
-            lights,
             emitters,
             registered_em_anims,
             registered_par_anims,
