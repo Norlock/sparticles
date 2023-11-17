@@ -1,5 +1,5 @@
 use super::state::FastFetch;
-use super::{Camera, EmitterUniform, GfxState, GuiState, Mesh, ModelVertex, State};
+use super::{Camera, EmitterUniform, GfxState, GuiState, Mesh, MeshRef, ModelVertex, State};
 use crate::fx::PostProcessState;
 use crate::loader::{Model, BUILTIN_ID};
 use crate::traits::{CalculateBufferSize, CustomShader, Splitting};
@@ -112,8 +112,12 @@ impl<'a> EmitterState {
                             push_constant_ranges: &[],
                         });
 
-                    other.render_pipeline =
-                        Self::create_pipeline(&em.shader, &em.pipeline_layout, device);
+                    other.render_pipeline = Self::create_pipeline(
+                        &em.shader,
+                        &em.pipeline_layout,
+                        &em.uniform.mesh,
+                        device,
+                    );
                 }
             } else {
                 let lights = others.next().unwrap();
@@ -564,7 +568,8 @@ impl<'a> EmitterState {
             }
         }
 
-        let render_pipeline = Self::create_pipeline(&shader, &pipeline_layout, device);
+        let render_pipeline =
+            Self::create_pipeline(&shader, &pipeline_layout, &uniform.mesh, device);
 
         EmitterState {
             uniform,
@@ -586,8 +591,16 @@ impl<'a> EmitterState {
     fn create_pipeline(
         shader: &ShaderModule,
         layout: &wgpu::PipelineLayout,
+        mesh_ref: &MeshRef,
         device: &wgpu::Device,
     ) -> wgpu::RenderPipeline {
+        let fs_entry = if mesh_ref.collection_key == BUILTIN_ID {
+            // TODO also different builtin shapes
+            "fs_circle"
+        } else {
+            "fs_model"
+        };
+
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&layout),
@@ -598,7 +611,7 @@ impl<'a> EmitterState {
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: fs_entry,
                 targets: &[
                     Some(wgpu::ColorTargetState {
                         format: PostProcessState::TEXTURE_FORMAT,
@@ -612,10 +625,7 @@ impl<'a> EmitterState {
                     }),
                 ],
             }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
-                ..Default::default()
-            },
+            primitive: wgpu::PrimitiveState::default(),
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: GfxState::DEPTH_FORMAT,
                 depth_write_enabled: true,

@@ -54,7 +54,41 @@ var base_texture: texture_2d<f32>;
 var base_sampler: sampler;
 
 @fragment
-fn fs_main(in: VertexOutput) -> FragmentOutput {
+fn fs_circle(in: VertexOutput) -> FragmentOutput {
+    let v_pos = in.uv * 2. - 1.;
+
+    let len = length(v_pos);
+    let texture_color = textureSample(base_texture, base_sampler, in.uv);
+
+    if 1.0 < len {
+        discard;
+    }
+
+    var strength = 1.0 - len * 0.7;
+    var color = in.color.rgb * strength;
+
+    let x = v_pos.x;
+    let y = v_pos.y;
+
+    let normal = sqrt(1. - x * x - y * y);
+
+    //var effect = create_layers(v_pos, normal, idx, em.elapsed_sec);
+    //effect *= 1. - 0.02 / color.rgb;
+    //effect += 0.5;
+
+    var out: FragmentOutput;
+    //out.color = vec4<f32>(texture_color.rgb * in.color.rgb * effect, 1.0);
+    out.color = vec4<f32>(texture_color.rgb * in.color.rgb, 1.0);
+
+    if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
+        out.split = out.color;
+    } 
+
+    return out;
+}
+
+@fragment
+fn fs_model(in: VertexOutput) -> FragmentOutput {
     let v_pos = in.uv * 2. - 1.;
 
     let len = length(v_pos);

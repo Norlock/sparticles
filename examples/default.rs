@@ -39,15 +39,16 @@ impl AppSettings for CustomSettings {
         let mut emitter = EmitterUniform::new(PARTICLE_ID.to_string());
         emitter.spawn_count = 1;
         emitter.spawn_delay_sec = 2.0;
+
         emitter.material = MaterialRef {
             collection_key: "StarSparrow.glb".to_string(),
             material_key: "StarSparrowRed".to_string(),
         };
+
         emitter.mesh = MeshRef {
             collection_key: "StarSparrow.glb".to_string(),
             mesh_key: "Mesh.001".to_string(),
         };
-        //emitter.model = ModelType::File()
 
         vec![emitter]
     }

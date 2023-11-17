@@ -10,7 +10,7 @@ GPU Particle system written in Rust + WGPU + EGUI
   - [ ] Create multiple at once using different color channels
 - [x] Export shader to file
 - [ ] Use rust-gpu, maybe?
-- [ ] keyboard struct
+- [ ] Being able to pause
 - [x] Gui events to update
 - [x] Fix recreate light emitter
 - [ ] Able to import models + materials
