@@ -1,6 +1,13 @@
 # Sparticles
 GPU Particle system written in Rust + WGPU + EGUI
 
+## Showcase
+
+
+https://github.com/Norlock/sparticles/assets/7510943/57ae9f4d-7c25-42e2-992d-fd7889597dcb
+
+
+
 ## Roadmap
 - [x] Performance test gpu
 - [x] Export (Post fx / animation settings).
