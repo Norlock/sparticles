@@ -77,7 +77,6 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
 
     var result = vec3<f32>(0.0);
 
-
     for (var i = 0u; i < arrayLength(&light_particles); i++) { 
         let light = light_particles[i];
         let light_pos = light.pos_size.xyz;

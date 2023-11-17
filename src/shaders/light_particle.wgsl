@@ -58,27 +58,16 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
     let v_pos = in.uv * 2. - 1.;
 
     let len = length(v_pos);
-    let texture_color = textureSample(base_texture, base_sampler, in.uv);
+    let diff_color = textureSample(base_texture, base_sampler, in.uv);
 
     if 1.0 < len {
         discard;
     }
 
-    var strength = 1.0 - len * 0.7;
-    var color = in.color.rgb * strength;
-
-    let x = v_pos.x;
-    let y = v_pos.y;
-
-    let normal = sqrt(1. - x * x - y * y);
-
-    //var effect = create_layers(v_pos, normal, idx, em.elapsed_sec);
-    //effect *= 1. - 0.02 / color.rgb;
-    //effect += 0.5;
+    let normal = sqrt(1. - v_pos.x * v_pos.x - v_pos.y * v_pos.y);
 
     var out: FragmentOutput;
-    //out.color = vec4<f32>(texture_color.rgb * in.color.rgb * effect, 1.0);
-    out.color = vec4<f32>(texture_color.rgb * in.color.rgb, 1.0);
+    out.color = vec4<f32>(in.color.rgb * diff_color.rgb * normal, in.color.a);
 
     if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;
@@ -120,3 +109,8 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
 
     return out;
 }
+
+//var effect = create_layers(v_pos, normal, idx, em.elapsed_sec);
+//effect *= 1. - 0.02 / color.rgb;
+//effect += 0.5;
+//out.color = vec4<f32>(texture_color.rgb * in.color.rgb * effect, 1.0);

@@ -117,7 +117,7 @@ impl GuiState {
                 } = state;
 
                 // Update gui info
-                if clock.frame() % 20 == 0 {
+                if clock.frame() % 20 == 0 && events.play() {
                     let count: u64 = emitters.iter().map(|s| s.particle_count()).sum();
 
                     gui.cpu_time_text = clock.frame_time_text();
@@ -185,6 +185,8 @@ impl GuiState {
 
                 ui.separator();
 
+                ui.add_space(5.0);
+
                 ui.horizontal(|ui| {
                     if ui.button("Export settings").clicked() {
                         EmitterState::export(emitters);
@@ -193,6 +195,10 @@ impl GuiState {
 
                     if ui.button("Reset camera").clicked() {
                         events.set_reset_camera();
+                    }
+
+                    if ui.button("Toggle pause").clicked() {
+                        events.toggle_game_state();
                     }
 
                     let emitter = &emitters[gui.selected_emitter_id];
