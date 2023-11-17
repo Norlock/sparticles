@@ -117,7 +117,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
 fn fs_model(in: VertexOutput) -> FragmentOutput {
 
     let diff_color = textureSample(diff_tex, s, in.uv).rgb;
-    //let norm_color = textureSample(norm_tex, s, in.uv).rgb;
+    let norm_color = textureSample(norm_tex, s, in.uv).rgb;
 
     var result = vec3<f32>(0.0);
 

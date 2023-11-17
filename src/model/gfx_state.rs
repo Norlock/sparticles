@@ -1,3 +1,4 @@
+use super::events::GameState;
 use super::state::State;
 use super::EmitterState;
 use super::GuiState;
@@ -239,15 +240,12 @@ impl GfxState {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        // Computing particles
-        EmitterState::compute_particles(state, &mut encoder);
+        if state.events.play() {
+            EmitterState::compute_particles(state, &mut encoder);
+        }
 
-        // Rendering particles
         EmitterState::render_particles(state, &mut encoder);
-
         PostProcessState::compute(state, &mut encoder);
-
-        // Post processing render
         PostProcessState::render(state, output_view, &mut encoder);
 
         let GfxState {

@@ -1,5 +1,7 @@
 use std::time::{Duration, Instant};
 
+use super::{events::GameState, Events};
+
 pub struct Clock {
     instant: Instant,
     last_update: Duration,
@@ -23,11 +25,13 @@ impl Clock {
         }
     }
 
-    pub fn update(&mut self) {
-        let now = self.instant.elapsed();
-        self.current_delta = now - self.last_update;
-        self.last_update = now;
-        self.frame += 1;
+    pub fn update(&mut self, events: &Events) {
+        if events.play() {
+            let now = self.instant.elapsed();
+            self.current_delta = now - self.last_update;
+            self.last_update = now;
+            self.frame += 1;
+        }
     }
 
     pub fn delta(&self) -> Duration {

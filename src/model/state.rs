@@ -54,7 +54,7 @@ impl FastFetch for HashMap<ID, Model> {
 
 impl State {
     pub fn update(&mut self) {
-        self.clock.update();
+        self.clock.update(&self.events);
 
         Camera::update(self);
         PostProcessState::update(self);

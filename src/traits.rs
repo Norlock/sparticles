@@ -97,9 +97,7 @@ pub trait PostFx: HandleAction {
 
 pub trait RegisterPostFx {
     fn tag(&self) -> &str;
-
     fn create_default(&self, options: &FxOptions) -> Box<dyn PostFx>;
-
     fn import(&self, options: &FxOptions, value: serde_json::Value) -> Box<dyn PostFx>;
 }
 

@@ -59,7 +59,6 @@ const WINDOW_MARGIN: f32 = 10.;
 impl GuiState {
     pub fn process_input(state: &mut State, input: &KeyboardInput, shift_pressed: bool) -> bool {
         let gui = &mut state.gui;
-        let events = &mut state.events;
 
         if !gui.enabled || input.state == ElementState::Pressed {
             return false;
@@ -69,10 +68,10 @@ impl GuiState {
 
         match keycode {
             VirtualKeyCode::T if shift_pressed => {
-                events.set_io_view(ViewIOEvent::Subtract);
+                state.events.set_io_view(ViewIOEvent::Subtract);
             }
             VirtualKeyCode::T if !shift_pressed => {
-                events.set_io_view(ViewIOEvent::Add);
+                state.events.set_io_view(ViewIOEvent::Add);
             }
             VirtualKeyCode::Key1 => gui.selected_tab = Tab::EmitterSettings,
             VirtualKeyCode::Key2 => gui.selected_tab = Tab::PostFxSettings,
@@ -80,6 +79,7 @@ impl GuiState {
             VirtualKeyCode::Key4 => gui.selected_tab = Tab::EmitterAnimations,
             VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
             VirtualKeyCode::P => gui.performance_event.set(DisplayEvent::ToggleCollapse),
+            VirtualKeyCode::F => state.events.toggle_game_state(),
             _ => return false,
         }
 
