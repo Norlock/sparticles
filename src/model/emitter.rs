@@ -1,5 +1,5 @@
 use super::Clock;
-use crate::loader::{BUILTIN_ID, CIRCLE_ID, DEFAULT_MATERIAL_ID};
+use crate::loader::{BUILTIN_ID, CIRCLE_MAT_ID, CIRCLE_MESH_ID};
 use crate::traits::{FromRGB, HandleAngles};
 use crate::util::ID;
 use glam::{f32::Vec3, f32::Vec4};
@@ -143,11 +143,11 @@ impl EmitterUniform {
 
             material: MaterialRef {
                 collection_key: BUILTIN_ID.to_string(),
-                material_key: DEFAULT_MATERIAL_ID.to_string(),
+                material_key: CIRCLE_MAT_ID.to_string(),
             },
             mesh: MeshRef {
                 collection_key: BUILTIN_ID.to_string(),
-                mesh_key: CIRCLE_ID.to_string(),
+                mesh_key: CIRCLE_MESH_ID.to_string(),
             },
         }
     }

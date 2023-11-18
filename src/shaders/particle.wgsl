@@ -13,6 +13,7 @@ struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) normal: vec3<f32>,
+    @location(3) tangent: vec4<f32>,
 }
 
 struct VertexOutput {
@@ -20,7 +21,9 @@ struct VertexOutput {
     @location(0) world_space: vec4<f32>,
     @location(1) color: vec4<f32>,
     @location(2) uv: vec2<f32>,
-    @location(3) normal: vec3<f32>,
+    @location(3) world_normal: vec3<f32>,
+    @location(4) tangent: vec3<f32>,
+    @location(5) bitangent: vec3<f32>,
 }
 
 struct FragmentOutput {
@@ -34,12 +37,11 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     if (p.lifetime == -1.) {
         var out: VertexOutput;
-        out.clip_position = camera.view_pos - 1000.;
+        out.world_space = camera.view_pos - 1000.;
         return out;
     }
     
-    let world_space: vec4<f32> = 
-        vec4<f32>(
+    let world_space = vec4<f32>(
             p.pos_size.xyz + 
             in.position * 
             p.pos_size.w, 1.0
@@ -47,10 +49,11 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     var out: VertexOutput;
     out.clip_position = camera.view_proj * world_space;
-    out.world_space = world_space;
+    out.world_space =  world_space;
     out.color = p.color;
     out.uv = in.uv;
-    out.normal = in.normal;
+    out.world_normal = (vec4<f32>(in.normal, 0.) * camera.view).xyz;
+    out.tangent = in.tangent.rgb;
 
     return out;
 }
@@ -72,8 +75,8 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
     let x = v_pos.x;
     let y = v_pos.y;
 
-    let normal = vec3<f32>(x, y, sqrt(1. - x * x - y * y));
-    let world_normal = (vec4<f32>(normal, 0.) * camera.view).xyz;
+    let normal = vec4<f32>(x, y, sqrt(1. - x * x - y * y), 0.);
+    let world_normal = (normal * camera.view).xyz;
 
     var result = vec3<f32>(0.0);
 
@@ -103,7 +106,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
     }
 
     var out: FragmentOutput;
-    out.color = vec4<f32>(texture_color.rgb, in.color.a);
+    out.color = vec4<f32>(in.color.rgb * texture_color.rgb * result, in.color.a);
 
     if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;
@@ -139,10 +142,10 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
         let view_dir = normalize(camera.view_pos.xyz - in.world_space.xyz);
         let half_dir = normalize(view_dir + light_dir);
 
-        let diffuse_strength = max(dot(in.normal, light_dir), 0.0);
+        let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
         let diffuse_color = diffuse_strength * ambient_color;
 
-        let specular_strength = pow(max(dot(in.normal, half_dir), 0.0), 32.0);
+        let specular_strength = pow(max(dot(in.world_normal, half_dir), 0.0), 32.0);
         let specular_color = specular_strength * ambient_color;
 
         result += diffuse_color + specular_color;

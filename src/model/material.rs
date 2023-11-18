@@ -1,4 +1,4 @@
-use crate::{loader::DEFAULT_MATERIAL_ID, traits::CreateFxView, util::ID};
+use crate::{loader::CIRCLE_MAT_ID, traits::CreateFxView, util::ID};
 use egui_wgpu::wgpu;
 use std::{collections::HashMap, path::PathBuf};
 
@@ -22,6 +22,10 @@ pub struct MaterialCtx<'a> {
     pub gfx_state: &'a GfxState,
 }
 
+fn get_path_buf() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+
 impl Material {
     pub fn create_builtin(gfx: &GfxState) -> HashMap<ID, Material> {
         let mut materials = HashMap::new();
@@ -29,14 +33,22 @@ impl Material {
         let mut texture_image = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         texture_image.push("src/assets/textures/1x1.png");
 
-        let diffuse_tex = gfx.diffuse_from_string(texture_image.to_str().expect("niet goed"));
-        let metallic_roughness_tex =
-            gfx.diffuse_from_string(texture_image.to_str().expect("niet goed"));
-        let normal_tex = gfx.diffuse_from_string(texture_image.to_str().expect("niet goed"));
-        let emissive_tex = gfx.diffuse_from_string(texture_image.to_str().expect("niet goed"));
+        let tex_str = texture_image.to_str().expect("niet goed");
+
+        // White
+        let diffuse_tex = gfx.tex_from_string(tex_str, true);
+        let metallic_roughness_tex = gfx.tex_from_string(tex_str, true);
+
+        // TODO flat normal (bump)
+        let mut norm_buf = get_path_buf();
+        norm_buf.push("src/assets/textures/circle_normal.png");
+        let n_tex_str = norm_buf.to_str().expect("niet goed");
+
+        let normal_tex = gfx.tex_from_string(n_tex_str, false);
+        let emissive_tex = gfx.tex_from_string(tex_str, true);
 
         materials.insert(
-            DEFAULT_MATERIAL_ID.to_string(),
+            CIRCLE_MAT_ID.to_string(),
             Self::new(MaterialCtx {
                 gfx_state: gfx,
                 diffuse_tex,

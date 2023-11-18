@@ -155,7 +155,7 @@ impl GfxState {
             })
     }
 
-    pub fn diffuse_from_bytes(&self, bytes: &[u8]) -> wgpu::Texture {
+    pub fn tex_from_bytes(&self, bytes: &[u8], std_rgb: bool) -> wgpu::Texture {
         let device = &self.device;
         let diffuse_image = image::load_from_memory(bytes).unwrap();
         let diffuse_rgba = diffuse_image.to_rgba8();
@@ -167,12 +167,18 @@ impl GfxState {
             depth_or_array_layers: 1,
         };
 
+        let format = if std_rgb {
+            wgpu::TextureFormat::Rgba8UnormSrgb
+        } else {
+            wgpu::TextureFormat::Rgba8Unorm
+        };
+
         let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
             size: texture_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             label: Some("diffuse_texture"),
             view_formats: &[],
@@ -192,69 +198,9 @@ impl GfxState {
         diffuse_texture
     }
 
-    pub fn diffuse_from_string(&self, path: &str) -> wgpu::Texture {
+    pub fn tex_from_string(&self, path: &str, std_rgb: bool) -> wgpu::Texture {
         let bytes = fs::read(path).expect("Can't read texture image");
-        self.diffuse_from_bytes(&bytes)
-    }
-
-    pub fn create_diffuse_context(&self, texture: &wgpu::Texture) -> DiffuseCtx {
-        let device = &self.device;
-
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: None,
-        });
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-            ],
-            label: None,
-        });
-
-        DiffuseCtx {
-            sampler,
-            view,
-            bg: bind_group,
-            bg_layout: bind_group_layout,
-        }
+        self.tex_from_bytes(&bytes, std_rgb)
     }
 
     pub fn create_noise_view(&self) -> wgpu::TextureView {

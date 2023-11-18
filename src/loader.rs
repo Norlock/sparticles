@@ -5,8 +5,8 @@ use egui_wgpu::wgpu::{self, util::DeviceExt};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-pub const CIRCLE_ID: &'static str = "circle";
-pub const DEFAULT_MATERIAL_ID: &'static str = "white-img";
+pub const CIRCLE_MESH_ID: &'static str = "circle-mesh";
+pub const CIRCLE_MAT_ID: &'static str = "circle-mat";
 pub const BUILTIN_ID: &'static str = "builtin";
 
 pub struct Model {
@@ -30,7 +30,7 @@ async fn load_texture(filename: &str, gfx_state: &GfxState) -> anyhow::Result<wg
     println!("file: {:?}", filename);
     let data = load_binary(filename).await?;
 
-    Ok(gfx_state.diffuse_from_bytes(&data))
+    Ok(gfx_state.tex_from_bytes(&data, true))
 }
 
 impl Model {
@@ -40,7 +40,7 @@ impl Model {
         texture_image.push("src/assets/textures/1x1.png");
 
         let mut meshes = HashMap::new();
-        meshes.insert(CIRCLE_ID.to_string(), Mesh::circle(gfx_state));
+        meshes.insert(CIRCLE_MESH_ID.to_string(), Mesh::circle(gfx_state));
 
         let materials = Material::create_builtin(gfx_state);
 
@@ -79,14 +79,14 @@ impl Model {
             }
         }
 
-        let fetch_texture = |tex: gltf::Texture<'_>| -> wgpu::Texture {
+        let fetch_texture = |tex: gltf::Texture<'_>, s_rgb: bool| -> wgpu::Texture {
             match tex.source().source() {
                 gltf::image::Source::View { view, mime_type: _ } => {
                     let start = view.offset();
                     let end = start + view.length();
                     let buf_idx = view.buffer().index();
 
-                    gfx_state.diffuse_from_bytes(&buffer_data[buf_idx][start..end])
+                    gfx_state.tex_from_bytes(&buffer_data[buf_idx][start..end], s_rgb)
                 }
                 gltf::image::Source::Uri { uri, mime_type: _ } => {
                     pollster::block_on(load_texture(uri, gfx_state)).expect("Can't load diffuse")
@@ -105,25 +105,25 @@ impl Model {
             let pbr = material.pbr_metallic_roughness();
 
             if let Some(tex) = pbr.base_color_texture() {
-                diffuse_tex = fetch_texture(tex.texture());
+                diffuse_tex = fetch_texture(tex.texture(), true);
             } else {
                 todo!("create default texture");
             }
 
             if let Some(tex) = pbr.metallic_roughness_texture() {
-                metallic_roughness_tex = fetch_texture(tex.texture());
+                metallic_roughness_tex = fetch_texture(tex.texture(), true);
             } else {
                 todo!("create default texture");
             }
 
             if let Some(tex) = material.normal_texture() {
-                normal_tex = fetch_texture(tex.texture());
+                normal_tex = fetch_texture(tex.texture(), false);
             } else {
                 todo!("create default texture");
             }
 
             if let Some(tex) = material.emissive_texture() {
-                emissive_tex = fetch_texture(tex.texture());
+                emissive_tex = fetch_texture(tex.texture(), true);
             } else {
                 todo!("create default texture");
             }
@@ -164,6 +164,7 @@ impl Model {
                                     position: vertex,
                                     uv: Default::default(),
                                     normal: Default::default(),
+                                    tangent: Default::default(),
                                 })
                             });
                         }
@@ -177,6 +178,12 @@ impl Model {
                         if let Some(tex_coords) = reader.read_tex_coords(0).map(|v| v.into_f32()) {
                             for (i, uv) in tex_coords.enumerate() {
                                 vertices[i].uv = uv;
+                            }
+                        }
+
+                        if let Some(tangents) = reader.read_tangents() {
+                            for (i, tangent) in tangents.enumerate() {
+                                vertices[i].tangent = tangent;
                             }
                         }
 

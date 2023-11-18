@@ -49,16 +49,16 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 }
 
 @group(1) @binding(0)
-var base_texture: texture_2d<f32>;
+var diff_tex: texture_2d<f32>;
 @group(1) @binding(4)
-var base_sampler: sampler;
+var s: sampler;
 
 @fragment
 fn fs_circle(in: VertexOutput) -> FragmentOutput {
     let v_pos = in.uv * 2. - 1.;
 
     let len = length(v_pos);
-    let diff_color = textureSample(base_texture, base_sampler, in.uv);
+    let diff_color = textureSample(diff_tex, s, in.uv).rgb;
 
     if 1.0 < len {
         discard;
@@ -67,7 +67,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
     let normal = sqrt(1. - v_pos.x * v_pos.x - v_pos.y * v_pos.y);
 
     var out: FragmentOutput;
-    out.color = vec4<f32>(in.color.rgb * diff_color.rgb * normal, in.color.a);
+    out.color = vec4<f32>(in.color.rgb * diff_color * normal, in.color.a);
 
     if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;
@@ -81,7 +81,7 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
     let v_pos = in.uv * 2. - 1.;
 
     let len = length(v_pos);
-    let texture_color = textureSample(base_texture, base_sampler, in.uv);
+    let texture_color = textureSample(diff_tex, s, in.uv);
 
     if 1.0 < len {
         discard;
