@@ -26,14 +26,14 @@ impl Boundry {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeshRef {
-    pub collection_key: ID,
-    pub mesh_key: ID,
+    pub collection_id: ID,
+    pub mesh_id: ID,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaterialRef {
-    pub collection_key: ID,
-    pub material_key: ID,
+    pub collection_id: ID,
+    pub material_id: ID,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,12 +142,12 @@ impl EmitterUniform {
             delta_sec: 0.0,
 
             material: MaterialRef {
-                collection_key: BUILTIN_ID.to_string(),
-                material_key: CIRCLE_MAT_ID.to_string(),
+                collection_id: BUILTIN_ID.to_string(),
+                material_id: CIRCLE_MAT_ID.to_string(),
             },
             mesh: MeshRef {
-                collection_key: BUILTIN_ID.to_string(),
-                mesh_key: CIRCLE_MESH_ID.to_string(),
+                collection_id: BUILTIN_ID.to_string(),
+                mesh_id: CIRCLE_MESH_ID.to_string(),
             },
         }
     }

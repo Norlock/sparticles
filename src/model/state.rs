@@ -30,25 +30,25 @@ pub trait FastFetch {
 
 impl FastFetch for HashMap<ID, Model> {
     fn get_mesh(&self, mesh_ref: &MeshRef) -> &Mesh {
-        self.get(&mesh_ref.collection_key)
+        self.get(&mesh_ref.collection_id)
             .expect(&format!(
                 "Collection doesn't exist: {:?}",
-                &mesh_ref.collection_key
+                &mesh_ref.collection_id
             ))
             .meshes
-            .get(&mesh_ref.mesh_key)
-            .expect(&format!("Mesh doesn't exist: {:?}", &mesh_ref.mesh_key))
+            .get(&mesh_ref.mesh_id)
+            .expect(&format!("Mesh doesn't exist: {:?}", &mesh_ref.mesh_id))
     }
 
     fn get_mat(&self, mat_ref: &MaterialRef) -> &Material {
-        self.get(&mat_ref.collection_key)
+        self.get(&mat_ref.collection_id)
             .expect(&format!(
                 "Collection doesn't exist: {:?}",
-                &mat_ref.collection_key
+                &mat_ref.collection_id
             ))
             .materials
-            .get(&mat_ref.material_key)
-            .expect(&format!("Mesh doesn't exist: {:?}", &mat_ref.material_key))
+            .get(&mat_ref.material_id)
+            .expect(&format!("Mesh doesn't exist: {:?}", &mat_ref.material_id))
     }
 }
 
@@ -92,8 +92,8 @@ impl State {
         collection.insert(builtin.id.to_string(), builtin);
 
         for em in app_settings.emitters().iter() {
-            let mesh_key = &em.mesh.collection_key;
-            let mat_key = &em.material.collection_key;
+            let mesh_key = &em.mesh.collection_id;
+            let mat_key = &em.material.collection_id;
 
             if (mesh_key != &BUILTIN_ID) && !collection.contains_key(mesh_key) {
                 collection.insert(

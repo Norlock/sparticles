@@ -13,8 +13,9 @@ GPU Particle system written in Rust + WGPU + EGUI
 - [ ] Being able to pause
 - [x] Gui events to update
 - [x] Fix recreate light emitter
-- [ ] Able to import models + materials
+- [x] Able to import models + materials
   - [ ] Don't reload file if emitter recreate
+- [ ] Create custom materials
 
 ## Gui
 - [x] Show all possible diffuse textures in map

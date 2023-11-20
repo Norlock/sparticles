@@ -536,10 +536,10 @@ impl<'a> EmitterState {
         let pipeline_layout;
         let is_light;
 
-        let model = collection.get(&uniform.material.collection_key).unwrap();
+        let model = collection.get(&uniform.material.collection_id).unwrap();
         let material = model
             .materials
-            .get(&uniform.material.material_key)
+            .get(&uniform.material.material_id)
             .expect("Material doesn't exist");
 
         match &options.emitter_type {
@@ -594,7 +594,7 @@ impl<'a> EmitterState {
         mesh_ref: &MeshRef,
         device: &wgpu::Device,
     ) -> wgpu::RenderPipeline {
-        let fs_entry = if mesh_ref.collection_key == BUILTIN_ID {
+        let fs_entry = if mesh_ref.collection_id == BUILTIN_ID {
             // TODO also different builtin shapes
             "fs_circle"
         } else {

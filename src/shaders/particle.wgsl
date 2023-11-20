@@ -35,18 +35,16 @@ struct FragmentOutput {
 fn vs_main(in: VertexInput) -> VertexOutput {
     let p = particles[in.instance_idx];
 
-    if (p.lifetime == -1.) {
+    if p.lifetime == -1. {
         var out: VertexOutput;
         out.world_space = camera.view_pos - 1000.;
         return out;
     }
-    
+
     let world_space = vec4<f32>(
-            p.pos_size.xyz + 
-            in.position * 
-            p.pos_size.w, 1.0
+        p.pos_size.xyz + in.position * p.pos_size.w, 1.0
     );
-        
+
     var out: VertexOutput;
     out.uv = in.uv;
     out.color = p.color;
@@ -75,14 +73,11 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
         in.tangent.z, in.bitangent.z, in.normal.z,
     );
 
-    let world_normal = tangent_to_world * tangent_normal;
+    let world_normal = normalize(tangent_to_world * tangent_normal);
 
     var result = vec3<f32>(0.0);
 
-    // Create the lighting vectors
-    //let tangent_normal = object_normal.xyz * 2.0 - 1.0;
-
-    for (var i = 0u; i < arrayLength(&light_particles); i++) { 
+    for (var i = 0u; i < arrayLength(&light_particles); i++) {
         let light = light_particles[i];
         let light_pos = light.pos_size.xyz;
 
@@ -90,7 +85,7 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
         let strength = 1.0 - distance * 0.04; // TODO store 0.04 strength loss in param
         let light_color = acesFilm(light.color.rgb) * strength;
 
-        if (strength <= 0.0) {
+        if strength <= 0.0 {
             continue;
         }
 
@@ -99,11 +94,9 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
         let half_dir = normalize(view_dir + light_dir);
 
         let diffuse_strength = max(dot(world_normal, light_dir), 0.0);
-        //let diffuse_strength = max(dot(in.normal, light_dir), 0.0);
         let diffuse_color = diffuse_strength * light_color;
 
         let specular_strength = pow(max(dot(world_normal, half_dir), 0.0), 32.0);
-        //let specular_strength = pow(max(dot(in.normal, half_dir), 0.0), 32.0);
         let specular_color = specular_strength * light_color;
 
         result += diffuse_color + specular_color;
@@ -111,10 +104,11 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
 
     var out: FragmentOutput;
     out.color = vec4<f32>(result * diff_color, in.color.a);
+    //out.color = vec4<f32>(norm_color, in.color.a);
 
     if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;
-    }  
+    }
 
     return out;
 }
@@ -125,7 +119,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
 
     let texture_color = textureSample(diff_tex, s, in.uv);
 
-    if (1.0 < length(v_pos)) {
+    if 1.0 < length(v_pos) {
         discard;
     }
 
@@ -137,7 +131,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
 
     var result = vec3<f32>(0.0);
 
-    for (var i = 0u; i < arrayLength(&light_particles); i++) { 
+    for (var i = 0u; i < arrayLength(&light_particles); i++) {
         let light = light_particles[i];
         let light_pos = light.pos_size.xyz;
 
@@ -145,7 +139,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
         let strength = 1.0 - distance * 0.04;
         let ambient_color = acesFilm(light.color.rgb) * strength;
 
-        if (strength <= 0.0) {
+        if strength <= 0.0 {
             continue;
         }
 
@@ -167,7 +161,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
 
     if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;
-    }  
+    }
 
     return out;
 }

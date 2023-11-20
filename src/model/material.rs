@@ -5,7 +5,7 @@ use std::{collections::HashMap, path::PathBuf};
 use super::GfxState;
 
 pub struct Material {
-    pub diffuse_tex: wgpu::Texture,
+    pub albedo_tex: wgpu::Texture,
     pub metallic_roughness_tex: wgpu::Texture,
     pub normal_tex: wgpu::Texture,
     pub emissive_tex: wgpu::Texture,
@@ -15,10 +15,11 @@ pub struct Material {
 }
 
 pub struct MaterialCtx<'a> {
-    pub diffuse_tex: wgpu::Texture,
+    pub albedo_tex: wgpu::Texture,
     pub metallic_roughness_tex: wgpu::Texture,
     pub normal_tex: wgpu::Texture,
     pub emissive_tex: wgpu::Texture,
+    pub occlusion_tex: wgpu::Texture,
     pub gfx_state: &'a GfxState,
 }
 
@@ -46,15 +47,17 @@ impl Material {
 
         let normal_tex = gfx.tex_from_string(n_tex_str, false);
         let emissive_tex = gfx.tex_from_string(tex_str, true);
+        let occlusion_tex = gfx.tex_from_string(tex_str, true);
 
         materials.insert(
             CIRCLE_MAT_ID.to_string(),
             Self::new(MaterialCtx {
                 gfx_state: gfx,
-                diffuse_tex,
+                albedo_tex: diffuse_tex,
                 metallic_roughness_tex,
                 normal_tex,
                 emissive_tex,
+                occlusion_tex,
             }),
         );
 
@@ -127,7 +130,7 @@ impl Material {
             label: None,
         });
 
-        let diff_view = mat.diffuse_tex.default_view();
+        let diff_view = mat.albedo_tex.default_view();
         let normal_view = mat.normal_tex.default_view();
         let metal_view = mat.metallic_roughness_tex.default_view();
         let emiss_view = mat.emissive_tex.default_view();
@@ -162,7 +165,7 @@ impl Material {
         Self {
             emissive_tex: mat.emissive_tex,
             normal_tex: mat.normal_tex,
-            diffuse_tex: mat.diffuse_tex,
+            albedo_tex: mat.albedo_tex,
             metallic_roughness_tex: mat.metallic_roughness_tex,
             sampler,
             bg: bind_group,

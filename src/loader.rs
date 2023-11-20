@@ -97,15 +97,18 @@ impl Model {
         let mut materials: HashMap<ID, Material> = HashMap::new();
 
         for (i, material) in gltf.materials().enumerate() {
-            let diffuse_tex: wgpu::Texture;
+            let albedo_tex: wgpu::Texture;
             let metallic_roughness_tex: wgpu::Texture;
             let normal_tex: wgpu::Texture;
+            let _normal_scale: f32;
             let emissive_tex: wgpu::Texture;
+            let _emissive_factor = material.emissive_factor();
+            let occlusion_tex: wgpu::Texture;
 
             let pbr = material.pbr_metallic_roughness();
 
             if let Some(tex) = pbr.base_color_texture() {
-                diffuse_tex = fetch_texture(tex.texture(), true);
+                albedo_tex = fetch_texture(tex.texture(), true);
             } else {
                 todo!("create default texture");
             }
@@ -118,6 +121,8 @@ impl Model {
 
             if let Some(tex) = material.normal_texture() {
                 normal_tex = fetch_texture(tex.texture(), false);
+                _normal_scale = tex.scale();
+                println!("ns {_normal_scale}");
             } else {
                 todo!("create default texture");
             }
@@ -128,6 +133,12 @@ impl Model {
                 todo!("create default texture");
             }
 
+            if let Some(tex) = material.occlusion_texture() {
+                occlusion_tex = fetch_texture(tex.texture(), true);
+            } else {
+                todo!("create default texture")
+            }
+
             let id = material
                 .name()
                 .map(|name| name.to_string())
@@ -135,16 +146,22 @@ impl Model {
 
             println!("Importing material: {:?}", &id);
 
+            // todo add normal_scale
             materials.insert(
                 id,
                 Material::new(MaterialCtx {
-                    gfx_state,
-                    diffuse_tex,
+                    albedo_tex,
                     emissive_tex,
                     metallic_roughness_tex,
                     normal_tex,
+                    occlusion_tex,
+                    gfx_state,
                 }),
             );
+        }
+
+        for sampler in gltf.samplers() {
+            println!("sampler: {:?}", sampler);
         }
 
         let mut meshes: HashMap<ID, Mesh> = HashMap::new();

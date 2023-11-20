@@ -7,6 +7,7 @@ use sparticles::{
         RegisterStrayAnimation, StrayUniform, SwayAnimation,
     },
     init::{AppSettings, JsonImportMode},
+    loader::{BUILTIN_ID, CIRCLE_MAT_ID},
     model::{
         emitter::{MaterialRef, MeshRef},
         Boundry, EmitterState, EmitterUniform, GfxState, LifeCycle,
@@ -41,13 +42,15 @@ impl AppSettings for CustomSettings {
         emitter.spawn_delay_sec = 2.0;
 
         emitter.material = MaterialRef {
-            collection_key: "StarSparrow.glb".to_string(),
-            material_key: "StarSparrowRed".to_string(),
+            //collection_id: BUILTIN_ID.to_string(),
+            //material_id: CIRCLE_MAT_ID.to_string(),
+            collection_id: "StarSparrow.glb".to_string(),
+            material_id: "StarSparrowRed".to_string(),
         };
 
         emitter.mesh = MeshRef {
-            collection_key: "StarSparrow.glb".to_string(),
-            mesh_key: "Mesh.001".to_string(),
+            collection_id: "StarSparrow.glb".to_string(),
+            mesh_id: "Mesh.001".to_string(),
         };
 
         vec![emitter]
