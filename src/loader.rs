@@ -3,6 +3,7 @@ use crate::model::{GfxState, Material, Mesh, ModelVertex};
 use crate::texture::TexType;
 use crate::util::ID;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
+use gltf::scene::Transform;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -198,6 +199,35 @@ impl Model {
 
         for scene in gltf.scenes() {
             for node in scene.nodes() {
+                let model;
+
+                match node.transform() {
+                    Transform::Matrix { matrix } => {
+                        println!("matrix: {:?}", matrix);
+                        model = glam::Mat4::from_cols_array_2d(&matrix);
+                    }
+                    Transform::Decomposed {
+                        translation,
+                        rotation,
+                        scale,
+                    } => {
+                        println!(
+                            "decomposed trans: {:?}, rot: {:?}, scale: {:?}",
+                            translation, rotation, scale
+                        );
+                        let s = scale.into();
+                        let r = glam::Quat::from_vec4(rotation.into());
+                        let t = translation.into();
+
+                        // TODO you'll want to call this transform() function on the nodes that you're loading as well as recursively multiply them with their parent nodes to get the correct global transform
+                        for child in node.children() {
+                            println!("{}", child.name().unwrap_or("noname"));
+                        }
+
+                        model = glam::Mat4::from_scale_rotation_translation(s, r, t);
+                    }
+                }
+
                 if let Some(mesh) = node.mesh() {
                     let mut vertices = Vec::new();
                     let mut indices = Vec::new();
@@ -267,6 +297,7 @@ impl Model {
                             vertices,
                             vertex_buffer,
                             index_buffer,
+                            model,
                         },
                     );
                 } else {

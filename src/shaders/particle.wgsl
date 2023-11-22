@@ -44,7 +44,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     out.uv = in.uv;
     out.color = p.color;
-    out.world_pos = p.model.w.xyz + in.position * 0.1;
+    out.world_pos = (p.model * vec4(in.position, 1.0)).xyz;
     out.normal = normalize(in.normal);
     out.tangent = normalize(in.tangent.xyz);
     out.bitangent = normalize(cross(out.normal, out.tangent) * in.tangent.w);
@@ -163,12 +163,7 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
     // Gamma correct
     color = pow(color, vec3(1.0 / 2.2));
 
-    if 1000. <= in.clip_position.x {
-        out.color = vec4(color, 1.0);
-    } else {
-        out.color = textureSample(albedo_tex, s, in.uv);
-    }
-
+    out.color = vec4(color, 1.0);
 
     if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;

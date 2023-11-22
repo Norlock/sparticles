@@ -5,10 +5,11 @@ use crate::loader::{Model, BUILTIN_ID};
 use crate::traits::{CalculateBufferSize, CustomShader, Splitting};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
-use crate::util::ListAction;
+use crate::util::{CommonBuffer, ListAction};
 use crate::util::{Persistence, ID};
 use egui_wgpu::wgpu::{self, ShaderModule};
 use egui_winit::egui::{ScrollArea, Ui};
+use encase::UniformBuffer;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{
@@ -171,7 +172,7 @@ impl<'a> EmitterState {
                 anim.animate(&mut emitter.uniform, clock);
             }
 
-            let buffer_content_raw = emitter.uniform.create_buffer_content();
+            let buffer_content_raw = emitter.uniform.create_buffer_content(collection);
             let buffer_content = bytemuck::cast_slice(&buffer_content_raw);
 
             gfx_state
@@ -408,9 +409,11 @@ impl<'a> EmitterState {
         let collection = options.collection;
 
         let device = &gfx_state.device;
-        let emitter_buf_content = uniform.create_buffer_content();
+        let emitter_buf_content = uniform.create_buffer_content(collection);
+
         let particle_buffer_size = NonZeroU64::new(uniform.particle_buffer_size());
-        let emitter_buffer_size = emitter_buf_content.cal_buffer_size();
+        println!("size: {}", emitter_buf_content.len() * 4);
+        let emitter_buffer_size = NonZeroU64::new(emitter_buf_content.len() as u64 * 4);
 
         let visibility = match &options.emitter_type {
             EmitterType::Lights => {
@@ -527,11 +530,7 @@ impl<'a> EmitterState {
         let pipeline_layout;
         let is_light;
 
-        let model = collection.get(&uniform.material.collection_id).unwrap();
-        let material = model
-            .materials
-            .get(&uniform.material.material_id)
-            .expect("Material doesn't exist");
+        let material = collection.get_mat(&uniform.material);
 
         match &options.emitter_type {
             EmitterType::Lights => {

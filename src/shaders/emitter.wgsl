@@ -58,16 +58,7 @@ fn spawn_particle(index: u32) {
     particle.color = particle_color;
     particle.vel_mass = vec4<f32>(velocity, em.material_mass * size);
     particle.lifetime = 0.;
-
-    // TODO add particle rotation
-    let model = mat4x4(
-        vec4(1.0, 0.0, 0.0, 0.0),
-        vec4(0.0, 1.0, 0.0, 0.0),
-        vec4(0.0, 0.0, 1.0, 0.0),
-        vec4(position, 1.0)
-    );
-
-    particle.model = model;
+    particle.model = em.particle_model;
 
     particles_dst[index] = particle;
 }

@@ -10,6 +10,7 @@ pub struct Mesh {
     pub indices: Vec<u32>,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
+    pub model: glam::Mat4,
 }
 
 impl Mesh {
@@ -71,6 +72,7 @@ impl Mesh {
             indices,
             vertex_buffer,
             index_buffer,
+            model: glam::Mat4::default(),
         }
     }
 }

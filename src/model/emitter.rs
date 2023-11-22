@@ -1,10 +1,11 @@
 use super::Clock;
-use crate::loader::{BUILTIN_ID, CIRCLE_MAT_ID, CIRCLE_MESH_ID};
+use crate::loader::{Model, BUILTIN_ID, CIRCLE_MAT_ID, CIRCLE_MESH_ID};
+use crate::model::state::FastFetch;
 use crate::traits::{FromRGB, HandleAngles};
 use crate::util::ID;
 use glam::{f32::Vec3, f32::Vec4};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::collections::HashMap;
 
 const PARTICLE_BUFFER_SIZE: u64 = 26 * 4;
 
@@ -109,9 +110,6 @@ impl EmitterUniform {
 
         let diffusion_width_rad = 15f32.to_radians();
         let diffusion_depth_rad = 15f32.to_radians();
-
-        let mut texture_image = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        texture_image.push("src/assets/textures/1x1.png");
 
         Self {
             id,
@@ -224,34 +222,45 @@ impl EmitterUniform {
         self.particle_count() * PARTICLE_BUFFER_SIZE
     }
 
-    pub fn create_buffer_content(&self) -> Vec<f32> {
-        vec![
-            self.delta_sec,
-            self.elapsed_sec,
-            self.spawn_from as f32,
-            self.spawn_until as f32,
-            self.box_position.x,
-            self.box_position.y,
-            self.box_position.z,
-            self.box_dimensions.x,
-            self.box_dimensions.y,
-            self.box_dimensions.z,
-            self.box_rotation.x,
-            self.box_rotation.y,
-            self.box_rotation.z,
-            self.diff_width,
-            self.diff_depth,
-            self.particle_color.x * self.hdr_mul,
-            self.particle_color.y * self.hdr_mul,
-            self.particle_color.z * self.hdr_mul,
-            self.particle_color.w,
-            self.particle_speed.0,
-            self.particle_speed.1,
-            self.particle_size.0,
-            self.particle_size.1,
-            self.particle_friction_coefficient,
-            self.particle_material_mass,
-            self.particle_lifetime_sec,
+    pub fn create_buffer_content(&self, collection: &HashMap<String, Model>) -> Vec<f32> {
+        let mesh = collection.get_mesh(&self.mesh);
+        let particle_model = mesh.model.to_cols_array();
+
+        [
+            &[
+                self.delta_sec,
+                self.elapsed_sec,
+                self.spawn_from as f32,
+                self.spawn_until as f32,
+                self.box_position.x,
+                self.box_position.y,
+                self.box_position.z,
+                self.box_dimensions.x,
+                self.box_dimensions.y,
+                self.box_dimensions.z,
+                self.box_rotation.x,
+                self.box_rotation.y,
+                self.box_rotation.z,
+                self.diff_width,
+                self.diff_depth,
+                0., // padding
+            ],
+            particle_model.as_slice(),
+            &[
+                self.particle_color.x * self.hdr_mul,
+                self.particle_color.y * self.hdr_mul,
+                self.particle_color.z * self.hdr_mul,
+                self.particle_color.w,
+                self.particle_speed.0,
+                self.particle_speed.1,
+                self.particle_size.0,
+                self.particle_size.1,
+                self.particle_friction_coefficient,
+                self.particle_material_mass,
+                self.particle_lifetime_sec,
+                0., // padding
+            ],
         ]
+        .concat()
     }
 }

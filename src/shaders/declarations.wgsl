@@ -22,6 +22,8 @@ struct Emitter {
     box_roll: f32,
     diffusion_width: f32,
     diffusion_depth: f32,
+    padding: f32,
+    particle_model: mat4x4<f32>,
     particle_color_r: f32,
     particle_color_g: f32,
     particle_color_b: f32,
@@ -33,6 +35,7 @@ struct Emitter {
     particle_friction_coefficient: f32,
     material_mass: f32,
     particle_lifetime: f32,
+    padding_2: f32,
 };
 
 struct CameraUniform {
