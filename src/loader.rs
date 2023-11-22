@@ -117,12 +117,14 @@ impl Model {
             let albedo_tex: wgpu::Texture;
             let metallic_roughness_tex: wgpu::Texture;
             let normal_tex: wgpu::Texture;
-            let normal_scale: f32;
             let emissive_tex: wgpu::Texture;
-            let emissive_factor = material.emissive_factor();
             let ao_tex: wgpu::Texture;
 
             let pbr = material.pbr_metallic_roughness();
+            let normal_scale: f32;
+            let emissive_factor = material.emissive_factor();
+            let metallic_factor = pbr.metallic_factor();
+            let roughness_factor = pbr.roughness_factor();
 
             if let Some(tex) = pbr.base_color_texture() {
                 albedo_tex = fetch_texture(tex.texture(), true);
@@ -177,6 +179,8 @@ impl Model {
                     albedo_tex,
                     emissive_tex,
                     metallic_roughness_tex,
+                    roughness_factor,
+                    metallic_factor,
                     emissive_factor,
                     normal_tex,
                     normal_scale,

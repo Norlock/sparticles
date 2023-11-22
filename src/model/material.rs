@@ -1,4 +1,4 @@
-use crate::{loader::CIRCLE_MAT_ID, traits::CreateFxView, util::ID};
+use crate::{loader::CIRCLE_MAT_ID, texture::TexType, traits::CreateFxView, util::ID};
 use egui_wgpu::wgpu;
 use std::{collections::HashMap, path::PathBuf};
 
@@ -10,6 +10,10 @@ pub struct Material {
     pub normal_tex: wgpu::Texture,
     pub emissive_tex: wgpu::Texture,
     pub ao_tex: wgpu::Texture,
+    pub metallic_factor: f32,
+    pub roughness_factor: f32,
+    pub normal_scale: f32,
+    pub emissive_factor: [f32; 3],
     pub sampler: wgpu::Sampler,
     pub bg: wgpu::BindGroup,
     pub bg_layout: wgpu::BindGroupLayout,
@@ -23,6 +27,8 @@ pub struct MaterialCtx<'a> {
     pub emissive_tex: wgpu::Texture,
     pub emissive_factor: [f32; 3],
     pub ao_tex: wgpu::Texture,
+    pub metallic_factor: f32,
+    pub roughness_factor: f32,
     pub gfx_state: &'a GfxState,
 }
 
@@ -33,24 +39,19 @@ fn get_path_buf() -> PathBuf {
 impl Material {
     pub fn create_builtin(gfx: &GfxState) -> HashMap<ID, Material> {
         let mut materials = HashMap::new();
-        // TODO create default material
-        let mut texture_image = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        texture_image.push("src/assets/textures/1x1.png");
-
-        let tex_str = texture_image.to_str().expect("niet goed");
 
         // White
-        let diffuse_tex = gfx.tex_from_string(tex_str, true);
-        let metallic_roughness_tex = gfx.tex_from_string(tex_str, true);
+        let diffuse_tex = gfx.create_builtin_tex(TexType::White);
+        let metallic_roughness_tex = gfx.create_builtin_tex(TexType::White);
 
         // TODO flat normal (bump)
         let mut norm_buf = get_path_buf();
         norm_buf.push("src/assets/textures/circle_normal.png");
         let n_tex_str = norm_buf.to_str().expect("niet goed");
 
-        let normal_tex = gfx.tex_from_string(n_tex_str, false);
-        let emissive_tex = gfx.tex_from_string(tex_str, true);
-        let occlusion_tex = gfx.tex_from_string(tex_str, true);
+        let normal_tex = gfx.create_builtin_tex(TexType::Normal);
+        let emissive_tex = gfx.create_builtin_tex(TexType::White);
+        let occlusion_tex = gfx.create_builtin_tex(TexType::White);
 
         materials.insert(
             CIRCLE_MAT_ID.to_string(),
@@ -62,6 +63,8 @@ impl Material {
                 normal_scale: 1.0,
                 emissive_tex,
                 emissive_factor: [1.0, 1.0, 1.0],
+                roughness_factor: 0.,
+                metallic_factor: 0.,
                 ao_tex: occlusion_tex,
             }),
         );
@@ -188,6 +191,10 @@ impl Material {
             albedo_tex: mat.albedo_tex,
             metallic_roughness_tex: mat.metallic_roughness_tex,
             ao_tex: mat.ao_tex,
+            metallic_factor: mat.metallic_factor,
+            roughness_factor: mat.roughness_factor,
+            emissive_factor: mat.emissive_factor,
+            normal_scale: mat.normal_scale,
             sampler,
             bg: bind_group,
             bg_layout: bind_group_layout,

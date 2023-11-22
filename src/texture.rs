@@ -210,11 +210,34 @@ impl GfxState {
     }
 
     pub fn create_builtin_tex(&self, tex_type: TexType) -> wgpu::Texture {
-        let mut texture_image = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        texture_image.push("src/assets/textures/1x1.png");
+        let (format, bytes) = match tex_type {
+            TexType::White => (wgpu::TextureFormat::Rgba8UnormSrgb, [255, 255, 255, 255]),
+            TexType::Normal => (wgpu::TextureFormat::Rgba8Unorm, [127, 127, 255, 255]),
+        };
 
-        let tex_str = texture_image.to_str().expect("niet goed");
-        self.tex_from_string(tex_str, false)
+        let tex = self.device.create_texture(&wgpu::TextureDescriptor {
+            size: wgpu::Extent3d::default(),
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            label: Some("diffuse_texture"),
+            view_formats: &[],
+        });
+
+        self.queue.write_texture(
+            tex.as_image_copy(),
+            &bytes,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4),
+                rows_per_image: None,
+            },
+            wgpu::Extent3d::default(),
+        );
+
+        tex
     }
 
     pub fn create_noise_view(&self) -> wgpu::TextureView {
