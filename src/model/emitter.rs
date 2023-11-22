@@ -6,7 +6,7 @@ use glam::{f32::Vec3, f32::Vec4};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-const PARTICLE_BUFFER_SIZE: u64 = 14 * 4;
+const PARTICLE_BUFFER_SIZE: u64 = 26 * 4;
 
 pub struct EmitSpawnOptions {
     pub spawn_count: u32,

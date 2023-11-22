@@ -1,9 +1,9 @@
 struct Particle {
-    pos_size: vec4<f32>,
+    model: mat4x4<f32>,
     color: vec4<f32>,
     vel_mass: vec4<f32>, 
+    scale: f32,
     lifetime: f32, // lifetime == -1. is decayed
-    padding: f32,
 };
 
 struct Emitter {
@@ -60,13 +60,15 @@ struct FxIO {
     out_size_y: u32,
 }
 
+const PI: f32 = 3.14159265359;
+
 fn pi() -> f32 {
     return 3.141592653589;
 }
 
 fn random(input: f32, elapsed_sec: f32) -> f32 {
     let value = vec2<f32>(input, elapsed_sec);
-    return fract(sin(dot(value, vec2<f32>(12.9898,78.233))) * 43758.5453);
+    return fract(sin(dot(value, vec2<f32>(12.9898, 78.233))) * 43758.5453);
 }
 
 fn gen_abs_range(unique: f32, value: f32, elapsed_sec: f32) -> f32 {
@@ -83,7 +85,7 @@ fn acesFilm(x: vec3<f32>) -> vec3<f32> {
     let c = 2.43f;
     let d = 0.59f;
     let e = 0.14f;
-    return saturate((x*(a*x+b)) / (x*(c*x+d)+e));
+    return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
 }
 
 fn yaw_matrix(yaw: f32) -> mat3x3<f32> {

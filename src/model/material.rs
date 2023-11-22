@@ -9,6 +9,7 @@ pub struct Material {
     pub metallic_roughness_tex: wgpu::Texture,
     pub normal_tex: wgpu::Texture,
     pub emissive_tex: wgpu::Texture,
+    pub ao_tex: wgpu::Texture,
     pub sampler: wgpu::Sampler,
     pub bg: wgpu::BindGroup,
     pub bg_layout: wgpu::BindGroupLayout,
@@ -19,7 +20,7 @@ pub struct MaterialCtx<'a> {
     pub metallic_roughness_tex: wgpu::Texture,
     pub normal_tex: wgpu::Texture,
     pub emissive_tex: wgpu::Texture,
-    pub occlusion_tex: wgpu::Texture,
+    pub ao_tex: wgpu::Texture,
     pub gfx_state: &'a GfxState,
 }
 
@@ -57,7 +58,7 @@ impl Material {
                 metallic_roughness_tex,
                 normal_tex,
                 emissive_tex,
-                occlusion_tex,
+                ao_tex: occlusion_tex,
             }),
         );
 
@@ -123,6 +124,16 @@ impl Material {
                 wgpu::BindGroupLayoutEntry {
                     binding: 4,
                     visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
@@ -134,6 +145,7 @@ impl Material {
         let normal_view = mat.normal_tex.default_view();
         let metal_view = mat.metallic_roughness_tex.default_view();
         let emiss_view = mat.emissive_tex.default_view();
+        let ao_view = mat.ao_tex.default_view();
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
@@ -156,6 +168,10 @@ impl Material {
                 },
                 wgpu::BindGroupEntry {
                     binding: 4,
+                    resource: wgpu::BindingResource::TextureView(&ao_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
@@ -167,6 +183,7 @@ impl Material {
             normal_tex: mat.normal_tex,
             albedo_tex: mat.albedo_tex,
             metallic_roughness_tex: mat.metallic_roughness_tex,
+            ao_tex: mat.ao_tex,
             sampler,
             bg: bind_group,
             bg_layout: bind_group_layout,

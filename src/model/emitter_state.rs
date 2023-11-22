@@ -82,7 +82,7 @@ impl<'a> EmitterState {
 
         if settings.recreate {
             if em.is_light {
-                EmitterState::recreate_emitter(
+                *em = EmitterState::recreate_emitter(
                     RecreateEmitterOptions {
                         old_self: em,
                         gfx_state,
@@ -93,30 +93,18 @@ impl<'a> EmitterState {
                     encoder,
                 );
 
-                let device = &gfx_state.device;
-
-                let (em, others) = emitters.split_item_mut(gui.selected_emitter_id);
-
                 for other in others {
-                    let mat_layout = &collection.get_mat(&other.uniform.material).bg_layout;
-
-                    other.pipeline_layout =
-                        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                            label: Some("Particle render Pipeline Layout"),
-                            bind_group_layouts: &[
-                                &camera.bg_layout,
-                                mat_layout,
-                                &other.bg_layout,
-                                &em.bg_layout,
-                            ],
-                            push_constant_ranges: &[],
-                        });
-
-                    other.render_pipeline = Self::create_pipeline(
-                        &em.shader,
-                        &em.pipeline_layout,
-                        &em.uniform.mesh,
-                        device,
+                    *other = EmitterState::recreate_emitter(
+                        RecreateEmitterOptions {
+                            old_self: other,
+                            gfx_state,
+                            camera,
+                            collection,
+                            emitter_type: EmitterType::Normal {
+                                lights_layout: &em.bg_layout,
+                            },
+                        },
+                        encoder,
                     );
                 }
             } else {
@@ -305,7 +293,10 @@ impl<'a> EmitterState {
         gfx_state.end_scope(&mut r_pass);
     }
 
-    pub fn recreate_emitter(options: RecreateEmitterOptions, encoder: &mut wgpu::CommandEncoder) {
+    pub fn recreate_emitter(
+        options: RecreateEmitterOptions,
+        encoder: &mut wgpu::CommandEncoder,
+    ) -> Self {
         let old_self = options.old_self;
 
         let mut new_self = Self::new(CreateEmitterOptions {
@@ -335,7 +326,7 @@ impl<'a> EmitterState {
             &mut old_self.emitter_animations,
         );
 
-        *old_self = new_self;
+        new_self
     }
 
     pub fn push_particle_animation(&mut self, animation: Box<dyn ParticleAnimation>) {

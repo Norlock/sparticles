@@ -130,12 +130,7 @@ impl<T: std::fmt::Debug> Splitting<T> for Vec<T> {
         assert!(idx < self.len());
 
         let (head, rest) = self.split_at_mut(idx);
-        //println!("idx {:?}", idx);
-        //println!("left {:?}", head);
-        //println!("right {:?}", rest);
-
         let (item, tail) = rest.split_first_mut().unwrap();
-
         let others = head.iter_mut().chain(tail.iter_mut());
 
         (item, others)

@@ -94,6 +94,22 @@ impl Model {
             }
         };
 
+        let a = glam::Mat4::from_euler(glam::EulerRot::default(), 0., 0., 0.);
+        let b = glam::Mat4::from_translation(glam::Vec3::new(10., 20., 30.));
+        let c = glam::Mat4::from_scale(glam::Vec3::splat(3.0));
+
+        let quat = glam::Quat::from_euler(glam::EulerRot::default(), 10., 20., 30.);
+        let d = glam::Mat4::from_scale_rotation_translation(
+            glam::Vec3::new(5., 5., 5.),
+            quat,
+            glam::Vec3::new(50., 50., 50.),
+        );
+
+        println!("rot mat {:?}", a);
+        println!("tran mat {:?}", b);
+        println!("scale mat {:?}", c);
+        println!("rot scale tran mat {:?}", d);
+
         let mut materials: HashMap<ID, Material> = HashMap::new();
 
         for (i, material) in gltf.materials().enumerate() {
@@ -122,7 +138,6 @@ impl Model {
             if let Some(tex) = material.normal_texture() {
                 normal_tex = fetch_texture(tex.texture(), false);
                 _normal_scale = tex.scale();
-                println!("ns {_normal_scale}");
             } else {
                 todo!("create default texture");
             }
@@ -136,7 +151,12 @@ impl Model {
             if let Some(tex) = material.occlusion_texture() {
                 occlusion_tex = fetch_texture(tex.texture(), true);
             } else {
-                todo!("create default texture")
+                let mut texture_image = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+                texture_image.push("src/assets/textures/1x1.png");
+
+                let tex_str = texture_image.to_str().expect("niet goed");
+                occlusion_tex = gfx_state.tex_from_string(tex_str, false);
+                //todo!("create default texture")
             }
 
             let id = material
@@ -154,14 +174,14 @@ impl Model {
                     emissive_tex,
                     metallic_roughness_tex,
                     normal_tex,
-                    occlusion_tex,
+                    ao_tex: occlusion_tex,
                     gfx_state,
                 }),
             );
         }
 
-        for sampler in gltf.samplers() {
-            println!("sampler: {:?}", sampler);
+        for _sampler in gltf.samplers() {
+            //println!("sampler: {:?}", sampler);
         }
 
         let mut meshes: HashMap<ID, Mesh> = HashMap::new();

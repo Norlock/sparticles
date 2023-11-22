@@ -7,13 +7,10 @@ fn is_decayed(par: Particle) -> bool {
 }
 
 fn create_velocity(input_random: f32, speed_random: f32) -> vec3<f32> {
-    let diff_width = gen_dyn_range(input_random * 0.12, em.diffusion_width, em.elapsed_sec) / 2.; 
+    let diff_width = gen_dyn_range(input_random * 0.12, em.diffusion_width, em.elapsed_sec) / 2.;
     let diff_depth = gen_dyn_range(input_random * 0.45, em.diffusion_depth, em.elapsed_sec) / 2.;
 
-    return vec3<f32>(0., speed_random, 0.) * 
-        yaw_matrix(em.box_yaw) *
-        pitch_matrix(em.box_pitch + diff_width) *
-        roll_matrix(em.box_roll + diff_depth); 
+    return vec3<f32>(0., speed_random, 0.) * yaw_matrix(em.box_yaw) * pitch_matrix(em.box_pitch + diff_width) * roll_matrix(em.box_roll + diff_depth);
 }
 
 fn create_particle_position(input_random: f32) -> vec3<f32> {
@@ -31,11 +28,8 @@ fn create_particle_position(input_random: f32) -> vec3<f32> {
 
     let local_pos = vec3<f32>(unrotated_x, unrotated_y, unrotated_z);
 
-    let local_rot = local_pos * 
-        yaw_matrix(em.box_yaw) *
-        pitch_matrix(em.box_pitch) *
-        roll_matrix(em.box_roll);
-    
+    let local_rot = local_pos * yaw_matrix(em.box_yaw) * pitch_matrix(em.box_pitch) * roll_matrix(em.box_roll);
+
     return vec3<f32>(em.box_x, em.box_y, em.box_z) + local_rot;
 }
 
@@ -60,10 +54,20 @@ fn spawn_particle(index: u32) {
     let position = create_particle_position(input_random);
     let velocity = create_velocity(input_random, particle_speed);
 
-    particle.pos_size = vec4<f32>(position, size);
+    particle.scale = size;
     particle.color = particle_color;
     particle.vel_mass = vec4<f32>(velocity, em.material_mass * size);
     particle.lifetime = 0.;
+
+    // TODO add particle rotation
+    let model = mat4x4(
+        vec4(1.0, 0.0, 0.0, 0.0),
+        vec4(0.0, 1.0, 0.0, 0.0),
+        vec4(0.0, 0.0, 1.0, 0.0),
+        vec4(position, 1.0)
+    );
+
+    particle.model = model;
 
     particles_dst[index] = particle;
 }
@@ -74,20 +78,20 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let particle_len = arrayLength(&particles_src);
     let index = global_invocation_id.x;
 
-    if (particle_len <= index) {
+    if particle_len <= index {
         return;
     }
 
-    if (u32(em.spawn_from) <= index && index < u32(em.spawn_until)) {
+    if u32(em.spawn_from) <= index && index < u32(em.spawn_until) {
         spawn_particle(index);
         return;
-    } 
+    }
 
     var particle = particles_src[index];
     particle.lifetime += em.delta_sec;
 
-    if (is_decayed(particle)) {
-        if (particle.lifetime != -1.) {
+    if is_decayed(particle) {
+        if particle.lifetime != -1. {
             particle.lifetime = -1.;
             particles_dst[index] = particle;
         }
@@ -97,8 +101,9 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let new_vel = particle.vel_mass.xyz * em.particle_friction_coefficient;
     particle.vel_mass = vec4<f32>(new_vel, particle.vel_mass.w);
 
-    let new_pos = particle.pos_size.xyz + new_vel * em.delta_sec;
-    particle.pos_size = vec4<f32>(new_pos, particle.pos_size.w);
+    let pos = particle.model.w;
+    let new_pos = pos.xyz + new_vel * em.delta_sec;
+    particle.model = mat4x4<f32>(particle.model.xyz, vec4(new_pos, 1.));
 
     particles_dst[index] = particle;
 }

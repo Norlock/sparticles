@@ -437,7 +437,7 @@ impl GuiState {
 
             ui.label("Particle color");
             ui.add(
-                Slider::new(&mut emitter_settings.hdr_mul, 1.0..=50.0).text("HDR multiplication"),
+                Slider::new(&mut emitter_settings.hdr_mul, 1.0..=150.0).text("HDR multiplication"),
             );
         });
 

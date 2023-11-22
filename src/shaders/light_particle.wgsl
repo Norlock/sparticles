@@ -30,14 +30,14 @@ struct FragmentOutput {
 fn vs_main(in: VertexInput) -> VertexOutput {
     let p = particles[in.instance_idx];
 
-    if (p.lifetime == -1.) {
+    if p.lifetime == -1. {
         var out: VertexOutput;
         out.clip_position = camera.view_pos - 1000.;
         return out;
     }
-    
-    let world_space: vec4<f32> = 
-        vec4<f32>(p.pos_size.xyz + in.position * p.pos_size.w, 1.0);
+
+    let world_pos = p.model.w;
+    let world_space: vec4<f32> = vec4<f32>(world_pos.xyz + in.position * p.scale, 1.0);
 
     var out: VertexOutput;
     out.color = p.color;
@@ -48,10 +48,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     return out;
 }
 
-@group(1) @binding(0)
-var diff_tex: texture_2d<f32>;
-@group(1) @binding(4)
-var s: sampler;
+@group(1) @binding(0) var diff_tex: texture_2d<f32>;
+@group(1) @binding(5) var s: sampler;
 
 @fragment
 fn fs_circle(in: VertexOutput) -> FragmentOutput {
@@ -71,7 +69,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
 
     if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;
-    } 
+    }
 
     return out;
 }
@@ -105,7 +103,7 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
 
     if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;
-    } 
+    }
 
     return out;
 }
