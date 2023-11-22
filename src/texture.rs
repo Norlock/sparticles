@@ -2,7 +2,7 @@ use crate::{fx::PostProcessState, model::gfx_state::GfxState, traits::CreateFxVi
 use egui_wgpu::wgpu::{self, util::align_to};
 use image::GenericImageView;
 use rand::{rngs::ThreadRng, Rng};
-use std::fs;
+use std::{fs, path::PathBuf};
 
 pub struct DiffuseCtx {
     pub sampler: wgpu::Sampler,
@@ -15,6 +15,11 @@ pub struct IconTexture;
 
 const MAX_FX_WIDTH: f32 = 2048.;
 const MAX_FX_HEIGHT: f32 = 1024.;
+
+pub enum TexType {
+    White,
+    Normal,
+}
 
 impl IconTexture {
     pub fn create_view(
@@ -198,9 +203,18 @@ impl GfxState {
         diffuse_texture
     }
 
+    // TODO pass wgpu texture format instead!
     pub fn tex_from_string(&self, path: &str, std_rgb: bool) -> wgpu::Texture {
         let bytes = fs::read(path).expect("Can't read texture image");
         self.tex_from_bytes(&bytes, std_rgb)
+    }
+
+    pub fn create_builtin_tex(&self, tex_type: TexType) -> wgpu::Texture {
+        let mut texture_image = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        texture_image.push("src/assets/textures/1x1.png");
+
+        let tex_str = texture_image.to_str().expect("niet goed");
+        self.tex_from_string(tex_str, false)
     }
 
     pub fn create_noise_view(&self) -> wgpu::TextureView {

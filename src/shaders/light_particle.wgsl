@@ -36,8 +36,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
         return out;
     }
 
-    let world_pos = p.model.w;
-    let world_space: vec4<f32> = vec4<f32>(world_pos.xyz + in.position * p.scale, 1.0);
+    let world_space: vec4<f32> = vec4<f32>(p.model.w.xyz + in.position * p.scale, 1.0);
 
     var out: VertexOutput;
     out.color = p.color;

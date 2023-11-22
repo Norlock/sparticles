@@ -19,7 +19,9 @@ pub struct MaterialCtx<'a> {
     pub albedo_tex: wgpu::Texture,
     pub metallic_roughness_tex: wgpu::Texture,
     pub normal_tex: wgpu::Texture,
+    pub normal_scale: f32,
     pub emissive_tex: wgpu::Texture,
+    pub emissive_factor: [f32; 3],
     pub ao_tex: wgpu::Texture,
     pub gfx_state: &'a GfxState,
 }
@@ -57,7 +59,9 @@ impl Material {
                 albedo_tex: diffuse_tex,
                 metallic_roughness_tex,
                 normal_tex,
+                normal_scale: 1.0,
                 emissive_tex,
+                emissive_factor: [1.0, 1.0, 1.0],
                 ao_tex: occlusion_tex,
             }),
         );

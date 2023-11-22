@@ -103,7 +103,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     let pos = particle.model.w;
     let new_pos = pos.xyz + new_vel * em.delta_sec;
-    particle.model = mat4x4<f32>(particle.model.xyz, vec4(new_pos, 1.));
+
+    particle.model.w = vec4(new_pos, 1.);
 
     particles_dst[index] = particle;
 }

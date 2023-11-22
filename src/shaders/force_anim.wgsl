@@ -11,7 +11,7 @@ struct Force {
 @group(1) @binding(0) var<uniform> force: Force; 
 
 fn get_velocity(particle_vel: f32, particle_mass: f32, force_vel: f32, force_mass: f32) -> f32 {
-    let particle_force = particle_vel * particle_mass; 
+    let particle_force = particle_vel * particle_mass;
     let same_dir = sign(particle_vel) == sign(force_vel);
 
     if same_dir {
@@ -35,7 +35,7 @@ fn get_velocity(particle_vel: f32, particle_mass: f32, force_vel: f32, force_mas
 
                 return max(possible_speed, force_vel);
             }
-        } 
+        }
     } else {
         let delta_force = force_vel * force_mass * em.delta_sec;
         let possible_force = particle_force + delta_force;
@@ -58,19 +58,19 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     let index = global_invocation_id.x;
 
-    if (particle_len <= index) {
+    if particle_len <= index {
         return;
     }
 
     var particle = particles[index];
 
-    if (particle.lifetime == -1.) {
+    if particle.lifetime == -1. {
         return;
     }
 
     var particle_vel = particle.vel_mass.xyz;
     let mass = particle.vel_mass.w;
-    let size = particle.pos_size.w;
+    let size = particle.scale;
 
     let force_vel = vec3<f32>(force.vel_x, force.vel_y, force.vel_z);
     let surface_particle = pi() * pow(size, 2.0);
@@ -78,7 +78,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let surface_scale = surface_particle / surface_sample;
 
     let applied_mass = force.mass * surface_scale;
-    
+
     particle_vel.x = get_velocity(particle_vel.x, mass, force.vel_x, applied_mass);
     particle_vel.y = get_velocity(particle_vel.y, mass, force.vel_y, applied_mass);
     particle_vel.z = get_velocity(particle_vel.z, mass, force.vel_z, applied_mass);

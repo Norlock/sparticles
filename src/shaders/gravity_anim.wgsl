@@ -18,18 +18,18 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let particle_len = arrayLength(&particles);
     let index = global_invocation_id.x;
 
-    if (particle_len <= index) {
+    if particle_len <= index {
         return;
     }
 
     var particle = particles[index];
 
-    if (particle.lifetime == -1.) {
+    if particle.lifetime == -1. {
         return;
     }
 
-    let position = particle.pos_size.xyz;
-    let size = particle.pos_size.w;
+    let position = particle.model.w.xyz;
+    let size = particle.scale;
     let mass = particle.vel_mass.w;
     let particle_radius = size / 2.;
 

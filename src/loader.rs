@@ -1,5 +1,6 @@
 use crate::model::material::MaterialCtx;
 use crate::model::{GfxState, Material, Mesh, ModelVertex};
+use crate::texture::TexType;
 use crate::util::ID;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use std::collections::HashMap;
@@ -94,21 +95,21 @@ impl Model {
             }
         };
 
-        let a = glam::Mat4::from_euler(glam::EulerRot::default(), 0., 0., 0.);
-        let b = glam::Mat4::from_translation(glam::Vec3::new(10., 20., 30.));
-        let c = glam::Mat4::from_scale(glam::Vec3::splat(3.0));
+        //let a = glam::Mat4::from_euler(glam::EulerRot::default(), 0., 0., 0.);
+        //let b = glam::Mat4::from_translation(glam::Vec3::new(10., 20., 30.));
+        //let c = glam::Mat4::from_scale(glam::Vec3::splat(3.0));
 
-        let quat = glam::Quat::from_euler(glam::EulerRot::default(), 10., 20., 30.);
-        let d = glam::Mat4::from_scale_rotation_translation(
-            glam::Vec3::new(5., 5., 5.),
-            quat,
-            glam::Vec3::new(50., 50., 50.),
-        );
+        //let quat = glam::Quat::from_euler(glam::EulerRot::default(), 10., 20., 30.);
+        //let d = glam::Mat4::from_scale_rotation_translation(
+        //glam::Vec3::new(5., 5., 5.),
+        //quat,
+        //glam::Vec3::new(50., 50., 50.),
+        //);
 
-        println!("rot mat {:?}", a);
-        println!("tran mat {:?}", b);
-        println!("scale mat {:?}", c);
-        println!("rot scale tran mat {:?}", d);
+        //println!("rot mat {:?}", a);
+        //println!("tran mat {:?}", b);
+        //println!("scale mat {:?}", c);
+        //println!("rot scale tran mat {:?}", d);
 
         let mut materials: HashMap<ID, Material> = HashMap::new();
 
@@ -116,46 +117,49 @@ impl Model {
             let albedo_tex: wgpu::Texture;
             let metallic_roughness_tex: wgpu::Texture;
             let normal_tex: wgpu::Texture;
-            let _normal_scale: f32;
+            let normal_scale: f32;
             let emissive_tex: wgpu::Texture;
-            let _emissive_factor = material.emissive_factor();
-            let occlusion_tex: wgpu::Texture;
+            let emissive_factor = material.emissive_factor();
+            let ao_tex: wgpu::Texture;
 
             let pbr = material.pbr_metallic_roughness();
 
             if let Some(tex) = pbr.base_color_texture() {
                 albedo_tex = fetch_texture(tex.texture(), true);
+                println!("contains albedo_tex");
             } else {
-                todo!("create default texture");
+                //todo!("create default albedo texture");
+                albedo_tex = gfx_state.create_builtin_tex(TexType::White);
             }
 
             if let Some(tex) = pbr.metallic_roughness_texture() {
                 metallic_roughness_tex = fetch_texture(tex.texture(), true);
+                println!("contains metallic_roughness_tex");
             } else {
-                todo!("create default texture");
+                metallic_roughness_tex = gfx_state.create_builtin_tex(TexType::White);
             }
 
             if let Some(tex) = material.normal_texture() {
                 normal_tex = fetch_texture(tex.texture(), false);
-                _normal_scale = tex.scale();
+                normal_scale = tex.scale();
+                println!("contains normal_tex {}", normal_scale);
             } else {
-                todo!("create default texture");
+                normal_tex = gfx_state.create_builtin_tex(TexType::Normal);
+                normal_scale = 1.0;
             }
 
             if let Some(tex) = material.emissive_texture() {
                 emissive_tex = fetch_texture(tex.texture(), true);
+                println!("contains emissive_tex");
             } else {
-                todo!("create default texture");
+                emissive_tex = gfx_state.create_builtin_tex(TexType::White);
             }
 
             if let Some(tex) = material.occlusion_texture() {
-                occlusion_tex = fetch_texture(tex.texture(), true);
+                ao_tex = fetch_texture(tex.texture(), true);
+                println!("contains occlusion_texture");
             } else {
-                let mut texture_image = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-                texture_image.push("src/assets/textures/1x1.png");
-
-                let tex_str = texture_image.to_str().expect("niet goed");
-                occlusion_tex = gfx_state.tex_from_string(tex_str, false);
+                ao_tex = gfx_state.create_builtin_tex(TexType::White);
                 //todo!("create default texture")
             }
 
@@ -173,8 +177,10 @@ impl Model {
                     albedo_tex,
                     emissive_tex,
                     metallic_roughness_tex,
+                    emissive_factor,
                     normal_tex,
-                    ao_tex: occlusion_tex,
+                    normal_scale,
+                    ao_tex,
                     gfx_state,
                 }),
             );

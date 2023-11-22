@@ -44,11 +44,11 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     out.uv = in.uv;
     out.color = p.color;
-    out.world_pos = p.model.w * p.scale;
-    out.normal = in.normal;
-    out.tangent = in.tangent.rgb;
-    out.bitangent = cross(out.normal, out.tangent) * in.tangent.w;
-    out.clip_position = camera.view_proj * out.world_pos;
+    out.world_pos = p.model.w.xyz + in.position * 0.1;
+    out.normal = normalize(in.normal);
+    out.tangent = normalize(in.tangent.xyz);
+    out.bitangent = normalize(cross(out.normal, out.tangent) * in.tangent.w);
+    out.clip_position = camera.view_proj * vec4(out.world_pos, 1.0);
 
     return out;
 }
@@ -68,16 +68,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 // technique somewhere later in the normal mapping tutorial.
 fn get_normal_from_map(in: VertexOutput) -> vec3<f32> {
     let tangent_normal = textureSample(normal_tex, s, in.uv).xyz * 2.0 - 1.0;
-
-    let Q1 = dpdx(in.world_pos);
-    let Q2 = dpdy(in.world_pos);
-    let st1 = dpdx(in.uv);
-    let st2 = dpdy(in.uv);
-
-    let N = normalize(in.normal);
-    let T = normalize(Q1 * st2.y - Q2 * st1.y);
-    let B = -normalize(cross(N, T));
-    let TBN = mat3x3(T, B, N);
+    let TBN = mat3x3(in.normal, in.tangent, in.bitangent);
 
     return normalize(TBN * tangent_normal);
 }
@@ -125,15 +116,16 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
     let roughness = textureSample(metal_rough_tex, s, in.uv).g;
     let ao = textureSample(ao_tex, s, in.uv).r;
 
-    let N = normalize(in.world_pos);
+    let N = get_normal_from_map(in);
     let V = normalize(camera.view_pos.xyz - in.world_pos);
 
     let F0 = mix(vec3(0.04), albedo, metallic);
-    var result = vec3(0.0);
+
+    var Lo = vec3(0.0);
 
     for (var i = 0u; i < arrayLength(&light_particles); i++) {
         let light = light_particles[i];
-        let light_pos = light.pos_size.xyz;
+        let light_pos = light.model.w.xyz;
         let light_col = light.color.rgb;
 
         // calculate per-light radiance
@@ -141,38 +133,43 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
         let H = normalize(V + L);
 
         let distance = length(light_pos - in.world_pos);
-        let attenuation = 1.0 * (distance * distance);
+        let attenuation = 1.0 / (distance * distance);
         let radiance = light_col * attenuation;
 
-        // cook-torrance brdf
+        // Cook-Torrance BRDF
         let NDF = distribution_ggx(N, H, roughness);
         let G = geometry_smith(N, V, L, roughness);
         let F = fresnel_schlick(max(dot(H, V), 0.0), F0);
+
+        let numerator = NDF * G * F;
+        let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
+        let specular = numerator / (denominator + 0.0001);
+
         var kD = vec3(1.0) - F;
         kD *= 1.0 - metallic;
 
-        let numerator = NDF * G * F;
-        let denominator = 4.0 * max(dot(N, V), 0.0001) * max(dot(N, L), 0.0001);
-        let specular = numerator / denominator;
-
         let NdotL = max(dot(N, L), 0.0);
 
-        result += (kD * albedo / PI + specular) * radiance * NdotL;
+        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
     var out: FragmentOutput;
 
     let ambient = vec3(0.03) * albedo * ao;
-    var color = ambient + result;
+    var color = ambient + Lo;
 
     // HDR tone mapping
     color = color / (color + vec3(1.0));
     // Gamma correct
     color = pow(color, vec3(1.0 / 2.2));
 
-    out.color = vec4(color, 1.0);
+    if 1000. <= in.clip_position.x {
+        out.color = vec4(color, 1.0);
+    } else {
+        out.color = textureSample(albedo_tex, s, in.uv);
+    }
 
-    // TODO bloom
+
     if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;
     }
@@ -200,7 +197,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
 
     for (var i = 0u; i < arrayLength(&light_particles); i++) {
         let light = light_particles[i];
-        let light_pos = light.pos_size.xyz;
+        let light_pos = light.model.w.xyz;
 
         let distance = length(light_pos - in.world_pos.xyz);
         let strength = 1.0 - distance * 0.04;
