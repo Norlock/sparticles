@@ -44,7 +44,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     out.uv = in.uv;
     out.color = p.color;
-    out.world_pos = (p.model * vec4(in.position, 1.0)).xyz;
+    out.world_pos = (p.model * vec4(in.position, 1.0)).xyz * p.scale;
     out.normal = normalize(in.normal);
     out.tangent = normalize(in.tangent.xyz);
     out.bitangent = normalize(cross(out.normal, out.tangent) * in.tangent.w);
@@ -54,12 +54,15 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 }
 
 @group(1) @binding(0) var albedo_tex: texture_2d<f32>;
-// TODO use normal tex
-@group(1) @binding(1) var normal_tex: texture_2d<f32>;
-@group(1) @binding(2) var metal_rough_tex: texture_2d<f32>;
+@group(1) @binding(1) var albedo_s: sampler;
+@group(1) @binding(2) var normal_tex: texture_2d<f32>;
+@group(1) @binding(3) var normal_s: sampler;
+
+@group(1) @binding(4) var metal_rough_tex: texture_2d<f32>;
+@group(1) @binding(5) var metal_rough_s: sampler;
 // TODO use emissive tex
-@group(1) @binding(4) var ao_tex: texture_2d<f32>;
-@group(1) @binding(5) var s: sampler;
+@group(1) @binding(8) var ao_tex: texture_2d<f32>;
+@group(1) @binding(9) var ao_s: sampler;
 
 // ----------------------------------------------------------------------------
 // Easy trick to get tangent-normals to world-space to keep PBR code simplified.
@@ -67,7 +70,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 // mapping the usual way for performance anyways; I do plan make a note of this 
 // technique somewhere later in the normal mapping tutorial.
 fn get_normal_from_map(in: VertexOutput) -> vec3<f32> {
-    let tangent_normal = textureSample(normal_tex, s, in.uv).xyz * 2.0 - 1.0;
+    let tangent_normal = textureSample(normal_tex, normal_s, in.uv).xyz * 2.0 - 1.0;
     let TBN = mat3x3(in.normal, in.tangent, in.bitangent);
 
     return normalize(TBN * tangent_normal);
@@ -111,10 +114,11 @@ fn geometry_smith(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, roughness: f32) -> f
 
 @fragment
 fn fs_model(in: VertexOutput) -> FragmentOutput {
-    let albedo = pow(textureSample(albedo_tex, s, in.uv).rgb, vec3<f32>(2.2));
-    let metallic = textureSample(metal_rough_tex, s, in.uv).r;
-    let roughness = textureSample(metal_rough_tex, s, in.uv).g;
-    let ao = textureSample(ao_tex, s, in.uv).r;
+    let albedo = pow(textureSample(albedo_tex, albedo_s, in.uv).rgb, vec3<f32>(2.2));
+    let metallic_roughness = textureSample(metal_rough_tex, metal_rough_s, in.uv).rg;
+    let metallic = metallic_roughness.r;
+    let roughness = metallic_roughness.g;
+    let ao = textureSample(ao_tex, ao_s, in.uv).r;
 
     let N = get_normal_from_map(in);
     let V = normalize(camera.view_pos.xyz - in.world_pos);
@@ -176,7 +180,7 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
 fn fs_circle(in: VertexOutput) -> FragmentOutput {
     let v_pos = in.uv * 2. - 1.;
 
-    let texture_color = textureSample(albedo_tex, s, in.uv);
+    let texture_color = textureSample(albedo_tex, albedo_s, in.uv);
 
     if 1.0 < length(v_pos) {
         discard;

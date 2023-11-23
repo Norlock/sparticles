@@ -34,21 +34,18 @@ impl Mesh {
     }
 
     pub fn circle(gfx_state: &GfxState) -> Mesh {
-        let indices = vec![0, 1, 2, 1, 2, 3];
-
-        let uvs = [
-            Vec2::new(0., 0.).into(),
-            Vec2::new(1., 0.).into(),
-            Vec2::new(0., 1.).into(),
-            Vec2::new(1., 1.).into(),
-        ];
+        let indices = vec![0, 1, 2, 3, 2, 1];
 
         let mut vertices = Vec::new();
 
         for i in 0..4 {
+            let v_pos = VERTEX_POSITIONS[i];
+            let mut uv = v_pos * 0.5 + 0.5;
+            uv.y = 1. - uv.y;
+
             vertices.push(ModelVertex {
-                position: VERTEX_POSITIONS[i].extend(0.).into(),
-                uv: uvs[i],
+                position: v_pos.extend(0.).into(),
+                uv: uv.into(),
                 normal: Default::default(),
                 tangent: Default::default(),
             })
@@ -120,7 +117,7 @@ pub struct ModelVertex {
 
 const VERTEX_POSITIONS: [Vec2; 4] = [
     Vec2::new(-1., -1.),
-    Vec2::new(1., -1.),
     Vec2::new(-1., 1.),
+    Vec2::new(1., -1.),
     Vec2::new(1., 1.),
 ];

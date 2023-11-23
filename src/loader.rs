@@ -3,7 +3,6 @@ use crate::model::{GfxState, Material, Mesh, ModelVertex};
 use crate::texture::TexType;
 use crate::util::ID;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
-use gltf::scene::Transform;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -37,10 +36,6 @@ async fn load_texture(filename: &str, gfx_state: &GfxState) -> anyhow::Result<wg
 
 impl Model {
     pub fn load_builtin(gfx_state: &GfxState) -> Self {
-        // TODO create default material
-        let mut texture_image = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        texture_image.push("src/assets/textures/1x1.png");
-
         let mut meshes = HashMap::new();
         meshes.insert(CIRCLE_MESH_ID.to_string(), Mesh::circle(gfx_state));
 
@@ -50,6 +45,22 @@ impl Model {
             id: BUILTIN_ID.to_string(),
             materials,
             meshes,
+        }
+    }
+
+    fn get_parents<'a>(
+        gltf: &'a gltf::Gltf,
+        node: &gltf::Node<'a>,
+        list: &mut Vec<gltf::Node<'a>>,
+    ) {
+        for other in gltf.nodes() {
+            for child in other.children() {
+                if node.index() == child.index() {
+                    list.push(child.clone());
+                    Self::get_parents(gltf, &child, list);
+                    break;
+                }
+            }
         }
     }
 
@@ -81,8 +92,41 @@ impl Model {
             }
         }
 
-        let fetch_texture = |tex: gltf::Texture<'_>, s_rgb: bool| -> wgpu::Texture {
-            match tex.source().source() {
+        let fetch_sampler = |sampler_data: gltf::texture::Sampler<'_>| -> wgpu::Sampler {
+            let min_filter = match &sampler_data.min_filter() {
+                Some(gltf::texture::MinFilter::Linear) => wgpu::FilterMode::Linear,
+                Some(gltf::texture::MinFilter::Nearest) => wgpu::FilterMode::Nearest,
+                Some(gltf::texture::MinFilter::LinearMipmapLinear) => wgpu::FilterMode::Linear,
+                Some(gltf::texture::MinFilter::NearestMipmapNearest) => wgpu::FilterMode::Nearest,
+                Some(gltf::texture::MinFilter::LinearMipmapNearest) => todo!(),
+                Some(gltf::texture::MinFilter::NearestMipmapLinear) => todo!(),
+                None => wgpu::FilterMode::default(),
+            };
+
+            let mag_filter = match &sampler_data.mag_filter() {
+                Some(gltf::texture::MagFilter::Linear) => wgpu::FilterMode::Linear,
+                Some(gltf::texture::MagFilter::Nearest) => wgpu::FilterMode::Nearest,
+                None => wgpu::FilterMode::default(),
+            };
+
+            let get_wrapping_mode = |wrap: gltf::texture::WrappingMode| match wrap {
+                gltf::texture::WrappingMode::Repeat => wgpu::AddressMode::Repeat,
+                gltf::texture::WrappingMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
+                gltf::texture::WrappingMode::MirroredRepeat => wgpu::AddressMode::MirrorRepeat,
+            };
+
+            device.create_sampler(&wgpu::SamplerDescriptor {
+                label: sampler_data.name(),
+                min_filter,
+                mag_filter,
+                address_mode_u: get_wrapping_mode(sampler_data.wrap_s()),
+                address_mode_v: get_wrapping_mode(sampler_data.wrap_t()),
+                ..Default::default()
+            })
+        };
+
+        let fetch_texture = |img: gltf::image::Image<'_>, s_rgb: bool| -> wgpu::Texture {
+            match img.source() {
                 gltf::image::Source::View { view, mime_type: _ } => {
                     let start = view.offset();
                     let end = start + view.length();
@@ -96,30 +140,31 @@ impl Model {
             }
         };
 
-        //let a = glam::Mat4::from_euler(glam::EulerRot::default(), 0., 0., 0.);
-        //let b = glam::Mat4::from_translation(glam::Vec3::new(10., 20., 30.));
-        //let c = glam::Mat4::from_scale(glam::Vec3::splat(3.0));
-
-        //let quat = glam::Quat::from_euler(glam::EulerRot::default(), 10., 20., 30.);
-        //let d = glam::Mat4::from_scale_rotation_translation(
-        //glam::Vec3::new(5., 5., 5.),
-        //quat,
-        //glam::Vec3::new(50., 50., 50.),
-        //);
-
-        //println!("rot mat {:?}", a);
-        //println!("tran mat {:?}", b);
-        //println!("scale mat {:?}", c);
-        //println!("rot scale tran mat {:?}", d);
-
         let mut materials: HashMap<ID, Material> = HashMap::new();
+
+        for tex in gltf.accessors() {
+            //println!("tex {:?}", tex.name());
+        }
 
         for (i, material) in gltf.materials().enumerate() {
             let albedo_tex: wgpu::Texture;
+            let albedo_s: wgpu::Sampler;
             let metallic_roughness_tex: wgpu::Texture;
+            let metallic_roughness_s: wgpu::Sampler;
             let normal_tex: wgpu::Texture;
+            let normal_s: wgpu::Sampler;
             let emissive_tex: wgpu::Texture;
+            let emissive_s: wgpu::Sampler;
             let ao_tex: wgpu::Texture;
+            let ao_s: wgpu::Sampler;
+            let cull_mode;
+            //let y_sign;
+
+            if material.double_sided() {
+                cull_mode = None;
+            } else {
+                cull_mode = Some(wgpu::Face::Back);
+            }
 
             let pbr = material.pbr_metallic_roughness();
             let normal_scale: f32;
@@ -127,43 +172,55 @@ impl Model {
             let metallic_factor = pbr.metallic_factor();
             let roughness_factor = pbr.roughness_factor();
 
-            if let Some(tex) = pbr.base_color_texture() {
-                albedo_tex = fetch_texture(tex.texture(), true);
-                println!("contains albedo_tex");
+            if let Some(tex_data) = pbr.base_color_texture() {
+                let tex = tex_data.texture();
+                albedo_tex = fetch_texture(tex.source(), true);
+                albedo_s = fetch_sampler(tex.sampler());
             } else {
-                //todo!("create default albedo texture");
                 albedo_tex = gfx_state.create_builtin_tex(TexType::White);
+                albedo_s = gfx_state.create_sampler();
             }
 
-            if let Some(tex) = pbr.metallic_roughness_texture() {
-                metallic_roughness_tex = fetch_texture(tex.texture(), true);
-                println!("contains metallic_roughness_tex");
+            if let Some(tex_data) = pbr.metallic_roughness_texture() {
+                let tex = tex_data.texture();
+                metallic_roughness_tex = fetch_texture(tex.source(), true);
+                metallic_roughness_s = fetch_sampler(tex.sampler());
+                println!("Contains metallic_roughness_tex");
             } else {
                 metallic_roughness_tex = gfx_state.create_builtin_tex(TexType::White);
+                metallic_roughness_s = gfx_state.create_sampler();
             }
 
-            if let Some(tex) = material.normal_texture() {
-                normal_tex = fetch_texture(tex.texture(), false);
-                normal_scale = tex.scale();
-                println!("contains normal_tex {}", normal_scale);
+            if let Some(tex_data) = material.normal_texture() {
+                let tex = tex_data.texture();
+                normal_tex = fetch_texture(tex.source(), false);
+                normal_s = fetch_sampler(tex.sampler());
+                normal_scale = tex_data.scale();
+                println!("Contains normal_tex");
             } else {
                 normal_tex = gfx_state.create_builtin_tex(TexType::Normal);
+                normal_s = gfx_state.create_sampler();
                 normal_scale = 1.0;
             }
 
-            if let Some(tex) = material.emissive_texture() {
-                emissive_tex = fetch_texture(tex.texture(), true);
+            if let Some(tex_data) = material.emissive_texture() {
+                let tex = tex_data.texture();
+                emissive_tex = fetch_texture(tex.source(), true);
+                emissive_s = fetch_sampler(tex.sampler());
                 println!("contains emissive_tex");
             } else {
                 emissive_tex = gfx_state.create_builtin_tex(TexType::White);
+                emissive_s = gfx_state.create_sampler();
             }
 
-            if let Some(tex) = material.occlusion_texture() {
-                ao_tex = fetch_texture(tex.texture(), true);
+            if let Some(tex_data) = material.occlusion_texture() {
+                let tex = tex_data.texture();
+                ao_tex = fetch_texture(tex.source(), true);
+                ao_s = fetch_sampler(tex.sampler());
                 println!("contains occlusion_texture");
             } else {
                 ao_tex = gfx_state.create_builtin_tex(TexType::White);
-                //todo!("create default texture")
+                ao_s = gfx_state.create_sampler();
             }
 
             let id = material
@@ -176,18 +233,26 @@ impl Model {
             // todo add normal_scale
             materials.insert(
                 id,
-                Material::new(MaterialCtx {
-                    albedo_tex,
-                    emissive_tex,
-                    metallic_roughness_tex,
-                    roughness_factor,
-                    metallic_factor,
-                    emissive_factor,
-                    normal_tex,
-                    normal_scale,
-                    ao_tex,
+                Material::new(
+                    MaterialCtx {
+                        albedo_tex,
+                        albedo_s,
+                        emissive_tex,
+                        emissive_s,
+                        metallic_roughness_tex,
+                        metallic_roughness_s,
+                        roughness_factor,
+                        metallic_factor,
+                        emissive_factor,
+                        normal_tex,
+                        normal_s,
+                        normal_scale,
+                        ao_tex,
+                        ao_s,
+                        cull_mode,
+                    },
                     gfx_state,
-                }),
+                ),
             );
         }
 
@@ -199,33 +264,18 @@ impl Model {
 
         for scene in gltf.scenes() {
             for node in scene.nodes() {
-                let model;
+                let mut model = glam::Mat4::from_cols_array_2d(&node.transform().matrix());
 
-                match node.transform() {
-                    Transform::Matrix { matrix } => {
-                        println!("matrix: {:?}", matrix);
-                        model = glam::Mat4::from_cols_array_2d(&matrix);
-                    }
-                    Transform::Decomposed {
-                        translation,
-                        rotation,
-                        scale,
-                    } => {
-                        println!(
-                            "decomposed trans: {:?}, rot: {:?}, scale: {:?}",
-                            translation, rotation, scale
-                        );
-                        let s = scale.into();
-                        let r = glam::Quat::from_vec4(rotation.into());
-                        let t = translation.into();
+                let mut parents = vec![];
+                Self::get_parents(&gltf, &node, &mut parents);
 
-                        // TODO you'll want to call this transform() function on the nodes that you're loading as well as recursively multiply them with their parent nodes to get the correct global transform
-                        for child in node.children() {
-                            println!("{}", child.name().unwrap_or("noname"));
-                        }
-
-                        model = glam::Mat4::from_scale_rotation_translation(s, r, t);
-                    }
+                for parent in parents {
+                    println!(
+                        "parent: {} from {}",
+                        parent.name().unwrap_or("parent"),
+                        node.name().unwrap_or("child")
+                    );
+                    model *= glam::Mat4::from_cols_array_2d(&parent.transform().matrix());
                 }
 
                 if let Some(mesh) = node.mesh() {
@@ -313,3 +363,19 @@ impl Model {
         })
     }
 }
+
+//let a = glam::Mat4::from_euler(glam::EulerRot::default(), 0., 0., 0.);
+//let b = glam::Mat4::from_translation(glam::Vec3::new(10., 20., 30.));
+//let c = glam::Mat4::from_scale(glam::Vec3::splat(3.0));
+
+//let quat = glam::Quat::from_euler(glam::EulerRot::default(), 10., 20., 30.);
+//let d = glam::Mat4::from_scale_rotation_translation(
+//glam::Vec3::new(5., 5., 5.),
+//quat,
+//glam::Vec3::new(50., 50., 50.),
+//);
+
+//println!("rot mat {:?}", a);
+//println!("tran mat {:?}", b);
+//println!("scale mat {:?}", c);
+//println!("rot scale tran mat {:?}", d);

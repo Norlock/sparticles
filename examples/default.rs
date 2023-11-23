@@ -7,7 +7,7 @@ use sparticles::{
         RegisterStrayAnimation, StrayUniform, SwayAnimation,
     },
     init::{AppSettings, JsonImportMode},
-    loader::{BUILTIN_ID, CIRCLE_MAT_ID},
+    loader::{BUILTIN_ID, CIRCLE_MAT_ID, CIRCLE_MESH_ID},
     model::{
         emitter::{MaterialRef, MeshRef},
         Boundry, EmitterState, EmitterUniform, GfxState, LifeCycle,
@@ -42,28 +42,22 @@ impl AppSettings for CustomSettings {
         emitter.spawn_delay_sec = 2.0;
 
         emitter.mesh = MeshRef {
-            collection_id: "drone.glb".to_string(),
-            mesh_id: "RetopoGroup2".to_string(),
+            //collection_id: BUILTIN_ID.to_string(),
+            //mesh_id: CIRCLE_MESH_ID.to_string(),
+            //collection_id: "drone.glb".to_string(),
+            //mesh_id: "RetopoGroup2".to_string(),
+            collection_id: "StarSparrow.glb".to_string(),
+            mesh_id: "Mesh.001".to_string(),
         };
 
         emitter.material = MaterialRef {
             //collection_id: BUILTIN_ID.to_string(),
             //material_id: CIRCLE_MAT_ID.to_string(),
-            collection_id: "drone.glb".to_string(),
-            material_id: "Material.001".to_string(),
+            //collection_id: "drone.glb".to_string(),
+            //material_id: "Material.001".to_string(),
+            collection_id: "StarSparrow.glb".to_string(),
+            material_id: "StarSparrowRed".to_string(),
         };
-
-        //emitter.mesh = MeshRef {
-        //collection_id: "StarSparrow.glb".to_string(),
-        //mesh_id: "Mesh.001".to_string(),
-        //};
-
-        //emitter.material = MaterialRef {
-        ////collection_id: BUILTIN_ID.to_string(),
-        ////material_id: CIRCLE_MAT_ID.to_string(),
-        //collection_id: "StarSparrow.glb".to_string(),
-        //material_id: "StarSparrowRed".to_string(),
-        //};
 
         vec![emitter]
     }

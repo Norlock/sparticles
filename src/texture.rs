@@ -203,6 +203,11 @@ impl GfxState {
         diffuse_texture
     }
 
+    pub fn create_sampler(&self) -> wgpu::Sampler {
+        self.device
+            .create_sampler(&wgpu::SamplerDescriptor::default())
+    }
+
     // TODO pass wgpu texture format instead!
     pub fn tex_from_string(&self, path: &str, std_rgb: bool) -> wgpu::Texture {
         let bytes = fs::read(path).expect("Can't read texture image");

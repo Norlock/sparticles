@@ -1,15 +1,16 @@
 use super::state::FastFetch;
-use super::{Camera, EmitterUniform, GfxState, GuiState, Mesh, MeshRef, ModelVertex, State};
+use super::{
+    Camera, EmitterUniform, GfxState, GuiState, Material, Mesh, MeshRef, ModelVertex, State,
+};
 use crate::fx::PostProcessState;
 use crate::loader::{Model, BUILTIN_ID};
-use crate::traits::{CalculateBufferSize, CustomShader, Splitting};
+use crate::traits::{CustomShader, Splitting};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
-use crate::util::{CommonBuffer, ListAction};
+use crate::util::ListAction;
 use crate::util::{Persistence, ID};
 use egui_wgpu::wgpu::{self, ShaderModule};
 use egui_winit::egui::{ScrollArea, Ui};
-use encase::UniformBuffer;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{
@@ -559,7 +560,7 @@ impl<'a> EmitterState {
         }
 
         let render_pipeline =
-            Self::create_pipeline(&shader, &pipeline_layout, &uniform.mesh, device);
+            Self::create_pipeline(&shader, &pipeline_layout, &uniform.mesh, material, device);
 
         EmitterState {
             uniform,
@@ -582,6 +583,7 @@ impl<'a> EmitterState {
         shader: &ShaderModule,
         layout: &wgpu::PipelineLayout,
         mesh_ref: &MeshRef,
+        material: &Material,
         device: &wgpu::Device,
     ) -> wgpu::RenderPipeline {
         let fs_entry = if mesh_ref.collection_id == BUILTIN_ID {
@@ -615,7 +617,10 @@ impl<'a> EmitterState {
                     }),
                 ],
             }),
-            primitive: wgpu::PrimitiveState::default(),
+            primitive: wgpu::PrimitiveState {
+                cull_mode: material.ctx.cull_mode.clone(),
+                ..Default::default()
+            },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: GfxState::DEPTH_FORMAT,
                 depth_write_enabled: true,
