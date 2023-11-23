@@ -63,7 +63,7 @@ impl Material {
                     ao_s,
                     roughness_factor: 0.,
                     metallic_factor: 0.,
-                    cull_mode: Some(wgpu::Face::Front),
+                    cull_mode: Some(wgpu::Face::Back),
                 },
                 gfx,
             ),

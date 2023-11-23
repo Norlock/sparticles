@@ -1,4 +1,3 @@
-use super::events::GameState;
 use super::state::State;
 use super::EmitterState;
 use super::GuiState;

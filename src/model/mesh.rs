@@ -117,7 +117,7 @@ pub struct ModelVertex {
 
 const VERTEX_POSITIONS: [Vec2; 4] = [
     Vec2::new(-1., -1.),
-    Vec2::new(-1., 1.),
     Vec2::new(1., -1.),
+    Vec2::new(-1., 1.),
     Vec2::new(1., 1.),
 ];

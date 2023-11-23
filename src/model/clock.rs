@@ -1,6 +1,5 @@
+use super::Events;
 use std::time::{Duration, Instant};
-
-use super::{events::GameState, Events};
 
 pub struct Clock {
     instant: Instant,

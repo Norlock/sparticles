@@ -2,7 +2,7 @@ use crate::{fx::PostProcessState, model::gfx_state::GfxState, traits::CreateFxVi
 use egui_wgpu::wgpu::{self, util::align_to};
 use image::GenericImageView;
 use rand::{rngs::ThreadRng, Rng};
-use std::{fs, path::PathBuf};
+use std::fs;
 
 pub struct DiffuseCtx {
     pub sampler: wgpu::Sampler,
