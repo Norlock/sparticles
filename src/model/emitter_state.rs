@@ -412,8 +412,22 @@ impl<'a> EmitterState {
         let device = &gfx_state.device;
         let emitter_buf_content = uniform.create_buffer_content(collection);
 
-        let particle_buffer_size = NonZeroU64::new(uniform.particle_buffer_size());
-        println!("size: {}", emitter_buf_content.len() * 4);
+        let mut particle_buffers = Vec::<wgpu::Buffer>::new();
+        let mut bind_groups = Vec::<wgpu::BindGroup>::new();
+
+        for i in 0..2 {
+            particle_buffers.push(device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some(&format!("Particle Buffer {}", i)),
+                mapped_at_creation: false,
+                size: uniform.particle_buffer_size(),
+                usage: wgpu::BufferUsages::VERTEX
+                    | wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST,
+            }));
+        }
+
+        let particle_buffer_size = NonZeroU64::new(particle_buffers[0].size());
         let emitter_buffer_size = NonZeroU64::new(emitter_buf_content.len() as u64 * 4);
 
         let visibility = match &options.emitter_type {
@@ -464,21 +478,6 @@ impl<'a> EmitterState {
             ],
             label: None,
         });
-
-        let mut particle_buffers = Vec::<wgpu::Buffer>::new();
-        let mut bind_groups = Vec::<wgpu::BindGroup>::new();
-
-        for i in 0..2 {
-            particle_buffers.push(device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some(&format!("Particle Buffer {}", i)),
-                mapped_at_creation: false,
-                size: uniform.particle_buffer_size(),
-                usage: wgpu::BufferUsages::VERTEX
-                    | wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_SRC
-                    | wgpu::BufferUsages::COPY_DST,
-            }));
-        }
 
         let emitter_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Emitters buffer"),

@@ -4,7 +4,6 @@ use crate::texture::TexType;
 use crate::util::ID;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 pub const CIRCLE_MESH_ID: &'static str = "circle-mesh";
 pub const CIRCLE_MAT_ID: &'static str = "circle-mat";
@@ -157,14 +156,7 @@ impl Model {
             let emissive_s: wgpu::Sampler;
             let ao_tex: wgpu::Texture;
             let ao_s: wgpu::Sampler;
-            let cull_mode;
-            //let y_sign;
-
-            if material.double_sided() {
-                cull_mode = None;
-            } else {
-                cull_mode = Some(wgpu::Face::Back);
-            }
+            let cull_mode = Some(wgpu::Face::Back);
 
             let pbr = material.pbr_metallic_roughness();
             let normal_scale: f32;

@@ -94,7 +94,8 @@ impl GuiState {
         Window::new("Sparticles settings")
             .vscroll(true)
             .frame(egui::Frame {
-                fill: Color32::from_rgb(0, 30, 0),
+                fill: state.gfx_state.ctx.style().visuals.window_fill,
+
                 inner_margin: Margin {
                     top: WINDOW_MARGIN,
                     left: WINDOW_MARGIN,
