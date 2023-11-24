@@ -70,11 +70,10 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     var particle_vel = particle.vel_mass.xyz;
     let mass = particle.vel_mass.w;
-    let size = particle.scale;
 
     let force_vel = vec3<f32>(force.vel_x, force.vel_y, force.vel_z);
-    let surface_particle = pi() * pow(size, 2.0);
-    let surface_sample = pi();
+    let surface_particle = particle.scale * particle.scale; // xy so thats that
+    let surface_sample = 1.0;
     let surface_scale = surface_particle / surface_sample;
 
     let applied_mass = force.mass * surface_scale;

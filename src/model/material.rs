@@ -16,15 +16,11 @@ pub struct MaterialCtx {
     pub metallic_roughness_s: wgpu::Sampler,
     pub normal_tex: wgpu::Texture,
     pub normal_s: wgpu::Sampler,
-    pub normal_scale: f32,
     pub emissive_tex: wgpu::Texture,
     pub emissive_s: wgpu::Sampler,
-    pub emissive_factor: [f32; 3],
     pub ao_tex: wgpu::Texture,
     pub ao_s: wgpu::Sampler,
-    pub metallic_factor: f32,
     pub cull_mode: Option<wgpu::Face>,
-    pub roughness_factor: f32,
 }
 
 impl Material {
@@ -40,7 +36,7 @@ impl Material {
 
         let normal_tex = gfx.create_builtin_tex(TexType::Normal);
         let normal_s = gfx.create_sampler();
-        let emissive_tex = gfx.create_builtin_tex(TexType::White);
+        let emissive_tex = gfx.create_builtin_tex(TexType::Black);
         let emissive_s = gfx.create_sampler();
         let ao_tex = gfx.create_builtin_tex(TexType::White);
         let ao_s = gfx.create_sampler();
@@ -55,14 +51,10 @@ impl Material {
                     metallic_roughness_s,
                     normal_tex,
                     normal_s,
-                    normal_scale: 1.0,
                     emissive_tex,
                     emissive_s,
-                    emissive_factor: [1.0, 1.0, 1.0],
                     ao_tex,
                     ao_s,
-                    roughness_factor: 0.,
-                    metallic_factor: 0.,
                     cull_mode: Some(wgpu::Face::Back),
                 },
                 gfx,

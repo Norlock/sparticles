@@ -42,7 +42,7 @@ fn tonemap(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let hdr = textureLoad(fx_tex[fx_io.in_idx], pos).rgb;      
 
     // tone mapping
-    var sdr = acesFilm(hdr);
+    var sdr = aces_narkowicz(hdr);
 
     // also gamma correct
     sdr = gamma(sdr);

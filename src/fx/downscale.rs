@@ -48,7 +48,7 @@ impl Downscale {
         } = options;
 
         let device = &gfx_state.device;
-        let shader = device.create_shader("fx/downscale.wgsl", "Downscale");
+        let shader = device.create_shader_builtin(&["fx/downscale.wgsl"], "Downscale");
 
         let io_ctx = UniformContext::from_uniform(&io_uniform, device, "Downscale");
 

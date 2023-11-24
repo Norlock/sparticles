@@ -188,7 +188,7 @@ impl ParticleAnimation for ColorAnimation {
 impl ColorAnimation {
     fn new(uniform: ColorUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
-        let shader = device.create_shader("color_anim.wgsl", "Color animation");
+        let shader = device.create_shader_builtin(&["color_anim.wgsl"], "Color animation");
 
         let buffer_content = uniform.create_buffer_content();
 

@@ -4,6 +4,7 @@ use super::{
 };
 use crate::fx::PostProcessState;
 use crate::loader::{Model, BUILTIN_ID};
+use crate::shaders::{PBR_SDR, TONEMAPPING_SDR};
 use crate::traits::{CustomShader, Splitting};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
@@ -510,7 +511,7 @@ impl<'a> EmitterState {
         let workgroup_size = 128f64;
         let dispatch_x_count = (particle_count / workgroup_size).ceil() as u32;
 
-        let shader = device.create_shader("emitter.wgsl", "Emitter compute");
+        let shader = device.create_shader_builtin(&["emitter.wgsl"], "Emitter compute");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Compute layout"),
@@ -534,7 +535,10 @@ impl<'a> EmitterState {
 
         match &options.emitter_type {
             EmitterType::Lights => {
-                shader = device.create_shader("light_particle.wgsl", "Light particle render");
+                shader = device.create_shader_builtin(
+                    &[TONEMAPPING_SDR, PBR_SDR, "light_particle.wgsl"],
+                    "Light particle render",
+                );
                 pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Light particle render Pipeline Layout"),
                     bind_group_layouts: &[&camera.bg_layout, &material.bg_layout, &bg_layout],
@@ -543,7 +547,10 @@ impl<'a> EmitterState {
                 is_light = true;
             }
             EmitterType::Normal { lights_layout } => {
-                shader = device.create_shader("particle.wgsl", "Particle render");
+                shader = device.create_shader_builtin(
+                    &[TONEMAPPING_SDR, PBR_SDR, "particle.wgsl"],
+                    "Particle render",
+                );
                 pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Particle render Pipeline Layout"),
                     bind_group_layouts: &[

@@ -101,7 +101,7 @@ impl BlendPass {
         } = options;
 
         let device = &gfx_state.device;
-        let blend_shader = device.create_shader("fx/blend.wgsl", "Blend");
+        let blend_shader = device.create_shader_builtin(&["fx/blend.wgsl"], "Blend");
 
         let io_ctx = UniformContext::from_uniform(&settings.io_uniform, device, "IO");
 

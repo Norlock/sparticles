@@ -44,19 +44,19 @@ impl AppSettings for CustomSettings {
         emitter.mesh = MeshRef {
             //collection_id: BUILTIN_ID.to_string(),
             //mesh_id: CIRCLE_MESH_ID.to_string(),
-            //collection_id: "drone.glb".to_string(),
-            //mesh_id: "RetopoGroup2".to_string(),
-            collection_id: "StarSparrow.glb".to_string(),
-            mesh_id: "Mesh.001".to_string(),
+            collection_id: "drone.glb".to_string(),
+            mesh_id: "RetopoGroup2".to_string(),
+            //collection_id: "StarSparrow.glb".to_string(),
+            //mesh_id: "Mesh.001".to_string(),
         };
 
         emitter.material = MaterialRef {
             //collection_id: BUILTIN_ID.to_string(),
             //material_id: CIRCLE_MAT_ID.to_string(),
-            //collection_id: "drone.glb".to_string(),
-            //material_id: "Material.001".to_string(),
-            collection_id: "StarSparrow.glb".to_string(),
-            material_id: "StarSparrowRed".to_string(),
+            collection_id: "drone.glb".to_string(),
+            material_id: "Material.001".to_string(),
+            //collection_id: "StarSparrow.glb".to_string(),
+            //material_id: "StarSparrowRed".to_string(),
         };
 
         vec![emitter]

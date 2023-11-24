@@ -172,7 +172,7 @@ impl ParticleAnimation for StrayAnimation {
 impl StrayAnimation {
     fn new(uniform: StrayUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
-        let shader = device.create_shader("stray_anim.wgsl", "Stray animation");
+        let shader = device.create_shader_builtin(&["stray_anim.wgsl"], "Stray animation");
 
         let animation_uniform = uniform.create_buffer_content();
 

@@ -1,12 +1,13 @@
 use crate::{
     fx::{FxOptions, FxState},
     model::{Camera, Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
+    shaders::ShaderLocation,
     util::persistence::DynamicExport,
     util::ListAction,
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
-use std::{num::NonZeroU64, slice::IterMut};
+use std::{num::NonZeroU64, path::PathBuf, slice::IterMut};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -17,7 +18,12 @@ pub trait FromRGBA {
 }
 
 pub trait CustomShader {
-    fn create_shader(&self, shader_str_raw: &str, label: &str) -> wgpu::ShaderModule;
+    fn create_shader_builtin(&self, filenames: &[&str], label: &str) -> wgpu::ShaderModule;
+    fn create_shader_custom(
+        &self,
+        sdr_paths: Vec<ShaderLocation>,
+        label: &str,
+    ) -> wgpu::ShaderModule;
 }
 
 pub trait CreateGui {

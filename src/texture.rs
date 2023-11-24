@@ -1,5 +1,6 @@
 use crate::{fx::PostProcessState, model::gfx_state::GfxState, traits::CreateFxView};
 use egui_wgpu::wgpu::{self, util::align_to};
+use glam::Vec4;
 use image::GenericImageView;
 use rand::{rngs::ThreadRng, Rng};
 use std::fs;
@@ -18,7 +19,9 @@ const MAX_FX_HEIGHT: f32 = 1024.;
 
 pub enum TexType {
     White,
+    Black,
     Normal,
+    Custom { srgb: bool, value: Vec4 },
 }
 
 impl IconTexture {
@@ -217,7 +220,18 @@ impl GfxState {
     pub fn create_builtin_tex(&self, tex_type: TexType) -> wgpu::Texture {
         let (format, bytes) = match tex_type {
             TexType::White => (wgpu::TextureFormat::Rgba8UnormSrgb, [255, 255, 255, 255]),
+            TexType::Black => (wgpu::TextureFormat::Rgba8UnormSrgb, [0, 0, 0, 0]),
             TexType::Normal => (wgpu::TextureFormat::Rgba8Unorm, [127, 127, 255, 255]),
+            TexType::Custom { srgb, value: v } => {
+                let bytes = (v * 255.).round();
+                let rgba8 = [bytes.x as u8, bytes.y as u8, bytes.z as u8, bytes.w as u8];
+
+                if srgb {
+                    (wgpu::TextureFormat::Rgba8UnormSrgb, rgba8)
+                } else {
+                    (wgpu::TextureFormat::Rgba8Unorm, rgba8)
+                }
+            }
         };
 
         let tex = self.device.create_texture(&wgpu::TextureDescriptor {

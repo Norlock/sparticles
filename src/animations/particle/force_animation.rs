@@ -196,7 +196,7 @@ impl ParticleAnimation for ForceAnimation {
 impl ForceAnimation {
     fn new(uniform: ForceUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
-        let shader = device.create_shader("force_anim.wgsl", "Force animation");
+        let shader = device.create_shader_builtin(&["force_anim.wgsl"], "Force animation");
 
         let buffer_content = uniform.create_buffer_content();
 

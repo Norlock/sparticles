@@ -84,7 +84,7 @@ impl BlurPass {
         } = settings;
 
         let device = &gfx_state.device;
-        let blur_shader = device.create_shader("fx/gaussian_blur.wgsl", "Gaussian blur");
+        let blur_shader = device.create_shader_builtin(&["fx/gaussian_blur.wgsl"], "Gaussian blur");
 
         let io_ping = FxIOUniform::asymetric_scaled(options.fx_state, in_idx, out_idx, downscale);
         let io_pong = FxIOUniform::asymetric_scaled(options.fx_state, out_idx, in_idx, downscale);

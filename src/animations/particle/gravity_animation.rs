@@ -249,7 +249,7 @@ impl ParticleAnimation for GravityAnimation {
 impl GravityAnimation {
     fn new(uniform: GravityUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
-        let shader = device.create_shader("gravity_anim.wgsl", "Gravity animation");
+        let shader = device.create_shader_builtin(&["gravity_anim.wgsl"], "Gravity animation");
 
         let buffer_content = uniform.create_buffer_content();
 

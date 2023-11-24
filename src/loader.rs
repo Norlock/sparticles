@@ -174,10 +174,6 @@ impl Model {
             let cull_mode = Some(wgpu::Face::Back);
 
             let pbr = material.pbr_metallic_roughness();
-            let normal_scale: f32;
-            let emissive_factor = material.emissive_factor();
-            let metallic_factor = pbr.metallic_factor();
-            let roughness_factor = pbr.roughness_factor();
 
             if let Some(tex_data) = pbr.base_color_texture() {
                 let tex = tex_data.texture();
@@ -194,7 +190,13 @@ impl Model {
                 metallic_roughness_s = fetch_sampler(tex.sampler());
                 println!("Contains metallic_roughness_tex");
             } else {
-                metallic_roughness_tex = gfx_state.create_builtin_tex(TexType::White);
+                let metallic_factor = pbr.metallic_factor();
+                let roughness_factor = pbr.roughness_factor();
+
+                metallic_roughness_tex = gfx_state.create_builtin_tex(TexType::Custom {
+                    srgb: true,
+                    value: glam::Vec4::new(metallic_factor, roughness_factor, 0., 0.),
+                });
                 metallic_roughness_s = gfx_state.create_sampler();
             }
 
@@ -202,12 +204,10 @@ impl Model {
                 let tex = tex_data.texture();
                 normal_tex = fetch_texture(tex.source(), false);
                 normal_s = fetch_sampler(tex.sampler());
-                normal_scale = tex_data.scale();
                 println!("Contains normal_tex");
             } else {
                 normal_tex = gfx_state.create_builtin_tex(TexType::Normal);
                 normal_s = gfx_state.create_sampler();
-                normal_scale = 1.0;
             }
 
             if let Some(tex_data) = material.emissive_texture() {
@@ -216,7 +216,11 @@ impl Model {
                 emissive_s = fetch_sampler(tex.sampler());
                 println!("contains emissive_tex");
             } else {
-                emissive_tex = gfx_state.create_builtin_tex(TexType::White);
+                let vec3: glam::Vec3 = material.emissive_factor().into();
+                emissive_tex = gfx_state.create_builtin_tex(TexType::Custom {
+                    srgb: true,
+                    value: vec3.extend(0.),
+                });
                 emissive_s = gfx_state.create_sampler();
             }
 
@@ -248,12 +252,8 @@ impl Model {
                         emissive_s,
                         metallic_roughness_tex,
                         metallic_roughness_s,
-                        roughness_factor,
-                        metallic_factor,
-                        emissive_factor,
                         normal_tex,
                         normal_s,
-                        normal_scale,
                         ao_tex,
                         ao_s,
                         cull_mode,
