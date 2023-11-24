@@ -126,6 +126,7 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
     let F0 = mix(vec3(0.04), albedo, metallic);
 
     var Lo = vec3(0.0);
+    var Diff = vec3(0.0);
 
     for (var i = 0u; i < arrayLength(&light_particles); i++) {
         let light = light_particles[i];
@@ -137,7 +138,12 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
         let H = normalize(V + L);
 
         let distance = length(light_pos - in.world_pos);
-        let attenuation = 1.0 / (distance * distance);
+        let attenuation = (1.0 - distance * 0.04);
+
+        if attenuation <= 0.0 {
+            continue;
+        }
+
         let radiance = light_col * attenuation;
 
         // Cook-Torrance BRDF
@@ -149,18 +155,16 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
         let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
         let specular = numerator / (denominator + 0.0001);
 
-        var kD = vec3(1.0) - F;
-        kD *= 1.0 - metallic;
+        let kD = vec3(1.0) - F * (1.0 - metallic);
 
         let NdotL = max(dot(N, L), 0.0);
 
+        Diff += max(dot(in.normal, L), 0.0001) * light_col * attenuation;
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
     var out: FragmentOutput;
-
-    let ambient = vec3(0.03) * albedo * ao;
-    var color = ambient + Lo;
+    var color = Diff * albedo * ao + Lo;
 
     // HDR tone mapping
     color = color / (color + vec3(1.0));
