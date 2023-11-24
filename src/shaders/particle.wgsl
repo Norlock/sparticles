@@ -64,23 +64,12 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 @group(1) @binding(8) var ao_tex: texture_2d<f32>;
 @group(1) @binding(9) var ao_s: sampler;
 
-// Easy trick to get tangent-normals to world-space to keep PBR code simplified.
-fn get_normal_from_map(in: VertexOutput) -> vec3<f32> {
-    let tangent_normal = textureSample(normal_tex, normal_s, in.uv).xyz * 2.0 - 1.0;
-    let TBN = mat3x3(in.normal, in.tangent, in.bitangent);
-
-    return normalize(TBN * tangent_normal);
-}
-
-@fragment
-fn fs_model(in: VertexOutput) -> FragmentOutput {
-    let albedo = pow(textureSample(albedo_tex, albedo_s, in.uv).rgb, vec3<f32>(2.2));
+fn apply_pbr(in: VertexOutput, N: vec3<f32>, ALB: vec3<f32>) -> FragmentOutput {
+    let albedo = pow(ALB, vec3<f32>(2.2));
     let metallic_roughness = textureSample(metal_rough_tex, metal_rough_s, in.uv).rg;
     let metallic = metallic_roughness.r;
     let roughness = metallic_roughness.g;
     let ao = textureSample(ao_tex, ao_s, in.uv).r;
-
-    let N = get_normal_from_map(in);
     let V = normalize(camera.view_pos.xyz - in.world_pos);
 
     let F0 = mix(vec3(0.04), albedo, metallic);
@@ -117,6 +106,7 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
     }
 
     var out: FragmentOutput;
+    //var color = Diff * vec3(0.1) * albedo * ao + Lo;
     var color = Diff * vec3(0.1) * albedo * ao + Lo;
 
     // HDR tone mapping
@@ -134,6 +124,17 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
 }
 
 @fragment
+fn fs_model(in: VertexOutput) -> FragmentOutput {
+    let tangent_normal = textureSample(normal_tex, normal_s, in.uv).xyz * 2.0 - 1.0;
+    let TBN = mat3x3(in.normal, in.tangent, in.bitangent);
+
+    let N = normalize(TBN * tangent_normal);
+    let albedo = textureSample(albedo_tex, albedo_s, in.uv).rgb;
+
+    return apply_pbr(in, N, albedo);
+}
+
+@fragment
 fn fs_circle(in: VertexOutput) -> FragmentOutput {
     let v_pos = in.uv * 2. - 1.;
 
@@ -147,41 +148,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
     let y = v_pos.y;
 
     let normal = vec4<f32>(x, y, sqrt(1. - x * x - y * y), 0.);
-    let world_normal = (normal * camera.view).xyz;
+    let N = (normal * camera.view).xyz;
 
-    var result = vec3<f32>(0.0);
-
-    for (var i = 0u; i < arrayLength(&light_particles); i++) {
-        let light = light_particles[i];
-        let light_pos = light.model.w.xyz;
-
-        let distance = length(light_pos - in.world_pos.xyz);
-        let strength = 1.0 - distance * 0.04;
-        let ambient_color = aces_narkowicz(light.color.rgb) * strength;
-
-        if strength <= 0.0 {
-            continue;
-        }
-
-        let light_dir = normalize(light_pos - in.world_pos.xyz);
-        let view_dir = normalize(camera.view_pos.xyz - in.world_pos.xyz);
-        let half_dir = normalize(view_dir + light_dir);
-
-        let diffuse_strength = max(dot(world_normal, light_dir), 0.0);
-        let diffuse_color = diffuse_strength * ambient_color;
-
-        let specular_strength = pow(max(dot(world_normal, half_dir), 0.0), 32.0);
-        let specular_color = specular_strength * ambient_color;
-
-        result += diffuse_color + specular_color;
-    }
-
-    var out: FragmentOutput;
-    out.color = vec4<f32>(in.color.rgb * texture_color.rgb * result, in.color.a);
-
-    if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
-        out.split = out.color;
-    }
-
-    return out;
+    return apply_pbr(in, N, in.color.rgb);
 }

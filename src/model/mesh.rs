@@ -46,7 +46,7 @@ impl Mesh {
             vertices.push(ModelVertex {
                 position: v_pos.extend(0.).into(),
                 uv: uv.into(),
-                normal: Default::default(),
+                normal: [0., 0., 1.],
                 tangent: Default::default(),
             })
         }
