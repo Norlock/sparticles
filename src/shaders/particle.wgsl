@@ -159,7 +159,10 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
 
         let NdotL = max(dot(N, L), 0.0);
 
-        Diff += max(dot(in.normal, L), 0.0001) * light_col * attenuation;
+        let specular_strength = pow(max(dot(in.normal, H), 0.0), 32.0);
+        let specular_color = specular_strength * radiance;
+
+        Diff += max(dot(in.normal, L), 0.0001) * radiance + specular_color;
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
