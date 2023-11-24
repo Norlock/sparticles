@@ -45,9 +45,9 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     out.uv = in.uv;
     out.color = p.color;
     out.world_pos = (p.model * vec4(in.position, 1.0)).xyz * p.scale;
-    out.normal = normalize(in.normal);
-    out.tangent = normalize(in.tangent.xyz);
-    out.bitangent = normalize(cross(out.normal, out.tangent) * in.tangent.w);
+    out.normal = in.normal;
+    out.tangent = in.tangent.xyz;
+    out.bitangent = cross(out.normal, out.tangent) * in.tangent.w;
     out.clip_position = camera.view_proj * vec4(out.world_pos, 1.0);
 
     return out;
@@ -138,13 +138,7 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
         let H = normalize(V + L);
 
         let distance = length(light_pos - in.world_pos);
-        let attenuation = (1.0 - distance * 0.04);
-
-        if attenuation <= 0.0 {
-            continue;
-        }
-
-        let radiance = light_col * attenuation;
+        let radiance = light_col / (distance * distance);
 
         // Cook-Torrance BRDF
         let NDF = distribution_ggx(N, H, roughness);
@@ -152,22 +146,18 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
         let F = fresnel_schlick(max(dot(H, V), 0.0), F0);
 
         let numerator = NDF * G * F;
+
         let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
         let specular = numerator / (denominator + 0.0001);
-
-        let kD = vec3(1.0) - F * (1.0 - metallic);
-
+        let kD = (vec3(1.0) - F) * (1.0 - metallic);
         let NdotL = max(dot(N, L), 0.0);
 
-        let specular_strength = pow(max(dot(in.normal, H), 0.0), 32.0);
-        let specular_color = specular_strength * radiance;
-
-        Diff += max(dot(in.normal, L), 0.0001) * radiance + specular_color;
+        Diff += max(dot(in.normal, L), 0.0) * radiance;
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
     var out: FragmentOutput;
-    var color = Diff * albedo * ao + Lo;
+    var color = Diff * vec3(0.1) * albedo * ao + Lo;
 
     // HDR tone mapping
     color = color / (color + vec3(1.0));

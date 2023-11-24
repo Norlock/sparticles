@@ -367,7 +367,7 @@ impl<'a> EmitterState {
             });
     }
 
-    pub fn update_diffuse(&mut self, gfx_state: &GfxState, path: &mut PathBuf) {
+    pub fn update_diffuse(&mut self, _gfx_state: &GfxState, _path: &mut PathBuf) {
         // TODO think about diffuse textures change without a model
 
         //self.uniform.texture_image = path.to_path_buf();

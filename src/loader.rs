@@ -91,15 +91,29 @@ impl Model {
             }
         }
 
+        let default_sampler = wgpu::SamplerDescriptor::default();
+
         let fetch_sampler = |sampler_data: gltf::texture::Sampler<'_>| -> wgpu::Sampler {
-            let min_filter = match &sampler_data.min_filter() {
-                Some(gltf::texture::MinFilter::Linear) => wgpu::FilterMode::Linear,
-                Some(gltf::texture::MinFilter::Nearest) => wgpu::FilterMode::Nearest,
-                Some(gltf::texture::MinFilter::LinearMipmapLinear) => wgpu::FilterMode::Linear,
-                Some(gltf::texture::MinFilter::NearestMipmapNearest) => wgpu::FilterMode::Nearest,
-                Some(gltf::texture::MinFilter::LinearMipmapNearest) => todo!(),
-                Some(gltf::texture::MinFilter::NearestMipmapLinear) => todo!(),
-                None => wgpu::FilterMode::default(),
+            let (min_filter, mipmap_filter) = match &sampler_data.min_filter() {
+                Some(gltf::texture::MinFilter::Linear) => {
+                    (wgpu::FilterMode::Linear, default_sampler.mipmap_filter)
+                }
+                Some(gltf::texture::MinFilter::Nearest) => {
+                    (wgpu::FilterMode::Nearest, default_sampler.mipmap_filter)
+                }
+                Some(gltf::texture::MinFilter::LinearMipmapLinear) => {
+                    (wgpu::FilterMode::Linear, wgpu::FilterMode::Linear)
+                }
+                Some(gltf::texture::MinFilter::NearestMipmapNearest) => {
+                    (wgpu::FilterMode::Nearest, wgpu::FilterMode::Nearest)
+                }
+                Some(gltf::texture::MinFilter::LinearMipmapNearest) => {
+                    (wgpu::FilterMode::Linear, wgpu::FilterMode::Nearest)
+                }
+                Some(gltf::texture::MinFilter::NearestMipmapLinear) => {
+                    (wgpu::FilterMode::Nearest, wgpu::FilterMode::Linear)
+                }
+                None => (default_sampler.min_filter, default_sampler.mipmap_filter),
             };
 
             let mag_filter = match &sampler_data.mag_filter() {
@@ -118,6 +132,7 @@ impl Model {
                 label: sampler_data.name(),
                 min_filter,
                 mag_filter,
+                mipmap_filter,
                 address_mode_u: get_wrapping_mode(sampler_data.wrap_s()),
                 address_mode_v: get_wrapping_mode(sampler_data.wrap_t()),
                 ..Default::default()
