@@ -58,7 +58,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
 @group(1) @binding(4) var metal_rough_tex: texture_2d<f32>;
 @group(1) @binding(5) var metal_rough_s: sampler;
-// TODO use emissive tex
+@group(1) @binding(6) var emissive_tex: texture_2d<f32>;
+@group(1) @binding(7) var emissive_s: sampler;
 @group(1) @binding(8) var ao_tex: texture_2d<f32>;
 @group(1) @binding(9) var ao_s: sampler;
 
@@ -68,6 +69,7 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
     let metallic = metallic_roughness.r;
     let roughness = metallic_roughness.g;
     let ao = textureSample(ao_tex, ao_s, in.uv).r;
+    let emissive = pow(textureSample(emissive_tex, emissive_s, in.uv).rgb, vec3<f32>(2.2));
 
     let F0 = mix(vec3(0.04), albedo, metallic);
     let V = normalize(camera.position - in.world_pos);
@@ -103,7 +105,7 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
     }
 
     var out: FragmentOutput;
-    var color = Diff * vec3(0.1) * albedo * ao + Lo;
+    var color = Diff * vec3(0.1) * albedo * ao + Lo + emissive;
 
     // HDR tone mapping
     color = color / (color + vec3(1.0));
