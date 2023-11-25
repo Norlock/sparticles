@@ -22,7 +22,10 @@ impl Mesh {
             let camera_up = view_proj.row(1).truncate().normalize();
 
             for (vert, v_pos) in mesh.vertices.iter_mut().zip(VERTEX_POSITIONS) {
+                //vert.position = (view_mat * v_pos.extend(0.).extend(0.)).truncate().into();
                 vert.position = (camera_right * v_pos[0] + camera_up * v_pos[1]).into();
+
+                //println!("p {:?} a {:?} ", vert.position, a);
             }
 
             queue.write_buffer(&mesh.vertex_buffer, 0, bytemuck::cast_slice(&mesh.vertices));

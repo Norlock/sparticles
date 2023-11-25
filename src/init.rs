@@ -107,6 +107,7 @@ impl InitSettings {
             assert!(!emitter_uniform.id.is_empty(), "Id can not be empty");
             assert!(is_unique, "Emitters require an unique ID");
 
+            println!("komt hier");
             let mut emitter = EmitterState::new(CreateEmitterOptions {
                 uniform: emitter_uniform,
                 camera,
@@ -116,6 +117,7 @@ impl InitSettings {
                     lights_layout: &emitters[0].bg_layout,
                 },
             });
+            println!("komt hier niet");
 
             app_settings.add_particle_anim(&mut emitter, gfx_state);
             app_settings.add_emitter_anim(&mut emitter);
@@ -200,7 +202,7 @@ impl InitSettings {
     }
 
     fn json_emitters(
-        mut import_emitters: Vec<ExportEmitter>,
+        mut emitters_export: Vec<ExportEmitter>,
         gfx_state: &GfxState,
         camera: &Camera,
         collection: &HashMap<ID, Model>,
@@ -208,21 +210,13 @@ impl InitSettings {
         registered_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
     ) -> InitEmitters {
         let mut emitters = Vec::new();
-        let mut lights_export: Option<ExportEmitter> = None;
 
-        for i in 0..import_emitters.len() {
-            if import_emitters[i].is_light {
-                lights_export = Some(import_emitters.remove(i));
-                break;
-            }
-        }
+        let lights_export = emitters_export.remove(0);
 
         assert!(
-            lights_export.is_some(),
-            "Lights is not in JSON export please remove exports file"
+            lights_export.is_light,
+            "Lights is not in JSON export please remove exports emitters.json file"
         );
-
-        let lights_export = lights_export.unwrap();
 
         let mut lights = EmitterState::new(CreateEmitterOptions {
             uniform: lights_export.emitter,
@@ -253,7 +247,7 @@ impl InitSettings {
             }
         }
 
-        for emitter_export in import_emitters {
+        for emitter_export in emitters_export {
             let mut emitter = EmitterState::new(CreateEmitterOptions {
                 uniform: emitter_export.emitter,
                 camera,
@@ -264,6 +258,7 @@ impl InitSettings {
                 },
             });
 
+            // Import animations
             for export_animation in emitter_export.particle_animations {
                 for reg in registered_par_anims.iter() {
                     if export_animation.tag == reg.tag() {
@@ -286,6 +281,8 @@ impl InitSettings {
 
             emitters.push(emitter);
         }
+
+        emitters.insert(0, lights);
 
         InitEmitters {
             emitters,

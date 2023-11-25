@@ -18,7 +18,6 @@ pub struct Camera {
     pub view_dir: Vec3, // Camera aimed at
     pub pitch: f32,
     pub yaw: f32,
-    pub roll: f32,
     pub bg_layout: wgpu::BindGroupLayout,
     pub bloom_treshold: f32, // To prepare for post FX
 
@@ -56,7 +55,6 @@ impl Camera {
         let look_at = position + view_dir;
         let pitch = 0.;
         let yaw = 0.;
-        let roll = 0.;
         let near = 0.1;
         let far = 100.0;
         let fov = (45.0f32).to_radians();
@@ -99,14 +97,13 @@ impl Camera {
             near,
             pitch,
             yaw,
-            roll,
             position,
             view_dir,
             look_at,
             buffer,
             bg_layout,
             bg,
-            bloom_treshold: 1.0,
+            bloom_treshold: f32::MAX,
             proj,
             is_forward_pressed: false,
             is_backward_pressed: false,
@@ -246,7 +243,7 @@ impl Camera {
         let mut result = Vec::new();
         result.extend_from_slice(&view_proj.to_cols_array());
         result.extend_from_slice(&view_mat.to_cols_array());
-        result.extend_from_slice(&self.position.extend(0.).to_array());
+        result.extend_from_slice(&self.position.to_array());
         result.push(self.bloom_treshold);
 
         result
@@ -268,11 +265,13 @@ impl Camera {
 fn buffer_size() -> u64 {
     let view_proj_size = 16;
     let view_mat_size = 16;
-    let view_pos_size = 4;
-    let bloom_treshold_size = 4; // The most aligned member of that strut is aligned to 16. As such
-                                 // destruct is aligned to 16, instructs have their size rounded up to their alignment.
-                                 // So bloom treshold 1 == 4
+    let position_size = 4;
+    let bloom_treshold_size = 4;
 
-    (view_proj_size + view_mat_size + view_pos_size + bloom_treshold_size)
+    // The most aligned member of that strut is aligned to 16. As such
+    // destruct is aligned to 16, instructs have their size rounded up to their alignment.
+    // So bloom treshold 1 == 4
+
+    (view_proj_size + view_mat_size + position_size + bloom_treshold_size)
         * std::mem::size_of::<f32>() as u64
 }

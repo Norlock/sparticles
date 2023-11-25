@@ -1,11 +1,8 @@
-@group(0) @binding(0) 
-var<uniform> camera: CameraUniform;
+@group(0) @binding(0) var<uniform> camera: CameraUniform;
 
-@group(2) @binding(0) 
-var<storage, read> particles: array<Particle>;
-
-@group(3) @binding(0) 
-var<storage, read> light_particles: array<Particle>;
+@group(2) @binding(0) var<storage, read> particles: array<Particle>;
+@group(2) @binding(2) var<uniform> em: Emitter; 
+@group(3) @binding(0) var<storage, read> light_particles: array<Particle>;
 
 struct VertexInput {
     @builtin(vertex_index) vert_idx: u32,
@@ -35,9 +32,9 @@ struct FragmentOutput {
 fn vs_main(in: VertexInput) -> VertexOutput {
     let p = particles[in.instance_idx];
 
-    if p.lifetime == -1. {
+    if is_decayed(em, p) {
         var out: VertexOutput;
-        out.world_pos = camera.view_pos.xyz - 1000.;
+        out.clip_position = vec4<f32>(camera.position, 0.0) - 1000.;
         return out;
     }
 
@@ -47,6 +44,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     out.world_pos = (p.model * vec4(in.position, 1.0)).xyz * p.scale;
     out.normal = in.normal;
     out.tangent = in.tangent.xyz;
+    // TODO in loader
     out.bitangent = cross(out.normal, out.tangent) * in.tangent.w;
     out.clip_position = camera.view_proj * vec4(out.world_pos, 1.0);
 
@@ -64,16 +62,15 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 @group(1) @binding(8) var ao_tex: texture_2d<f32>;
 @group(1) @binding(9) var ao_s: sampler;
 
-fn apply_pbr(in: VertexOutput, N: vec3<f32>, ALB: vec3<f32>) -> FragmentOutput {
+fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> FragmentOutput {
     let albedo = pow(ALB, vec3<f32>(2.2));
     let metallic_roughness = textureSample(metal_rough_tex, metal_rough_s, in.uv).rg;
     let metallic = metallic_roughness.r;
     let roughness = metallic_roughness.g;
     let ao = textureSample(ao_tex, ao_s, in.uv).r;
-    let V = normalize(camera.view_pos.xyz - in.world_pos);
 
     let F0 = mix(vec3(0.04), albedo, metallic);
-
+    let V = normalize(camera.position - in.world_pos);
     var Lo = vec3(0.0);
     var Diff = vec3(0.0);
 
@@ -96,17 +93,16 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, ALB: vec3<f32>) -> FragmentOutput {
 
         let numerator = NDF * G * F;
 
-        let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
+        let NdotL = max(dot(N, L), 0.0);
+        let denominator = 4.0 * max(dot(N, V), 0.0) * NdotL;
         let specular = numerator / (denominator + 0.0001);
         let kD = (vec3(1.0) - F) * (1.0 - metallic);
-        let NdotL = max(dot(N, L), 0.0);
 
-        Diff += max(dot(in.normal, L), 0.0) * radiance;
+        Diff += max(dot(WN, L), 0.0) * radiance;
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
     var out: FragmentOutput;
-    //var color = Diff * vec3(0.1) * albedo * ao + Lo;
     var color = Diff * vec3(0.1) * albedo * ao + Lo;
 
     // HDR tone mapping
@@ -131,13 +127,12 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
     let N = normalize(TBN * tangent_normal);
     let albedo = textureSample(albedo_tex, albedo_s, in.uv).rgb;
 
-    return apply_pbr(in, N, albedo);
+    return apply_pbr(in, N, in.normal, albedo);
 }
 
 @fragment
 fn fs_circle(in: VertexOutput) -> FragmentOutput {
     let v_pos = in.uv * 2. - 1.;
-
     let texture_color = textureSample(albedo_tex, albedo_s, in.uv);
 
     if 1.0 < length(v_pos) {
@@ -145,10 +140,8 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
     }
 
     let x = v_pos.x;
-    let y = v_pos.y;
+    let y = v_pos.y * -1.;
+    let WN = (vec4<f32>(x, y, sqrt(1. - x * x - y * y), 0.) * camera.view).xyz;
 
-    let normal = vec4<f32>(x, y, sqrt(1. - x * x - y * y), 0.);
-    let N = (normal * camera.view).xyz;
-
-    return apply_pbr(in, N, in.color.rgb);
+    return apply_pbr(in, WN, WN, in.color.rgb);
 }

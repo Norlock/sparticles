@@ -43,6 +43,8 @@ impl ColorUniform {
             self.to_color.w,
             self.from_sec,
             self.until_sec,
+            0., // Padding
+            0., // Padding
         ];
 
         bytemuck::cast_slice(&raw).to_vec()
@@ -160,8 +162,8 @@ impl ParticleAnimation for ColorAnimation {
 
         let f_col = gui.from_color;
         let t_col = gui.to_color;
-        let mut from_color = Rgba::from_rgba_unmultiplied(f_col.x, f_col.y, f_col.z, f_col.w);
-        let mut to_color = Rgba::from_rgba_unmultiplied(t_col.x, t_col.y, t_col.z, t_col.w);
+        let mut from_color = Rgba::from_rgba_premultiplied(f_col.x, f_col.y, f_col.z, f_col.w);
+        let mut to_color = Rgba::from_rgba_premultiplied(t_col.x, t_col.y, t_col.z, t_col.w);
 
         ui.horizontal(|ui| {
             ui.label("From color: ");

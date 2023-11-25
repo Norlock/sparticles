@@ -25,10 +25,11 @@ impl Clock {
     }
 
     pub fn update(&mut self, events: &Events) {
+        let now = self.instant.elapsed();
+        self.current_delta = now - self.last_update;
+        self.last_update = now;
+
         if events.play() {
-            let now = self.instant.elapsed();
-            self.current_delta = now - self.last_update;
-            self.last_update = now;
             self.frame += 1;
         }
     }

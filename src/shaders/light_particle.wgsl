@@ -17,7 +17,7 @@ struct VertexInput {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
-    @location(1) world_space: vec4<f32>,
+    @location(1) world_pos: vec4<f32>,
     @location(2) uv: vec2<f32>,
 };
 
@@ -30,18 +30,16 @@ struct FragmentOutput {
 fn vs_main(in: VertexInput) -> VertexOutput {
     let p = particles[in.instance_idx];
 
-    if p.lifetime == -1. {
+    if is_decayed(em, p) {
         var out: VertexOutput;
-        out.clip_position = camera.view_pos - 1000.;
+        out.clip_position = vec4<f32>(camera.position, 0.0) - 1000.;
         return out;
     }
 
-    let world_space: vec4<f32> = vec4<f32>(p.model.w.xyz + in.position * p.scale, 1.0);
-
     var out: VertexOutput;
     out.color = p.color;
-    out.world_space = world_space;
-    out.clip_position = camera.view_proj * world_space;
+    out.world_pos = vec4<f32>(p.model.w.xyz + in.position * p.scale, 1.0);
+    out.clip_position = camera.view_proj * out.world_pos;
     out.uv = in.uv;
 
     return out;
@@ -75,6 +73,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
 
 @fragment
 fn fs_model(in: VertexOutput) -> FragmentOutput {
+    // TODO aanpassen!
     let v_pos = in.uv * 2. - 1.;
 
     let len = length(v_pos);
@@ -88,17 +87,12 @@ fn fs_model(in: VertexOutput) -> FragmentOutput {
     var color = in.color.rgb * strength;
 
     let x = v_pos.x;
-    let y = v_pos.y;
+    let y = v_pos.y * -1.;
 
     let normal = sqrt(1. - x * x - y * y);
 
-    //var effect = create_layers(v_pos, normal, idx, em.elapsed_sec);
-    //effect *= 1. - 0.02 / color.rgb;
-    //effect += 0.5;
-
     var out: FragmentOutput;
-    //out.color = vec4<f32>(texture_color.rgb * in.color.rgb * effect, 1.0);
-    out.color = vec4<f32>(texture_color.rgb * in.color.rgb, 1.0);
+    out.color = vec4<f32>(texture_color.rgb * in.color.rgb * normal, 1.0);
 
     if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
         out.split = out.color;

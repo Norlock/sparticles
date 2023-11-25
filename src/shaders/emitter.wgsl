@@ -2,10 +2,6 @@
 @group(0) @binding(1) var<storage, read_write> particles_dst : array<Particle>;
 @group(0) @binding(2) var<uniform> em: Emitter; 
 
-fn is_decayed(par: Particle) -> bool {
-    return em.particle_lifetime < par.lifetime;
-}
-
 fn create_velocity(input_random: f32, speed_random: f32) -> vec3<f32> {
     let diff_width = gen_dyn_range(input_random * 0.12, em.diffusion_width, em.elapsed_sec) / 2.;
     let diff_depth = gen_dyn_range(input_random * 0.45, em.diffusion_depth, em.elapsed_sec) / 2.;
@@ -59,6 +55,7 @@ fn spawn_particle(index: u32) {
     particle.vel_mass = vec4<f32>(velocity, em.material_mass * size);
     particle.lifetime = 0.;
     particle.model = em.particle_model;
+    particle.model.w = vec4(position, 1.0);
 
     particles_dst[index] = particle;
 }
@@ -79,15 +76,13 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     }
 
     var particle = particles_src[index];
-    particle.lifetime += em.delta_sec;
 
-    if is_decayed(particle) {
-        if particle.lifetime != -1. {
-            particle.lifetime = -1.;
-            particles_dst[index] = particle;
-        }
+    if is_decayed(em, particle) {
+        particles_dst[index].lifetime = particle.lifetime;
         return;
     }
+
+    particle.lifetime += em.delta_sec;
 
     let new_vel = particle.vel_mass.xyz * em.particle_friction_coefficient;
     particle.vel_mass = vec4<f32>(new_vel, particle.vel_mass.w);

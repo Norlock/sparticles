@@ -41,7 +41,7 @@ struct Emitter {
 struct CameraUniform {
     view_proj: mat4x4<f32>,
     view: mat4x4<f32>,
-    view_pos: vec4<f32>,
+    position: vec3<f32>,
     bloom_treshold: f32,
 };
 
@@ -64,6 +64,10 @@ struct FxIO {
 }
 
 const PI: f32 = 3.141592653589;
+
+fn is_decayed(em: Emitter, par: Particle) -> bool {
+    return em.particle_lifetime < par.lifetime;
+}
 
 fn random(input: f32, elapsed_sec: f32) -> f32 {
     let value = vec2<f32>(input, elapsed_sec);

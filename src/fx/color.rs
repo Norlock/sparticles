@@ -1,6 +1,7 @@
 use super::{FxIOUniform, FxOptions, FxState};
 use crate::{
     model::{Camera, GfxState, GuiState},
+    shaders::TONEMAPPING_SDR,
     traits::{CustomShader, HandleAction, PostFx, RegisterPostFx},
     util::{CommonBuffer, DynamicExport, ListAction, UniformContext},
 };
@@ -196,8 +197,10 @@ impl ColorFx {
         let io_ctx = UniformContext::from_uniform(&settings.io_uniform, device, "IO");
         let col_ctx = UniformContext::from_uniform(&settings.color_uniform, device, "Color Fx");
 
-        let shader =
-            device.create_shader_builtin(&["fx/color_processing.wgsl"], "Color correction");
+        let shader = device.create_shader_builtin(
+            &[TONEMAPPING_SDR, "fx/color_processing.wgsl"],
+            "Color correction",
+        );
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Color pipeline layout"),

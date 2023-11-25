@@ -113,7 +113,7 @@ impl<'a> EmitterState {
             } else {
                 let lights = others.next().unwrap();
 
-                EmitterState::recreate_emitter(
+                *em = EmitterState::recreate_emitter(
                     RecreateEmitterOptions {
                         old_self: em,
                         gfx_state,
@@ -392,7 +392,7 @@ impl<'a> EmitterState {
                     .map(|anim| anim.export())
                     .collect(),
                 emitter: emitter.uniform.clone(),
-                is_light: false,
+                is_light: emitter.is_light,
                 emitter_animations: emitter
                     .emitter_animations
                     .iter()
