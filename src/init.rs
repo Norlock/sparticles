@@ -107,7 +107,6 @@ impl InitSettings {
             assert!(!emitter_uniform.id.is_empty(), "Id can not be empty");
             assert!(is_unique, "Emitters require an unique ID");
 
-            println!("komt hier");
             let mut emitter = EmitterState::new(CreateEmitterOptions {
                 uniform: emitter_uniform,
                 camera,
@@ -117,7 +116,6 @@ impl InitSettings {
                     lights_layout: &emitters[0].bg_layout,
                 },
             });
-            println!("komt hier niet");
 
             app_settings.add_particle_anim(&mut emitter, gfx_state);
             app_settings.add_emitter_anim(&mut emitter);

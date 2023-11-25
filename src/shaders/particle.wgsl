@@ -10,7 +10,8 @@ struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) normal: vec3<f32>,
-    @location(3) tangent: vec4<f32>,
+    @location(3) tangent: vec3<f32>,
+    @location(4) bitangent: vec3<f32>,
 }
 
 struct VertexOutput {
@@ -44,8 +45,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     out.world_pos = (p.model * vec4(in.position, 1.0)).xyz * p.scale;
     out.normal = in.normal;
     out.tangent = in.tangent.xyz;
-    // TODO in loader
-    out.bitangent = cross(out.normal, out.tangent) * in.tangent.w;
+    out.bitangent = in.bitangent;
     out.clip_position = camera.view_proj * vec4(out.world_pos, 1.0);
 
     return out;

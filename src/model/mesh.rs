@@ -22,10 +22,7 @@ impl Mesh {
             let camera_up = view_proj.row(1).truncate().normalize();
 
             for (vert, v_pos) in mesh.vertices.iter_mut().zip(VERTEX_POSITIONS) {
-                //vert.position = (view_mat * v_pos.extend(0.).extend(0.)).truncate().into();
                 vert.position = (camera_right * v_pos[0] + camera_up * v_pos[1]).into();
-
-                //println!("p {:?} a {:?} ", vert.position, a);
             }
 
             queue.write_buffer(&mesh.vertex_buffer, 0, bytemuck::cast_slice(&mesh.vertices));
@@ -51,6 +48,7 @@ impl Mesh {
                 uv: uv.into(),
                 normal: [0., 0., 1.],
                 tangent: Default::default(),
+                bitangent: Default::default(),
             })
         }
 
@@ -102,7 +100,12 @@ impl ModelVertex {
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
                     shader_location: 3,
-                    format: wgpu::VertexFormat::Float32x4,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 11]>() as wgpu::BufferAddress,
+                    shader_location: 4,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
             ],
         }
@@ -115,7 +118,8 @@ pub struct ModelVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub normal: [f32; 3],
-    pub tangent: [f32; 4],
+    pub tangent: [f32; 3],
+    pub bitangent: [f32; 3],
 }
 
 const VERTEX_POSITIONS: [Vec2; 4] = [

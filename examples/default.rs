@@ -41,19 +41,19 @@ impl AppSettings for CustomSettings {
         emitter.spawn_count = 1;
         emitter.spawn_delay_sec = 2.0;
 
-        //emitter.mesh = MeshRef {
-        ////collection_id: "drone.glb".to_string(),
-        ////mesh_id: "RetopoGroup2".to_string(),
-        //collection_id: "StarSparrow.glb".to_string(),
-        //mesh_id: "Mesh.001".to_string(),
-        //};
+        emitter.mesh = MeshRef {
+            //collection_id: "drone.glb".to_string(),
+            //mesh_id: "RetopoGroup2".to_string(),
+            collection_id: "StarSparrow.glb".to_string(),
+            mesh_id: "Mesh.001".to_string(),
+        };
 
-        //emitter.material = MaterialRef {
-        ////collection_id: "drone.glb".to_string(),
-        ////material_id: "Material.001".to_string(),
-        //collection_id: "StarSparrow.glb".to_string(),
-        //material_id: "StarSparrowRed".to_string(),
-        //};
+        emitter.material = MaterialRef {
+            //collection_id: "drone.glb".to_string(),
+            //material_id: "Material.001".to_string(),
+            collection_id: "StarSparrow.glb".to_string(),
+            material_id: "StarSparrowRed".to_string(),
+        };
 
         vec![emitter]
     }
@@ -63,7 +63,8 @@ impl AppSettings for CustomSettings {
     }
 
     fn import_mode(&self) -> JsonImportMode {
-        JsonImportMode::Replace
+        //JsonImportMode::Replace
+        JsonImportMode::Ignore
     }
 
     fn add_emitter_anim(&self, emitter: &mut EmitterState) {

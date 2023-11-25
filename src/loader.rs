@@ -299,6 +299,7 @@ impl Model {
                                     uv: Default::default(),
                                     normal: Default::default(),
                                     tangent: Default::default(),
+                                    bitangent: Default::default(),
                                 })
                             });
                         }
@@ -317,7 +318,11 @@ impl Model {
 
                         if let Some(tangents) = reader.read_tangents() {
                             for (i, tangent) in tangents.enumerate() {
-                                vertices[i].tangent = tangent;
+                                let tn: glam::Vec3 = glam::Vec3::from_slice(&tangent[..3]);
+                                let nm: glam::Vec3 = vertices[i].normal.into();
+
+                                vertices[i].tangent.copy_from_slice(&tangent[..3]);
+                                vertices[i].bitangent = (nm.cross(tn) * tangent[3]).into();
                             }
                         }
 
