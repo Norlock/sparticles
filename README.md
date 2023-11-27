@@ -4,7 +4,10 @@ GPU Particle system written in Rust + WGPU + EGUI
 ## Showcase
 
 
-https://github.com/Norlock/sparticles/assets/7510943/57ae9f4d-7c25-42e2-992d-fd7889597dcb
+
+
+https://github.com/Norlock/sparticles/assets/7510943/b0bfde2b-b44d-40fb-b88d-0c0e979627ab
+
 
 
 
