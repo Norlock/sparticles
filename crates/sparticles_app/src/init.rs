@@ -60,6 +60,8 @@ pub trait AppSettings {
         vec![]
     }
 
+    //fn display(&self) -> Fn(state: &mut State) -> egui::Window;
+
     // TODO
     // fn get_models_path() -> String {}
 

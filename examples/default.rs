@@ -1,6 +1,6 @@
 #![allow(dead_code, unused)]
 use glam::{f32::Vec4, vec4, Vec2, Vec3};
-use sparticles::{
+use sparticles_app::{
     animations::{
         ColorUniform, DiffusionAnimation, ForceUniform, GravityUniform, GravityUniformOptions,
         RegisterColorAnimation, RegisterForceAnimation, RegisterGravityAnimation,
@@ -168,5 +168,5 @@ impl AppSettings for CustomSettings {
 }
 
 fn main() {
-    sparticles::start(CustomSettings);
+    sparticles_app::start(CustomSettings);
 }
