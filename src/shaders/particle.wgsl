@@ -1,9 +1,3 @@
-@group(0) @binding(0) var<uniform> camera: CameraUniform;
-
-@group(2) @binding(0) var<storage, read> particles: array<Particle>;
-@group(2) @binding(2) var<uniform> em: Emitter; 
-@group(3) @binding(0) var<storage, read> light_particles: array<Particle>;
-
 struct VertexInput {
     @builtin(vertex_index) vert_idx: u32,
     @builtin(instance_index) instance_idx: u32,
@@ -24,10 +18,7 @@ struct VertexOutput {
     @location(5) bitangent: vec3<f32>,
 }
 
-struct FragmentOutput {
-    @location(0) color: vec4<f32>,
-    @location(1) split: vec4<f32>,
-}
+@group(3) @binding(0) var<storage, read> light_particles: array<Particle>;
 
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
@@ -35,7 +26,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     if is_decayed(em, p) {
         var out: VertexOutput;
-        out.clip_position = vec4<f32>(camera.position, 0.0) - 1000.;
+        out.clip_position = vec4(camera.position, 0.0) - 1000.;
         return out;
     }
 
@@ -51,28 +42,16 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     return out;
 }
 
-@group(1) @binding(0) var albedo_tex: texture_2d<f32>;
-@group(1) @binding(1) var albedo_s: sampler;
-@group(1) @binding(2) var normal_tex: texture_2d<f32>;
-@group(1) @binding(3) var normal_s: sampler;
-
-@group(1) @binding(4) var metal_rough_tex: texture_2d<f32>;
-@group(1) @binding(5) var metal_rough_s: sampler;
-@group(1) @binding(6) var emissive_tex: texture_2d<f32>;
-@group(1) @binding(7) var emissive_s: sampler;
-@group(1) @binding(8) var ao_tex: texture_2d<f32>;
-@group(1) @binding(9) var ao_s: sampler;
-
 fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> FragmentOutput {
     let albedo = pow(ALB, vec3<f32>(2.2));
     let metallic_roughness = textureSample(metal_rough_tex, metal_rough_s, in.uv).rg;
     let metallic = metallic_roughness.r;
     let roughness = metallic_roughness.g;
     let ao = textureSample(ao_tex, ao_s, in.uv).r;
-    let emissive = pow(textureSample(emissive_tex, emissive_s, in.uv).rgb, vec3<f32>(2.2));
+    let emissive = pow(textureSample(emissive_tex, emissive_s, in.uv).rgb, vec3(2.2));
 
     let F0 = mix(vec3(0.04), albedo, metallic);
-    let V = normalize(camera.position - in.world_pos);
+    let V = normalize(camera.position.xyz - in.world_pos);
     var Lo = vec3(0.0);
     var Diff = vec3(0.0);
 
@@ -105,16 +84,12 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
     }
 
     var out: FragmentOutput;
-    var color = Diff * vec3(0.1) * albedo * ao + Lo + emissive;
 
-    // HDR tone mapping
-    color = color / (color + vec3(1.0));
-    // Gamma correct
-    color = pow(color, vec3(1.0 / 2.2));
+    let color = tonemap(Diff * vec3(0.4) * albedo * ao + Lo + emissive, camera.tonemap);
 
-    out.color = vec4(color, 1.0);
+    out.color = vec4(linear_to_srgb(color), 1.0);
 
-    if any(vec3<f32>(camera.bloom_treshold) < out.color.rgb) {
+    if any(camera.bloom_treshold < out.color.rgb) {
         out.split = out.color;
     }
 

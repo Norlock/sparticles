@@ -1,5 +1,6 @@
 use crate::model::clock::Clock;
 use crate::model::{EmitterState, GfxState, GuiState, LifeCycle};
+use crate::shaders::ShaderOptions;
 use crate::traits::*;
 use crate::util::persistence::DynamicExport;
 use crate::util::ListAction;
@@ -102,7 +103,7 @@ impl RegisterParticleAnimation for RegisterGravityAnimation {
         ))
     }
 
-    fn tag(&self) -> &str {
+    fn tag(&self) -> &'static str {
         "gravity"
     }
 
@@ -249,7 +250,12 @@ impl ParticleAnimation for GravityAnimation {
 impl GravityAnimation {
     fn new(uniform: GravityUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
-        let shader = device.create_shader_builtin(&["gravity_anim.wgsl"], "Gravity animation");
+
+        let shader = gfx_state.create_shader_builtin(ShaderOptions {
+            if_directives: &[],
+            files: &["gravity_anim.wgsl"],
+            label: "Gravity animation",
+        });
 
         let buffer_content = uniform.create_buffer_content();
 

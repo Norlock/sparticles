@@ -1,4 +1,6 @@
-use super::{events::ViewIOEvent, EmitterSettings, EmitterState, GfxState, State};
+use super::{
+    camera::TonemapType, events::ViewIOEvent, EmitterSettings, EmitterState, GfxState, State,
+};
 use crate::{
     fx::{FxOptions, PostProcessState},
     texture::IconTexture,
@@ -201,6 +203,32 @@ impl GuiState {
                     if ui.button("Toggle pause").clicked() {
                         events.toggle_game_state();
                     }
+
+                    // TODO via events
+                    ComboBox::from_label("tonemapping")
+                        .selected_text(state.camera.tonemap_type)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut state.camera.tonemap_type,
+                                TonemapType::AcesNarkowicz,
+                                TonemapType::AcesNarkowicz,
+                            );
+                            ui.selectable_value(
+                                &mut state.camera.tonemap_type,
+                                TonemapType::AcesHill,
+                                TonemapType::AcesHill,
+                            );
+                            ui.selectable_value(
+                                &mut state.camera.tonemap_type,
+                                TonemapType::Uchimura,
+                                TonemapType::Uchimura,
+                            );
+                            ui.selectable_value(
+                                &mut state.camera.tonemap_type,
+                                TonemapType::Lottes,
+                                TonemapType::Lottes,
+                            );
+                        });
 
                     let emitter = &emitters[gui.selected_emitter_id];
 

@@ -44,7 +44,7 @@ pub struct RegisterBlurFx;
 
 // Create default is used as single fx
 impl RegisterPostFx for RegisterBlurFx {
-    fn tag(&self) -> &str {
+    fn tag(&self) -> &'static str {
         "blur"
     }
 

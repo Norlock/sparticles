@@ -2,7 +2,7 @@ use super::{FxIOUniform, FxOptions};
 use crate::init::AppSettings;
 use crate::model::events::ViewIOEvent;
 use crate::model::{GfxState, State};
-use crate::shaders::TONEMAPPING_SDR;
+use crate::shaders::{ShaderOptions, SDR_TONEMAPPING};
 use crate::traits::*;
 use crate::util::{
     CommonBuffer, DynamicExport, ExportType, ListAction, Persistence, UniformContext,
@@ -156,8 +156,11 @@ impl PostProcessState {
         let device = &gfx_state.device;
         let config = &gfx_state.surface_config;
 
-        let finalize_shader = device
-            .create_shader_builtin(&[TONEMAPPING_SDR, "fx/finalize.wgsl"], "Finalize post fx");
+        let finalize_shader = gfx_state.create_shader_builtin(ShaderOptions {
+            if_directives: &[],
+            files: &[SDR_TONEMAPPING, "fx/finalize.wgsl"],
+            label: "Finalize Post FX",
+        });
 
         let fx_state = FxState::new(gfx_state);
 

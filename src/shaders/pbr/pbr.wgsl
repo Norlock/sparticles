@@ -1,3 +1,25 @@
+@group(0) @binding(0) var<uniform> camera: CameraUniform;
+@group(2) @binding(0) var<storage, read> particles: array<Particle>;
+@group(2) @binding(2) var<uniform> em: Emitter; 
+
+
+struct FragmentOutput {
+    @location(0) color: vec4<f32>,
+    @location(1) split: vec4<f32>,
+}
+
+@group(1) @binding(0) var albedo_tex: texture_2d<f32>;
+@group(1) @binding(1) var albedo_s: sampler;
+@group(1) @binding(2) var normal_tex: texture_2d<f32>;
+@group(1) @binding(3) var normal_s: sampler;
+
+@group(1) @binding(4) var metal_rough_tex: texture_2d<f32>;
+@group(1) @binding(5) var metal_rough_s: sampler;
+@group(1) @binding(6) var emissive_tex: texture_2d<f32>;
+@group(1) @binding(7) var emissive_s: sampler;
+@group(1) @binding(8) var ao_tex: texture_2d<f32>;
+@group(1) @binding(9) var ao_s: sampler;
+
 fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
 }
@@ -33,3 +55,4 @@ fn geometry_smith(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, roughness: f32) -> f
 
     return ggx1 * ggx2;
 }
+

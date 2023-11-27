@@ -31,7 +31,7 @@ pub struct DiffusionAnimation {
 pub struct RegisterDiffusionAnimation;
 
 impl RegisterEmitterAnimation for RegisterDiffusionAnimation {
-    fn tag(&self) -> &str {
+    fn tag(&self) -> &'static str {
         "diffusion"
     }
 

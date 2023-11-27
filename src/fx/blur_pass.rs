@@ -3,6 +3,7 @@ use super::FxIOUniform;
 use super::FxOptions;
 use super::FxState;
 use crate::model::GfxState;
+use crate::shaders::ShaderOptions;
 use crate::traits::*;
 use egui_wgpu::wgpu;
 
@@ -77,14 +78,19 @@ impl BlurPass {
             fx_state,
         } = options;
 
+        let device = &gfx_state.device;
+
         let BlurPassSettings {
             blur_layout,
             io_idx: (in_idx, out_idx),
             downscale,
         } = settings;
 
-        let device = &gfx_state.device;
-        let blur_shader = device.create_shader_builtin(&["fx/gaussian_blur.wgsl"], "Gaussian blur");
+        let blur_shader = gfx_state.create_shader_builtin(ShaderOptions {
+            label: "Gaussian blur",
+            files: &["fx/gaussian_blur.wgsl"],
+            if_directives: &[],
+        });
 
         let io_ping = FxIOUniform::asymetric_scaled(options.fx_state, in_idx, out_idx, downscale);
         let io_pong = FxIOUniform::asymetric_scaled(options.fx_state, out_idx, in_idx, downscale);

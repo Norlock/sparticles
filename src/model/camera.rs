@@ -1,6 +1,10 @@
 use super::{gfx_state::GfxState, State};
 use egui_wgpu::wgpu;
-use egui_winit::winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
+use egui_winit::{
+    egui::WidgetText,
+    winit::event::{ElementState, KeyboardInput, VirtualKeyCode},
+};
+use encase::UniformBuffer;
 use glam::*;
 
 #[rustfmt::skip]
@@ -11,6 +15,25 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4 {
     w_axis: Vec4::new(0.0, 0.0, 0.0, 1.0),
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TonemapType {
+    AcesNarkowicz,
+    AcesHill,
+    Uchimura,
+    Lottes,
+}
+
+impl From<TonemapType> for WidgetText {
+    fn from(value: TonemapType) -> Self {
+        match value {
+            TonemapType::AcesNarkowicz => "ACES Narkowicz".into(),
+            TonemapType::AcesHill => "ACES Hill".into(),
+            TonemapType::Uchimura => "Uchimura".into(),
+            TonemapType::Lottes => "Lottes".into(),
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Camera {
@@ -19,9 +42,9 @@ pub struct Camera {
     pub pitch: f32,
     pub yaw: f32,
     pub bg_layout: wgpu::BindGroupLayout,
-    pub bloom_treshold: f32, // To prepare for post FX
-
-    look_at: Vec3,
+    pub bloom_treshold: Vec3, // To prepare for post FX
+    pub tonemap_type: TonemapType,
+    pub look_at: Vec3,
     fov: f32,  // Field of view (frustum vertical degrees)
     near: f32, // What is too close to show
     far: f32,  // What is too far to show
@@ -40,6 +63,15 @@ pub struct Camera {
 
     proj: Mat4,
     bg: wgpu::BindGroup,
+}
+
+#[derive(encase::ShaderType)]
+struct CameraUniform {
+    view_proj: glam::Mat4,
+    view: glam::Mat4,
+    position: glam::Vec3,
+    bloom_treshold: glam::Vec3,
+    tonemap: u32,
 }
 
 impl Camera {
@@ -103,7 +135,8 @@ impl Camera {
             buffer,
             bg_layout,
             bg,
-            bloom_treshold: f32::MAX,
+            bloom_treshold: Vec3::MAX,
+            tonemap_type: TonemapType::AcesNarkowicz,
             proj,
             is_forward_pressed: false,
             is_backward_pressed: false,
@@ -184,10 +217,8 @@ impl Camera {
             camera.yaw -= rotation;
         }
 
-        let buf_content_raw = camera.create_buffer_content();
-        let buf_content = bytemuck::cast_slice(&buf_content_raw);
-
-        queue.write_buffer(&camera.buffer, 0, buf_content);
+        let buf_content = camera.create_buffer_content();
+        queue.write_buffer(&camera.buffer, 0, &buf_content);
     }
 
     pub fn resize(&mut self, gfx_state: &GfxState) {
@@ -236,17 +267,21 @@ impl Camera {
         true
     }
 
-    fn create_buffer_content(&mut self) -> Vec<f32> {
+    fn create_buffer_content(&mut self) -> Vec<u8> {
         let view_mat = self.view_mat();
         let view_proj = self.view_proj(&view_mat);
 
-        let mut result = Vec::new();
-        result.extend_from_slice(&view_proj.to_cols_array());
-        result.extend_from_slice(&view_mat.to_cols_array());
-        result.extend_from_slice(&self.position.to_array());
-        result.push(self.bloom_treshold);
+        let uniform = CameraUniform {
+            view_proj,
+            view: view_mat,
+            position: self.position,
+            bloom_treshold: self.bloom_treshold,
+            tonemap: self.tonemap_type as u32,
+        };
 
-        result
+        let mut buffer = UniformBuffer::new(vec![]);
+        buffer.write(&uniform).unwrap();
+        buffer.into_inner()
     }
 
     pub fn view_mat(&self) -> Mat4 {
@@ -267,11 +302,12 @@ fn buffer_size() -> u64 {
     let view_mat_size = 16;
     let position_size = 4;
     let bloom_treshold_size = 4;
+    let tonemap_size = 4;
 
     // The most aligned member of that strut is aligned to 16. As such
     // destruct is aligned to 16, instructs have their size rounded up to their alignment.
     // So bloom treshold 1 == 4
 
-    (view_proj_size + view_mat_size + position_size + bloom_treshold_size)
+    (view_proj_size + view_mat_size + position_size + bloom_treshold_size + tonemap_size)
         * std::mem::size_of::<f32>() as u64
 }

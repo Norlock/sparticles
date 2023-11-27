@@ -1,6 +1,7 @@
 use crate::{
     model::{Clock, EmitterState, GfxState, GuiState, LifeCycle},
-    traits::{CustomShader, HandleAction, ParticleAnimation, RegisterParticleAnimation},
+    shaders::ShaderOptions,
+    traits::{HandleAction, ParticleAnimation, RegisterParticleAnimation},
     util::persistence::DynamicExport,
     util::ListAction,
 };
@@ -55,7 +56,7 @@ impl RegisterForceAnimation {
 }
 
 impl RegisterParticleAnimation for RegisterForceAnimation {
-    fn tag(&self) -> &str {
+    fn tag(&self) -> &'static str {
         "force"
     }
 
@@ -196,7 +197,11 @@ impl ParticleAnimation for ForceAnimation {
 impl ForceAnimation {
     fn new(uniform: ForceUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
-        let shader = device.create_shader_builtin(&["force_anim.wgsl"], "Force animation");
+        let shader = gfx_state.create_shader_builtin(ShaderOptions {
+            if_directives: &[],
+            files: &["force_anim.wgsl"],
+            label: "Force animation",
+        });
 
         let buffer_content = uniform.create_buffer_content();
 

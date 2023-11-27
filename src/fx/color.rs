@@ -1,8 +1,8 @@
 use super::{FxIOUniform, FxOptions, FxState};
 use crate::{
     model::{Camera, GfxState, GuiState},
-    shaders::TONEMAPPING_SDR,
-    traits::{CustomShader, HandleAction, PostFx, RegisterPostFx},
+    shaders::{ShaderOptions, SDR_TONEMAPPING},
+    traits::{HandleAction, PostFx, RegisterPostFx},
     util::{CommonBuffer, DynamicExport, ListAction, UniformContext},
 };
 use egui_wgpu::wgpu;
@@ -37,7 +37,7 @@ pub struct ColorFxSettings {
 pub struct RegisterColorFx;
 
 impl RegisterPostFx for RegisterColorFx {
-    fn tag(&self) -> &str {
+    fn tag(&self) -> &'static str {
         "color-processing"
     }
 
@@ -197,10 +197,11 @@ impl ColorFx {
         let io_ctx = UniformContext::from_uniform(&settings.io_uniform, device, "IO");
         let col_ctx = UniformContext::from_uniform(&settings.color_uniform, device, "Color Fx");
 
-        let shader = device.create_shader_builtin(
-            &[TONEMAPPING_SDR, "fx/color_processing.wgsl"],
-            "Color correction",
-        );
+        let shader = gfx_state.create_shader_builtin(ShaderOptions {
+            if_directives: &[],
+            files: &[SDR_TONEMAPPING, "fx/color_processing.wgsl"],
+            label: "Color processing",
+        });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Color pipeline layout"),
@@ -217,8 +218,8 @@ impl ColorFx {
             })
         };
 
-        let general_pipeline = create_pipeline("general");
-        let tonemap_pipeline = create_pipeline("tonemap");
+        let general_pipeline = create_pipeline("cs_general");
+        let tonemap_pipeline = create_pipeline("cs_tonemap");
 
         Self {
             color_uniform: settings.color_uniform,

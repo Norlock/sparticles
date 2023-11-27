@@ -1,5 +1,5 @@
 use super::{FxIOUniform, FxOptions, FxState};
-use crate::{model::GfxState, traits::CustomShader, util::UniformContext};
+use crate::{model::GfxState, shaders::ShaderOptions, util::UniformContext};
 use egui_wgpu::wgpu;
 use encase::ShaderType;
 use serde::{Deserialize, Serialize};
@@ -21,6 +21,7 @@ pub struct BlendUniform {
 pub struct BlendSettings<'a> {
     pub io_uniform: FxIOUniform,
     pub blend_layout: &'a wgpu::BindGroupLayout,
+    pub if_directives: &'a [&'a str],
 }
 
 impl BlendPass {
@@ -101,7 +102,11 @@ impl BlendPass {
         } = options;
 
         let device = &gfx_state.device;
-        let blend_shader = device.create_shader_builtin(&["fx/blend.wgsl"], "Blend");
+        let blend_shader = gfx_state.create_shader_builtin(ShaderOptions {
+            if_directives: settings.if_directives,
+            files: &["fx/blend.wgsl"],
+            label: "Blend",
+        });
 
         let io_ctx = UniformContext::from_uniform(&settings.io_uniform, device, "IO");
 

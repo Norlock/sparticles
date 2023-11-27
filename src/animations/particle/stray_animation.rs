@@ -1,9 +1,7 @@
 use crate::{
     model::{Clock, EmitterState, GfxState, GuiState},
-    traits::{
-        CalculateBufferSize, CustomShader, HandleAction, ParticleAnimation,
-        RegisterParticleAnimation,
-    },
+    shaders::ShaderOptions,
+    traits::{CalculateBufferSize, HandleAction, ParticleAnimation, RegisterParticleAnimation},
     util::persistence::DynamicExport,
     util::ListAction,
 };
@@ -60,7 +58,7 @@ impl RegisterParticleAnimation for RegisterStrayAnimation {
         ))
     }
 
-    fn tag(&self) -> &str {
+    fn tag(&self) -> &'static str {
         "stray"
     }
 
@@ -172,7 +170,12 @@ impl ParticleAnimation for StrayAnimation {
 impl StrayAnimation {
     fn new(uniform: StrayUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
-        let shader = device.create_shader_builtin(&["stray_anim.wgsl"], "Stray animation");
+
+        let shader = gfx_state.create_shader_builtin(ShaderOptions {
+            if_directives: &[],
+            files: &["stray_anim.wgsl"],
+            label: "Stray animation",
+        });
 
         let animation_uniform = uniform.create_buffer_content();
 

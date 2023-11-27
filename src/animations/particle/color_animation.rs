@@ -1,5 +1,6 @@
 use crate::{
     model::{Clock, EmitterState, GfxState, GuiState},
+    shaders::ShaderOptions,
     traits::*,
     util::{persistence::DynamicExport, ListAction, UniformContext},
 };
@@ -64,7 +65,7 @@ impl RegisterColorAnimation {
 }
 
 impl RegisterParticleAnimation for RegisterColorAnimation {
-    fn tag(&self) -> &str {
+    fn tag(&self) -> &'static str {
         "color"
     }
 
@@ -190,7 +191,12 @@ impl ParticleAnimation for ColorAnimation {
 impl ColorAnimation {
     fn new(uniform: ColorUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
-        let shader = device.create_shader_builtin(&["color_anim.wgsl"], "Color animation");
+
+        let shader = gfx_state.create_shader_builtin(ShaderOptions {
+            if_directives: &[],
+            files: &["color_anim.wgsl"],
+            label: "Color animation",
+        });
 
         let buffer_content = uniform.create_buffer_content();
 

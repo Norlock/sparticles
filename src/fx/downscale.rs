@@ -1,5 +1,5 @@
 use super::{FxIOUniform, FxOptions, FxState};
-use crate::{model::GfxState, traits::CustomShader, util::UniformContext};
+use crate::{model::GfxState, shaders::ShaderOptions, util::UniformContext};
 use egui_wgpu::wgpu;
 
 pub struct Downscale {
@@ -48,7 +48,12 @@ impl Downscale {
         } = options;
 
         let device = &gfx_state.device;
-        let shader = device.create_shader_builtin(&["fx/downscale.wgsl"], "Downscale");
+
+        let shader = gfx_state.create_shader_builtin(ShaderOptions {
+            if_directives: &[],
+            files: &["fx/downscale.wgsl"],
+            label: "Downscale",
+        });
 
         let io_ctx = UniformContext::from_uniform(&io_uniform, device, "Downscale");
 

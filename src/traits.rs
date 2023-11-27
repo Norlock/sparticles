@@ -1,7 +1,6 @@
 use crate::{
     fx::{FxOptions, FxState},
     model::{Camera, Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
-    shaders::ShaderLocation,
     util::persistence::DynamicExport,
     util::ListAction,
 };
@@ -17,15 +16,6 @@ pub trait FromRGBA {
     fn from_rgba(r: u8, g: u8, b: u8, a: u8) -> Self;
 }
 
-pub trait CustomShader {
-    fn create_shader_builtin(&self, filenames: &[&str], label: &str) -> wgpu::ShaderModule;
-    fn create_shader_custom(
-        &self,
-        sdr_paths: Vec<ShaderLocation>,
-        label: &str,
-    ) -> wgpu::ShaderModule;
-}
-
 pub trait CreateGui {
     fn create_gui(&self, app_state: &mut State);
 }
@@ -36,7 +26,7 @@ pub trait ToVecF32 {
 
 // --------------------------- Animations ------------------------------
 pub trait RegisterEmitterAnimation {
-    fn tag(&self) -> &str;
+    fn tag(&self) -> &'static str;
 
     fn create_default(&self) -> Box<dyn EmitterAnimation>;
 
@@ -44,7 +34,7 @@ pub trait RegisterEmitterAnimation {
 }
 
 pub trait RegisterParticleAnimation {
-    fn tag(&self) -> &str;
+    fn tag(&self) -> &'static str;
 
     fn create_default(
         &self,
@@ -102,7 +92,7 @@ pub trait PostFx: HandleAction {
 }
 
 pub trait RegisterPostFx {
-    fn tag(&self) -> &str;
+    fn tag(&self) -> &'static str;
     fn create_default(&self, options: &FxOptions) -> Box<dyn PostFx>;
     fn import(&self, options: &FxOptions, value: serde_json::Value) -> Box<dyn PostFx>;
 }

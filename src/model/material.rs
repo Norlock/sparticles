@@ -30,8 +30,7 @@ impl Material {
         // White
         let albedo_tex = gfx.create_builtin_tex(TexType::White);
         let albedo_s = gfx.create_sampler();
-        // TODO probably needs to be black
-        let metallic_roughness_tex = gfx.create_builtin_tex(TexType::White);
+        let metallic_roughness_tex = gfx.create_builtin_tex(TexType::Black);
         let metallic_roughness_s = gfx.create_sampler();
 
         let normal_tex = gfx.create_builtin_tex(TexType::Normal);

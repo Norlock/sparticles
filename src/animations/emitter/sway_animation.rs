@@ -33,7 +33,7 @@ pub struct SwayAnimation {
 pub struct RegisterSwayAnimation;
 
 impl RegisterEmitterAnimation for RegisterSwayAnimation {
-    fn tag(&self) -> &str {
+    fn tag(&self) -> &'static str {
         "sway-animation"
     }
 

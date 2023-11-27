@@ -9,13 +9,9 @@ struct ColorCorrection {
 @group(1) @binding(0) var<uniform> fx_io: FxIO; 
 @group(2) @binding(0) var<uniform> globals: ColorCorrection; 
 
-fn gamma(col: vec3<f32>) -> vec3<f32> {
-    return pow(col, vec3<f32>(1.0 / globals.gamma));
-}
-
 @compute
 @workgroup_size(16, 16, 1)
-fn general(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn cs_general(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos = global_id.xy;
 
     if any(vec2<u32>(fx_io.out_size_x, fx_io.out_size_y) < pos) {
@@ -24,7 +20,7 @@ fn general(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     var out = textureLoad(fx_tex[fx_io.in_idx], pos).rgb;
 
-    out = gamma(out);
+    out = tonemap(out, 2u); // TODO pass camera
     out = (out - 0.5) * globals.contrast + 0.5 + globals.brightness;
 
     textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(out, 1.0));
@@ -32,7 +28,7 @@ fn general(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
 @compute
 @workgroup_size(16, 16, 1)
-fn tonemap(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn cs_tonemap(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos = global_id.xy;
 
     if any(vec2<u32>(fx_io.out_size_x, fx_io.out_size_y) < pos) {
@@ -41,11 +37,9 @@ fn tonemap(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let hdr = textureLoad(fx_tex[fx_io.in_idx], pos).rgb;      
 
-    // tone mapping
+    // Tone mapping + Gamma correct
     var sdr = aces_narkowicz(hdr);
-
-    // also gamma correct
-    sdr = gamma(sdr);
+    sdr = pow(sdr, vec3<f32>(1.0 / globals.gamma));
 
     textureStore(fx_tex[fx_io.out_idx], pos, vec4<f32>(sdr, 1.0));
 }

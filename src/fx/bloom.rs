@@ -63,7 +63,7 @@ pub struct BloomSettings {
 pub struct RegisterBloomFx;
 
 impl RegisterPostFx for RegisterBloomFx {
-    fn tag(&self) -> &str {
+    fn tag(&self) -> &'static str {
         "bloom"
     }
 
@@ -169,7 +169,7 @@ impl PostFx for Bloom {
     }
 
     fn update(&mut self, gfx_state: &GfxState, camera: &mut Camera) {
-        camera.bloom_treshold = self.bloom_treshold;
+        camera.bloom_treshold = glam::Vec3::splat(self.bloom_treshold);
 
         match self.update_event.take() {
             Some(UIAction::UpdateBuffer(i)) => {
@@ -260,6 +260,7 @@ impl Bloom {
                     BlendSettings {
                         io_uniform,
                         blend_layout: &blend_ctx.bg_layout,
+                        if_directives: &[],
                     },
                 ),
                 blend_uniform,
@@ -280,6 +281,7 @@ impl Bloom {
             BlendSettings {
                 io_uniform: FxIOUniform::asymetric_unscaled(options.fx_state, 1, 0),
                 blend_layout: &blend_ctx.bg_layout,
+                if_directives: &[],
             },
         );
 

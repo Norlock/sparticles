@@ -42,7 +42,8 @@ struct CameraUniform {
     view_proj: mat4x4<f32>,
     view: mat4x4<f32>,
     position: vec3<f32>,
-    bloom_treshold: f32,
+    bloom_treshold: vec3<f32>,
+    tonemap: u32,
 };
 
 struct GaussianBlur {
