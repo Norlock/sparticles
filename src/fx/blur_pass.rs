@@ -4,7 +4,6 @@ use super::FxOptions;
 use super::FxState;
 use crate::model::GfxState;
 use crate::shaders::ShaderOptions;
-use crate::traits::*;
 use egui_wgpu::wgpu;
 
 pub struct BlurPass {

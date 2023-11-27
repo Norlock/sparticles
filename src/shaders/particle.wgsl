@@ -43,7 +43,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 }
 
 fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> FragmentOutput {
-    let albedo = pow(ALB, vec3<f32>(2.2));
+    let albedo = pow(ALB, vec3(2.2));
     let metallic_roughness = textureSample(metal_rough_tex, metal_rough_s, in.uv).rg;
     let metallic = metallic_roughness.r;
     let roughness = metallic_roughness.g;
@@ -98,7 +98,7 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
 
 @fragment
 fn fs_model(in: VertexOutput) -> FragmentOutput {
-    let tangent_normal = textureSample(normal_tex, normal_s, in.uv).xyz * 2.0 - 1.0;
+    let tangent_normal = textureSample(normal_tex, normal_s, in.uv).rgb * 2.0 - 1.0;
     let TBN = mat3x3(in.normal, in.tangent, in.bitangent);
 
     let N = normalize(TBN * tangent_normal);
@@ -118,7 +118,7 @@ fn fs_circle(in: VertexOutput) -> FragmentOutput {
 
     let x = v_pos.x;
     let y = v_pos.y * -1.;
-    let WN = (vec4<f32>(x, y, sqrt(1. - x * x - y * y), 0.) * camera.view).xyz;
+    let WN = (vec4(x, y, sqrt(1. - x * x - y * y), 0.) * camera.view).xyz;
 
     return apply_pbr(in, WN, WN, in.color.rgb);
 }

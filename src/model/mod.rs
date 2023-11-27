@@ -5,7 +5,6 @@ pub mod emitter;
 pub mod emitter_state;
 pub mod events;
 pub mod gfx_state;
-pub mod gui_state;
 pub mod life_cycle;
 pub mod material;
 pub mod mesh;
@@ -17,7 +16,6 @@ pub use emitter::{Boundry, EmitterSettings, EmitterUniform, MaterialRef, MeshRef
 pub use emitter_state::{CreateEmitterOptions, EmitterState, EmitterType};
 pub use events::Events;
 pub use gfx_state::GfxState;
-pub use gui_state::GuiState;
 pub use life_cycle::LifeCycle;
 pub use material::Material;
 pub use mesh::{Mesh, ModelVertex};

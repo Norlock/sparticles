@@ -11,6 +11,7 @@ pub struct Mesh {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub model: glam::Mat4,
+    pub fs_entry_point: String,
 }
 
 impl Mesh {
@@ -71,6 +72,7 @@ impl Mesh {
             vertex_buffer,
             index_buffer,
             model: glam::Mat4::default(),
+            fs_entry_point: "fs_circle".to_string(),
         }
     }
 }

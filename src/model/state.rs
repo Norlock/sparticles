@@ -1,9 +1,8 @@
-use super::{
-    Camera, Clock, EmitterState, Events, GfxState, GuiState, Material, MaterialRef, Mesh, MeshRef,
-};
+use super::{Camera, Clock, EmitterState, Events, GfxState, Material, MaterialRef, Mesh, MeshRef};
 use crate::init::{InitEmitters, InitSettings};
 use crate::loader::{Model, BUILTIN_ID};
 use crate::traits::*;
+use crate::ui::GuiState;
 use crate::util::ID;
 use crate::{fx::PostProcessState, AppSettings};
 use egui_winit::winit::{dpi::PhysicalSize, event::KeyboardInput, window::Window};

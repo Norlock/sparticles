@@ -9,11 +9,11 @@ pub mod animations;
 pub mod fx;
 pub mod init;
 pub mod loader;
-pub mod math;
 pub mod model;
 pub mod shaders;
 pub mod texture;
 pub mod traits;
+pub mod ui;
 pub mod util;
 
 pub fn start(init_app: impl AppSettings) {

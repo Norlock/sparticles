@@ -3,13 +3,7 @@ GPU Particle system written in Rust + WGPU + EGUI
 
 ## Showcase
 
-
-
-
 https://github.com/Norlock/sparticles/assets/7510943/b0bfde2b-b44d-40fb-b88d-0c0e979627ab
-
-
-
 
 ## Roadmap
 - [x] Performance test gpu
@@ -27,11 +21,14 @@ https://github.com/Norlock/sparticles/assets/7510943/b0bfde2b-b44d-40fb-b88d-0c0
   - [x] Don't reload file if emitter recreate
 - [ ] Create custom materials
 - [ ] Debug params (to print imports for example)
+- [ ] Improve materials (KHR, HDR)
+- [ ] Async emitters
 
 ## Gui
 - [x] Show all possible diffuse textures in map
 - [x] Preview mode of textures
 - [ ] Load models from GUI.
+- [ ] Seperate GUI views
 
 ## Post fx
 - [x] Bloom

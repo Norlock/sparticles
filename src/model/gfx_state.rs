@@ -1,7 +1,7 @@
 use super::state::State;
 use super::EmitterState;
-use super::GuiState;
 use crate::fx::PostProcessState;
+use crate::ui::GuiState;
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::CommandEncoder;

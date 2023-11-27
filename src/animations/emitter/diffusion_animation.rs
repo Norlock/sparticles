@@ -1,5 +1,6 @@
+use crate::ui::GuiState;
 use crate::{
-    model::{Clock, EmitterUniform, GuiState, LifeCycle},
+    model::{Clock, EmitterUniform, LifeCycle},
     traits::{EmitterAnimation, HandleAction, HandleAngles, RegisterEmitterAnimation},
     util::persistence::DynamicExport,
     util::ListAction,

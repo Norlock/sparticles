@@ -1,6 +1,7 @@
 use super::{FxIOUniform, FxOptions, FxState};
+use crate::ui::GuiState;
 use crate::{
-    model::{Camera, GfxState, GuiState},
+    model::{Camera, GfxState},
     shaders::{ShaderOptions, SDR_TONEMAPPING},
     traits::{HandleAction, PostFx, RegisterPostFx},
     util::{CommonBuffer, DynamicExport, ListAction, UniformContext},

@@ -1,6 +1,7 @@
 use crate::{
     fx::{FxOptions, FxState},
-    model::{Camera, Clock, EmitterState, EmitterUniform, GfxState, GuiState, State},
+    model::{Camera, Clock, EmitterState, EmitterUniform, GfxState, State},
+    ui::GuiState,
     util::persistence::DynamicExport,
     util::ListAction,
 };

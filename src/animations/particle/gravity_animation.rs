@@ -1,7 +1,8 @@
 use crate::model::clock::Clock;
-use crate::model::{EmitterState, GfxState, GuiState, LifeCycle};
+use crate::model::{EmitterState, GfxState, LifeCycle};
 use crate::shaders::ShaderOptions;
 use crate::traits::*;
+use crate::ui::GuiState;
 use crate::util::persistence::DynamicExport;
 use crate::util::ListAction;
 use egui_wgpu::wgpu;

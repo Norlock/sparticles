@@ -1,9 +1,11 @@
-use super::{
-    camera::TonemapType, events::ViewIOEvent, EmitterSettings, EmitterState, GfxState, State,
+use crate::model::{
+    camera::TonemapType, emitter_state::RecreateEmitterOptions, events::ViewIOEvent,
+    EmitterSettings, EmitterState, EmitterType, GfxState, State,
 };
 use crate::{
     fx::{FxOptions, PostProcessState},
     texture::IconTexture,
+    traits::Splitting,
     util::ListAction,
     util::Persistence,
 };
@@ -22,10 +24,11 @@ use std::{collections::HashMap, path::PathBuf};
 use wgpu_profiler::GpuTimerScopeResult;
 
 pub struct GuiState {
-    pub enabled: bool,
-    pub new_emitter_tag: String,
-    pub profiling_results: Vec<GpuTimerScopeResult>,
-    pub selected_emitter_id: usize,
+    enabled: bool,
+    new_emitter_tag: String,
+    profiling_results: Vec<GpuTimerScopeResult>,
+    pub selected_emitter_idx: usize,
+    selected_menu_idx: usize,
 
     fps_text: String,
     cpu_time_text: String,
@@ -93,6 +96,19 @@ impl GuiState {
             return;
         }
 
+        let ctx = state.gfx_state.ctx.clone();
+
+        Window::new("Menu").show(&ctx, |ui| {
+            let gui = &mut state.gui;
+
+            //ComboBox::from_id_source("select-emitter").show_index(
+            //ui,
+            //&mut gui.selected_emitter_idx,
+            //emitters.len(),
+            //|i| emitters[i].id(),
+            //);
+        });
+
         Window::new("Sparticles settings")
             .vscroll(true)
             .frame(egui::Frame {
@@ -108,7 +124,7 @@ impl GuiState {
             })
             .default_height(800.)
             .display_event(&mut state.gui.display_event)
-            .show(&state.gfx_state.ctx.clone(), |ui| {
+            .show(&ctx, |ui| {
                 let State {
                     clock,
                     emitters,
@@ -155,14 +171,12 @@ impl GuiState {
 
                 ui.separator();
 
-                let emitter_txts: Vec<&str> = emitters.iter().map(|em| em.id()).collect();
-
                 ui.horizontal(|ui| {
                     ComboBox::from_id_source("select-emitter").show_index(
                         ui,
-                        &mut gui.selected_emitter_id,
-                        emitter_txts.len(),
-                        |i| emitter_txts[i],
+                        &mut gui.selected_emitter_idx,
+                        emitters.len(),
+                        |i| emitters[i].id(),
                     );
 
                     ui.separator();
@@ -230,12 +244,12 @@ impl GuiState {
                             );
                         });
 
-                    let emitter = &emitters[gui.selected_emitter_id];
+                    let emitter = &emitters[gui.selected_emitter_idx];
 
                     if !emitter.is_light && ui.button("Remove emitter").clicked() {
                         let id = emitter.id().to_string();
                         events.set_delete_emitter(id);
-                        gui.selected_emitter_id = 0;
+                        gui.selected_emitter_idx = 0;
                     }
                 });
 
@@ -299,7 +313,7 @@ impl GuiState {
     fn emitter_animations_tab(state: &mut State, ui: &mut Ui) {
         let gui = &mut state.gui;
 
-        let emitter = &mut state.emitters[gui.selected_emitter_id];
+        let emitter = &mut state.emitters[gui.selected_emitter_idx];
         let registered_em_anims = &state.registered_em_anims;
 
         emitter.ui_emitter_animations(ui, gui);
@@ -331,7 +345,7 @@ impl GuiState {
             ..
         } = state;
 
-        let emitter = &mut emitters[gui.selected_emitter_id];
+        let emitter = &mut emitters[gui.selected_emitter_idx];
         emitter.ui_particle_animations(ui, gui);
 
         ui.separator();
@@ -396,7 +410,8 @@ impl GuiState {
             particle_count_text: "".to_string(),
             selected_tab: Tab::EmitterSettings,
             texture_paths,
-            selected_emitter_id: 0,
+            selected_menu_idx: 0,
+            selected_emitter_idx: 0,
             selected_new_par_anim: 0,
             selected_new_em_anim: 0,
             selected_new_post_fx: 0,
@@ -413,7 +428,7 @@ impl GuiState {
     fn emitter_settings_tab(state: &mut State, ui: &mut Ui, encoder: &mut CommandEncoder) {
         let gui = &mut state.gui;
 
-        let emitter = &mut state.emitters[gui.selected_emitter_id];
+        let emitter = &mut state.emitters[gui.selected_emitter_idx];
         let mut emitter_settings = gui
             .emitter_settings
             .get_or_insert_with(|| emitter.uniform.create_settings());
@@ -539,7 +554,69 @@ impl GuiState {
             );
         };
 
-        EmitterState::update_emitter(state, encoder);
+        Self::update_emitter(state, encoder);
+    }
+
+    fn update_emitter(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
+        let State {
+            camera,
+            emitters,
+            gfx_state,
+            gui,
+            collection,
+            ..
+        } = state;
+
+        let settings = gui.emitter_settings.as_ref().unwrap();
+
+        let (em, mut others) = emitters.split_item_mut(gui.selected_emitter_idx);
+
+        em.uniform.update_settings(settings);
+
+        if settings.recreate {
+            if em.is_light {
+                *em = EmitterState::recreate_emitter(
+                    RecreateEmitterOptions {
+                        old_self: em,
+                        gfx_state,
+                        camera,
+                        collection,
+                        emitter_type: EmitterType::Lights,
+                    },
+                    encoder,
+                );
+
+                for other in others {
+                    *other = EmitterState::recreate_emitter(
+                        RecreateEmitterOptions {
+                            old_self: other,
+                            gfx_state,
+                            camera,
+                            collection,
+                            emitter_type: EmitterType::Normal {
+                                lights_layout: &em.bg_layout,
+                            },
+                        },
+                        encoder,
+                    );
+                }
+            } else {
+                let lights = others.next().unwrap();
+
+                *em = EmitterState::recreate_emitter(
+                    RecreateEmitterOptions {
+                        old_self: em,
+                        gfx_state,
+                        camera,
+                        collection,
+                        emitter_type: EmitterType::Normal {
+                            lights_layout: &lights.bg_layout,
+                        },
+                    },
+                    encoder,
+                );
+            }
+        }
     }
 
     fn post_fx_tab(state: &mut State, ui: &mut Ui) {

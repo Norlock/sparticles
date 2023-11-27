@@ -1,5 +1,6 @@
+use crate::ui::GuiState;
 use crate::{
-    model::{Clock, EmitterState, GfxState, GuiState},
+    model::{Clock, EmitterState, GfxState},
     shaders::ShaderOptions,
     traits::{CalculateBufferSize, HandleAction, ParticleAnimation, RegisterParticleAnimation},
     util::persistence::DynamicExport,

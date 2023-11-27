@@ -156,9 +156,9 @@ impl Model {
 
         let mut materials: HashMap<ID, Material> = HashMap::new();
 
-        for tex in gltf.accessors() {
-            //println!("tex {:?}", tex.name());
-        }
+        //for tex in gltf.accessors() {
+        ////println!("tex {:?}", tex.name());
+        //}
 
         for (i, material) in gltf.materials().enumerate() {
             let albedo_tex: wgpu::Texture;
@@ -179,6 +179,7 @@ impl Model {
                 let tex = tex_data.texture();
                 albedo_tex = fetch_texture(tex.source(), true);
                 albedo_s = fetch_sampler(tex.sampler());
+                println!("Contains albedo tex");
             } else {
                 albedo_tex = gfx_state.create_builtin_tex(TexType::White);
                 albedo_s = gfx_state.create_sampler();
@@ -214,6 +215,11 @@ impl Model {
                 let tex = tex_data.texture();
                 emissive_tex = fetch_texture(tex.source(), true);
                 emissive_s = fetch_sampler(tex.sampler());
+
+                if let Some(strenght) = material.emissive_strength() {
+                    println!("Strength: {}", strenght);
+                    // TODO with khr
+                }
                 println!("contains emissive_tex");
             } else {
                 let vec3: glam::Vec3 = material.emissive_factor().into();
@@ -241,7 +247,6 @@ impl Model {
 
             println!("Importing material: {:?}", &id);
 
-            // todo add normal_scale
             materials.insert(
                 id,
                 Material::new(
@@ -360,6 +365,7 @@ impl Model {
                             vertex_buffer,
                             index_buffer,
                             model,
+                            fs_entry_point: "fs_model".to_string(),
                         },
                     );
                 } else {

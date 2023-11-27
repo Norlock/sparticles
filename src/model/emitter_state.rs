@@ -1,11 +1,10 @@
 use super::state::FastFetch;
-use super::{
-    Camera, EmitterUniform, GfxState, GuiState, Material, Mesh, MeshRef, ModelVertex, State,
-};
+use super::{Camera, EmitterUniform, GfxState, Material, Mesh, ModelVertex, State};
 use crate::fx::PostProcessState;
 use crate::loader::{Model, BUILTIN_ID};
-use crate::shaders::{ShaderOptions, DIR_HAS_LIGHTS, SDR_PBR, SDR_TONEMAPPING};
-use crate::traits::{EmitterAnimation, ParticleAnimation, Splitting};
+use crate::shaders::{ShaderOptions, SDR_PBR, SDR_TONEMAPPING};
+use crate::traits::{EmitterAnimation, ParticleAnimation};
+use crate::ui::GuiState;
 use crate::util::persistence::{ExportEmitter, ExportType};
 use crate::util::{ListAction, Persistence, ID};
 use egui_wgpu::wgpu::{self, ShaderModule};
@@ -63,68 +62,6 @@ pub struct RecreateEmitterOptions<'a> {
 impl<'a> EmitterState {
     pub fn id(&self) -> &str {
         &self.uniform.id
-    }
-
-    pub fn update_emitter(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
-        let State {
-            camera,
-            emitters,
-            gfx_state,
-            gui,
-            collection,
-            ..
-        } = state;
-
-        let settings = gui.emitter_settings.as_ref().unwrap();
-
-        let (em, mut others) = emitters.split_item_mut(gui.selected_emitter_id);
-
-        em.uniform.update_settings(settings);
-
-        if settings.recreate {
-            if em.is_light {
-                *em = EmitterState::recreate_emitter(
-                    RecreateEmitterOptions {
-                        old_self: em,
-                        gfx_state,
-                        camera,
-                        collection,
-                        emitter_type: EmitterType::Lights,
-                    },
-                    encoder,
-                );
-
-                for other in others {
-                    *other = EmitterState::recreate_emitter(
-                        RecreateEmitterOptions {
-                            old_self: other,
-                            gfx_state,
-                            camera,
-                            collection,
-                            emitter_type: EmitterType::Normal {
-                                lights_layout: &em.bg_layout,
-                            },
-                        },
-                        encoder,
-                    );
-                }
-            } else {
-                let lights = others.next().unwrap();
-
-                *em = EmitterState::recreate_emitter(
-                    RecreateEmitterOptions {
-                        old_self: em,
-                        gfx_state,
-                        camera,
-                        collection,
-                        emitter_type: EmitterType::Normal {
-                            lights_layout: &lights.bg_layout,
-                        },
-                    },
-                    encoder,
-                );
-            }
-        }
     }
 
     pub fn update(state: &mut State) {
@@ -534,6 +471,7 @@ impl<'a> EmitterState {
         let is_light;
 
         let material = collection.get_mat(&uniform.material);
+        let mesh = collection.get_mesh(&uniform.mesh);
 
         match &options.emitter_type {
             EmitterType::Lights => {
@@ -553,7 +491,7 @@ impl<'a> EmitterState {
             EmitterType::Normal { lights_layout } => {
                 shader = gfx_state.create_shader_builtin(ShaderOptions {
                     files: &[SDR_TONEMAPPING, SDR_PBR, "particle.wgsl"],
-                    if_directives: &[DIR_HAS_LIGHTS],
+                    if_directives: &[],
                     label: "Particle render",
                 });
 
@@ -572,7 +510,7 @@ impl<'a> EmitterState {
         }
 
         let render_pipeline =
-            Self::create_pipeline(&shader, &pipeline_layout, &uniform.mesh, material, device);
+            Self::create_pipeline(&shader, &pipeline_layout, mesh, material, device);
 
         EmitterState {
             uniform,
@@ -594,17 +532,10 @@ impl<'a> EmitterState {
     fn create_pipeline(
         shader: &ShaderModule,
         layout: &wgpu::PipelineLayout,
-        mesh_ref: &MeshRef,
+        mesh: &Mesh,
         material: &Material,
         device: &wgpu::Device,
     ) -> wgpu::RenderPipeline {
-        let fs_entry = if mesh_ref.collection_id == BUILTIN_ID {
-            // TODO also different builtin shapes
-            "fs_circle"
-        } else {
-            "fs_model"
-        };
-
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&layout),
@@ -615,7 +546,7 @@ impl<'a> EmitterState {
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: fs_entry,
+                entry_point: &mesh.fs_entry_point,
                 targets: &[
                     Some(wgpu::ColorTargetState {
                         format: PostProcessState::TEXTURE_FORMAT,
