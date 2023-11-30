@@ -66,7 +66,7 @@ pub trait ParticleAnimation: HandleAction {
 
     fn recreate(&self, gfx_state: &GfxState, emitter: &EmitterState) -> Box<dyn ParticleAnimation>;
     fn update(&mut self, clock: &Clock, gfx: &GfxState);
-    fn draw_ui(&mut self, ui: &mut Ui) {}
+    fn draw_widget(&mut self, ui: &mut Ui) {}
 }
 
 pub trait WidgetBuilder {

@@ -24,6 +24,7 @@ use sparticles_app::{
 };
 use std::{
     collections::HashMap,
+    ops::Deref,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -53,14 +54,6 @@ pub struct Editor {
     pub emitter_settings: Option<EmitterSettings>,
 }
 
-impl WidgetBuilder for Editor {
-    fn draw_ui(&mut self, state: &mut State, encoder: &mut wgpu::CommandEncoder) -> Events {
-        let mut events = Events::default();
-        self.update_gui(state, &mut events, encoder);
-        events
-    }
-}
-
 const CHEVRON_UP_ID: &str = "chevron-up";
 const CHEVRON_DOWN_ID: &str = "chevron-down";
 const TRASH_ID: &str = "trash";
@@ -75,10 +68,18 @@ enum Tab {
 
 const WINDOW_MARGIN: f32 = 10.;
 
+impl WidgetBuilder for Editor {
+    fn draw_ui(&mut self, state: &mut State, encoder: &mut wgpu::CommandEncoder) -> Events {
+        let mut events = Events::default();
+        self.update_gui(state, &mut events, encoder);
+        events
+    }
+}
+
 impl Editor {
     pub fn process_input(
         &mut self,
-        state: &State,
+        state: &mut State,
         input: &KeyboardInput,
         events: &mut Events,
         shift_pressed: bool,
@@ -109,7 +110,6 @@ impl Editor {
         true
     }
 
-    // TODO return events
     pub fn update_gui(
         &mut self,
         state: &mut State,
@@ -402,7 +402,7 @@ impl Editor {
             .show(ui, |ui| {
                 for anim in emitter.particle_animations.iter_mut() {
                     ui.group(|ui| {
-                        anim.draw_ui(ui);
+                        anim.draw_widget(ui);
                         //anim.
                         //anim.create_ui(ui, gui_state);
                         //anim.draw(ui, self);
@@ -447,15 +447,13 @@ impl Editor {
         textures
     }
 
-    pub fn new(show_gui: bool, gfx_state: &mut GfxState) -> Arc<Mutex<Self>> {
+    pub fn new(gfx_state: &mut GfxState) -> Arc<Mutex<Self>> {
         let texture_paths = Persistence::import_textures().unwrap();
         let icon_textures = Self::create_icons(gfx_state);
 
         //let editor = Arc::new(Mutex::new(Editor::new(true, gfx)));
 
-        //let can_visitor = ColorAnimationWidgets { widgets: editor };
-
-        let obj = Self {
+        let obj = Editor {
             cpu_time_text: "".to_string(),
             fps_text: "".to_string(),
             elapsed_text: "".to_string(),

@@ -88,7 +88,7 @@ impl AppVisitor for CustomSettings {
     }
 
     fn add_widget_builders(&mut self, gfx: &mut GfxState) {
-        self.widget_builders.push(Editor::new(true, gfx));
+        self.widget_builders.push(Editor::new(gfx));
     }
 
     fn process_events(

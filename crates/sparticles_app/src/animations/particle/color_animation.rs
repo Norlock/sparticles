@@ -37,11 +37,15 @@ impl<T: ParticleAnimation> Widgets<T> {
 
     pub fn draw(&self, anim: &mut T, ui: &mut Ui, idx: usize) {
         let mut lock = self.0.try_lock();
+        println!("komt hier");
 
         if let Ok(ref mut list_lock) = lock {
-            if let Ok(ref mut lock) = list_lock[idx].try_lock() {
+            println!("komt in lock");
+            let test = list_lock[idx].clone();
+            if let Ok(ref mut lock) = test.try_lock() {
+                println!("komt in tweede lock");
                 lock.draw_widget(ui, anim);
-            }
+            };
             //list[idx].draw_widget(ui, anim);
         }
     }
@@ -181,7 +185,11 @@ impl ParticleAnimation for ColorAnimation {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
 
-    fn draw_ui(&mut self, ui: &mut Ui) {
+    fn draw_widget(&mut self, ui: &mut Ui) {
+        COLOR_ANIM_WIDGETS.draw(self, ui, 0);
+    }
+
+    fn draw_widget2(&mut self, ui: &mut Ui, wb: Box<dyn WidgetBuilder>) {
         COLOR_ANIM_WIDGETS.draw(self, ui, 0);
     }
 }
