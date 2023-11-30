@@ -73,7 +73,7 @@ impl BlurPass {
 
     pub fn new(options: &FxOptions, settings: BlurPassSettings) -> Self {
         let FxOptions {
-            gfx_state,
+            gfx: gfx_state,
             fx_state,
         } = options;
 

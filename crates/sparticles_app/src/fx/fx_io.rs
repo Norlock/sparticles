@@ -40,7 +40,7 @@ pub struct FxIOUniformOptions {
 }
 
 pub struct FxOptions<'a> {
-    pub gfx_state: &'a GfxState,
+    pub gfx: &'a GfxState,
     pub fx_state: &'a FxState,
 }
 
@@ -228,7 +228,7 @@ impl FxIOUniform {
             out_downscale: self.out_downscale,
         };
 
-        let queue = &options.gfx_state.queue;
+        let queue = &options.gfx.queue;
         let contents = CommonBuffer::uniform_content(self);
 
         queue.write_buffer(buf, 0, &contents);

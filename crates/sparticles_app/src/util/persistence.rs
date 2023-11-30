@@ -79,12 +79,8 @@ impl Persistence {
         Err(ImportError { msg: error_msg })
     }
 
-    pub fn import_emitter_states() -> Result<Vec<ExportEmitter>, ImportError> {
-        let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        dir.push(format!("export/{}", ExportType::EmitterStates));
-
-        let path = dir.to_str().expect("Path is not correct");
-        let file_str = fs::read_to_string(path);
+    pub fn import_emitter_states(path: PathBuf) -> Result<Vec<ExportEmitter>, ImportError> {
+        let file_str = fs::read_to_string(path.to_str().expect("Export path is not correct"));
 
         match file_str {
             Err(err) => println!("{}", err),
@@ -92,7 +88,7 @@ impl Persistence {
                 match serde_json::from_str::<Vec<ExportEmitter>>(&file_str) {
                     Ok(val) => return Ok(val),
                     Err(err) => {
-                        let filename = dir.file_name().unwrap().to_str().unwrap();
+                        let filename = path.file_name().unwrap().to_str().unwrap();
                         return Err(ImportError {
                             msg: format!("Wrong syntaxed JSON for file {}: {}", filename, err),
                         });

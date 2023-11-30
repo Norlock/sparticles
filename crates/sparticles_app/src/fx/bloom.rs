@@ -11,7 +11,6 @@ use crate::fx::ColorFxUniform;
 use crate::model::Camera;
 use crate::model::GfxState;
 use crate::traits::*;
-use crate::ui::GuiState;
 use crate::util::CommonBuffer;
 use crate::util::DynamicExport;
 use crate::util::ListAction;
@@ -130,43 +129,43 @@ impl PostFx for Bloom {
         gfx_state.end_scope(c_pass);
     }
 
-    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-        self.selected_action = ui_state.create_li_header(ui, "Bloom settings");
-        ui.add_space(5.0);
+    //fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
+    //self.selected_action = ui_state.create_li_header(ui, "Bloom settings");
+    //ui.add_space(5.0);
 
-        ui.add(Slider::new(&mut self.bloom_treshold, 0.0..=10.0).text("Brightness treshold"));
+    //ui.add(Slider::new(&mut self.bloom_treshold, 0.0..=10.0).text("Brightness treshold"));
 
-        for (i, up) in self.upscale_passes.iter_mut().enumerate() {
-            let io_uniform = up.blend.io();
-            let text = format!(
-                "IO mix from downscale {} to {}",
-                io_uniform.in_downscale, io_uniform.out_downscale
-            );
+    //for (i, up) in self.upscale_passes.iter_mut().enumerate() {
+    //let io_uniform = up.blend.io();
+    //let text = format!(
+    //"IO mix from downscale {} to {}",
+    //io_uniform.in_downscale, io_uniform.out_downscale
+    //);
 
-            if ui
-                .add(Slider::new(&mut up.blend_uniform.io_mix, 0.0..=1.0).text(&text))
-                .changed()
-            {
-                self.update_event = Some(UIAction::UpdateBuffer(i));
-            }
-        }
+    //if ui
+    //.add(Slider::new(&mut up.blend_uniform.io_mix, 0.0..=1.0).text(&text))
+    //.changed()
+    //{
+    //self.update_event = Some(UIAction::UpdateBuffer(i));
+    //}
+    //}
 
-        GuiState::create_title(ui, "Blend");
-        if ui
-            .add(
-                Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0)
-                    .text("IO mix bloom to frame"),
-            )
-            .changed()
-        {
-            self.update_event = Some(UIAction::UpdateBuffer(self.upscale_passes.len()));
-        }
+    //GuiState::create_title(ui, "Blend");
+    //if ui
+    //.add(
+    //Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0)
+    //.text("IO mix bloom to frame"),
+    //)
+    //.changed()
+    //{
+    //self.update_event = Some(UIAction::UpdateBuffer(self.upscale_passes.len()));
+    //}
 
-        GuiState::create_title(ui, "Color correction");
-        self.color.ui_gamma(ui);
+    //GuiState::create_title(ui, "Color correction");
+    //self.color.ui_gamma(ui);
 
-        ui.checkbox(&mut self.enabled, "Enabled");
-    }
+    //ui.checkbox(&mut self.enabled, "Enabled");
+    //}
 
     fn update(&mut self, gfx_state: &GfxState, camera: &mut Camera) {
         camera.bloom_treshold = glam::Vec3::splat(self.bloom_treshold);
@@ -221,7 +220,7 @@ impl HandleAction for Bloom {
 impl Bloom {
     pub fn new(options: &FxOptions, settings: BloomSettings) -> Self {
         let FxOptions {
-            gfx_state,
+            gfx: gfx_state,
             fx_state,
         } = options;
 

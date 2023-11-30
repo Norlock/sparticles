@@ -1,5 +1,4 @@
 use super::{FxIOUniform, FxOptions, FxState};
-use crate::ui::GuiState;
 use crate::{
     model::{Camera, GfxState},
     shaders::{ShaderOptions, SDR_TONEMAPPING},
@@ -116,15 +115,15 @@ impl PostFx for ColorFx {
         }
     }
 
-    fn create_ui(&mut self, ui: &mut egui::Ui, ui_state: &GuiState) {
-        self.selected_action = ui_state.create_li_header(ui, "Color correction");
+    //fn create_ui(&mut self, ui: &mut egui::Ui, ui_state: &GuiState) {
+    //self.selected_action = ui_state.create_li_header(ui, "Color correction");
 
-        self.ui_gamma(ui);
-        self.ui_contrast(ui);
-        self.ui_brightness(ui);
+    //self.ui_gamma(ui);
+    //self.ui_contrast(ui);
+    //self.ui_brightness(ui);
 
-        ui.checkbox(&mut self.enabled, "Enabled");
-    }
+    //ui.checkbox(&mut self.enabled, "Enabled");
+    //}
 }
 
 impl HandleAction for ColorFx {
@@ -189,7 +188,7 @@ impl ColorFx {
 
     pub fn new(options: &FxOptions, settings: ColorFxSettings) -> Self {
         let FxOptions {
-            gfx_state,
+            gfx: gfx_state,
             fx_state,
         } = options;
 

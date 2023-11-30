@@ -1,7 +1,10 @@
+use super::events::GameState;
 use super::state::State;
 use super::EmitterState;
+use super::Events;
 use crate::fx::PostProcessState;
-use crate::ui::GuiState;
+use crate::init::AppVisitor;
+use crate::winit::event::KeyboardInput;
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::CommandEncoder;
@@ -11,6 +14,7 @@ use egui_winit::egui::Context;
 use egui_winit::egui::FontData;
 use egui_winit::egui::FontDefinitions;
 use egui_winit::egui::FontFamily;
+use egui_winit::egui::RawInput;
 use egui_winit::winit;
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::EventResponse;
@@ -29,8 +33,13 @@ pub struct GfxState {
     pub renderer: Renderer,
     pub screen_descriptor: ScreenDescriptor,
     pub profiler: GpuProfiler,
-    winit: egui_winit::State,
-    surface: wgpu::Surface,
+    pub winit: egui_winit::State,
+    pub surface: wgpu::Surface,
+}
+
+pub struct DrawGuiResult {
+    pub primitives: Vec<ClippedPrimitive>,
+    pub events: Events,
 }
 
 impl GfxState {
@@ -40,6 +49,23 @@ impl GfxState {
 
     pub fn end_scope(&mut self, pass: &mut impl ProfilerCommandRecorder) {
         self.profiler.end_scope(pass).unwrap();
+    }
+
+    pub fn finish_frame(
+        &mut self,
+        mut encoder: CommandEncoder,
+        output_frame: wgpu::SurfaceTexture,
+    ) {
+        self.profiler.resolve_queries(&mut encoder);
+
+        // Submit the commands.
+        self.queue.submit(Some(encoder.finish()));
+
+        // Redraw egui
+        output_frame.present();
+
+        // Signal to the profiler that the frame is finished.
+        self.profiler.end_frame().unwrap();
     }
 
     pub async fn new(window: window::Window) -> Self {
@@ -104,9 +130,19 @@ impl GfxState {
 
         surface.configure(&device, &surface_config);
 
-        let winit = egui_winit::State::new(&window);
-        let renderer = Renderer::new(&device, surface_format, None, 1);
+        let raw_input = RawInput::default();
+        let vp = raw_input.viewport();
+
         let ctx = Context::default();
+
+        let winit = egui_winit::State::new(
+            raw_input.viewport_id,
+            &window,
+            vp.native_pixels_per_point,
+            raw_input.max_texture_side,
+        );
+
+        let renderer = Renderer::new(&device, surface_format, None, 1);
 
         let mut fonts = FontDefinitions::default();
 
@@ -149,7 +185,7 @@ impl GfxState {
     }
 
     pub fn handle_event(&mut self, event: &WindowEvent<'_>) -> EventResponse {
-        self.winit.on_event(&self.ctx, event)
+        self.winit.on_window_event(&self.ctx, event)
     }
 
     pub fn request_redraw(&self) {
@@ -169,67 +205,72 @@ impl GfxState {
         }
     }
 
-    pub fn draw_gui(state: &mut State, encoder: &mut CommandEncoder) -> Vec<ClippedPrimitive> {
-        let input = state
-            .gfx_state
-            .winit
-            .take_egui_input(&state.gfx_state.window);
+    pub fn draw_ui(
+        state: &mut State,
+        encoder: &mut wgpu::CommandEncoder,
+        app_visitor: &mut impl AppVisitor,
+    ) -> DrawGuiResult {
+        let input = state.gfx.winit.take_egui_input(&state.gfx.window);
 
-        state.gfx_state.ctx.begin_frame(input);
+        state.gfx.ctx.begin_frame(input);
 
-        GuiState::update_gui(state, encoder);
+        // TODO DRAW UI!!!!!!!!!!!!!
+        let events = app_visitor.draw_ui(state, encoder);
+        let gfx = &mut state.gfx;
 
-        let State { gfx_state, .. } = state;
+        let full_output = gfx.ctx.end_frame();
 
-        let full_output = gfx_state.ctx.end_frame();
+        let primitives = gfx
+            .ctx
+            .tessellate(full_output.shapes, gfx.winit.pixels_per_point());
 
-        let clipped_primitives = gfx_state.ctx.tessellate(full_output.shapes);
-
-        gfx_state.winit.handle_platform_output(
-            &gfx_state.window,
-            &gfx_state.ctx,
-            full_output.platform_output,
-        );
+        gfx.winit
+            .handle_platform_output(&gfx.window, &gfx.ctx, full_output.platform_output);
 
         for (tex_id, img_delta) in full_output.textures_delta.set {
-            gfx_state.renderer.update_texture(
-                &gfx_state.device,
-                &gfx_state.queue,
-                tex_id,
-                &img_delta,
-            );
+            gfx.renderer
+                .update_texture(&gfx.device, &gfx.queue, tex_id, &img_delta);
         }
 
         for tex_id in full_output.textures_delta.free {
-            gfx_state.renderer.free_texture(&tex_id);
+            gfx.renderer.free_texture(&tex_id);
         }
 
-        gfx_state.renderer.update_buffers(
-            &gfx_state.device,
-            &gfx_state.queue,
+        gfx.renderer.update_buffers(
+            &gfx.device,
+            &gfx.queue,
             encoder,
-            &clipped_primitives,
-            &gfx_state.screen_descriptor,
+            &primitives,
+            &gfx.screen_descriptor,
         );
 
-        clipped_primitives
+        DrawGuiResult { events, primitives }
     }
 
-    pub fn render(state: &mut State) {
-        let output_frame = match state.gfx_state.surface.get_current_texture() {
+    pub fn process_events(state: &mut State, input: KeyboardInput, shift_pressed: bool) {
+        if state.camera.process_input(&input) {
+            return;
+        }
+
+        // TODO PROCESS EVENTS FOR EGUI
+        //state.process_events(&mut self.state, input, shift_pressed);
+    }
+
+    pub fn render(state: &mut State, app_visitor: &mut impl AppVisitor) -> Events {
+        let output_frame = match state.gfx.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Outdated) => {
-                return;
+                return Events::default();
             }
             Err(e) => {
                 eprintln!("Dropped frame with error: {}", e);
-                return;
+                return Events::default();
             }
         };
 
         let mut encoder =
             state
-                .gfx_state
+                .gfx
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("encoder"),
@@ -239,27 +280,16 @@ impl GfxState {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        if state.events.play() {
+        if GameState::Play == state.game_state {
             EmitterState::compute_particles(state, &mut encoder);
         }
 
         EmitterState::render_particles(state, &mut encoder);
         PostProcessState::compute(state, &mut encoder);
-        PostProcessState::render(state, output_view, &mut encoder);
+        let events = PostProcessState::render(state, output_view, &mut encoder, app_visitor);
 
-        let GfxState {
-            queue, profiler, ..
-        } = &mut state.gfx_state;
+        state.gfx.finish_frame(encoder, output_frame);
 
-        profiler.resolve_queries(&mut encoder);
-
-        // Submit the commands.
-        queue.submit(Some(encoder.finish()));
-
-        // Redraw egui
-        output_frame.present();
-
-        // Signal to the profiler that the frame is finished.
-        profiler.end_frame().unwrap();
+        events
     }
 }

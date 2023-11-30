@@ -1,14 +1,12 @@
 use super::state::FastFetch;
-use super::{Camera, EmitterUniform, GfxState, Material, Mesh, ModelVertex, State};
+use super::{Camera, EmitterUniform, Events, GfxState, Material, Mesh, ModelVertex, State};
 use crate::fx::PostProcessState;
 use crate::loader::{Model, BUILTIN_ID};
 use crate::shaders::{ShaderOptions, SDR_PBR, SDR_TONEMAPPING};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
-use crate::ui::GuiState;
 use crate::util::persistence::{ExportEmitter, ExportType};
 use crate::util::{ListAction, Persistence, ID};
 use egui_wgpu::wgpu::{self, ShaderModule};
-use egui_winit::egui::{ScrollArea, Ui};
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
@@ -22,13 +20,12 @@ pub struct EmitterState {
     pipeline: wgpu::ComputePipeline,
     pipeline_layout: wgpu::PipelineLayout,
     render_pipeline: wgpu::RenderPipeline,
-
     emitter_buffer: wgpu::Buffer,
     particle_buffers: Vec<wgpu::Buffer>,
-    particle_animations: Vec<Box<dyn ParticleAnimation>>,
-    emitter_animations: Vec<Box<dyn EmitterAnimation>>,
-    shader: ShaderModule,
 
+    pub particle_animations: Vec<Box<dyn ParticleAnimation>>,
+    pub emitter_animations: Vec<Box<dyn EmitterAnimation>>,
+    pub shader: ShaderModule,
     pub uniform: EmitterUniform,
     pub dispatch_x_count: u32,
     pub bgs: Vec<wgpu::BindGroup>,
@@ -45,7 +42,7 @@ pub enum EmitterType<'a> {
 
 pub struct CreateEmitterOptions<'a> {
     pub uniform: EmitterUniform,
-    pub gfx_state: &'a GfxState,
+    pub gfx: &'a GfxState,
     pub camera: &'a Camera,
     pub collection: &'a HashMap<ID, Model>,
     pub emitter_type: EmitterType<'a>,
@@ -53,7 +50,7 @@ pub struct CreateEmitterOptions<'a> {
 
 pub struct RecreateEmitterOptions<'a> {
     pub old_self: &'a mut EmitterState,
-    pub gfx_state: &'a GfxState,
+    pub gfx: &'a GfxState,
     pub camera: &'a Camera,
     pub collection: &'a HashMap<ID, Model>,
     pub emitter_type: EmitterType<'a>,
@@ -64,35 +61,35 @@ impl<'a> EmitterState {
         &self.uniform.id
     }
 
-    pub fn update(state: &mut State) {
+    pub fn update(state: &mut State, events: &Events) {
         let State {
             clock,
             emitters,
-            gfx_state,
+            gfx,
             camera,
-            events,
             collection,
             ..
         } = state;
 
-        if let Some(tag) = events.delete_emitter() {
-            emitters.retain(|em| em.id() != &tag);
-        } else if let Some(id) = events.create_emitter() {
+        if let Some(tag) = &events.delete_emitter {
+            emitters.retain(|em| em.id() != tag);
+        } else if let Some(id) = &events.create_emitter {
             let options = CreateEmitterOptions {
                 camera,
-                uniform: EmitterUniform::new(id),
+                uniform: EmitterUniform::new(id.to_string()),
                 collection,
                 emitter_type: EmitterType::Normal {
                     lights_layout: &emitters[0].bg_layout,
                 },
-                gfx_state,
+                gfx,
             };
 
             emitters.push(Self::new(options));
         }
 
         if let Some(model) = collection.get_mut(BUILTIN_ID) {
-            let queue = &mut gfx_state.queue;
+            let queue = &mut gfx.queue;
+            // TODO only update when in use
             Mesh::update(&mut model.meshes, queue, &camera);
         }
 
@@ -112,14 +109,13 @@ impl<'a> EmitterState {
             let buffer_content_raw = emitter.uniform.create_buffer_content(collection);
             let buffer_content = bytemuck::cast_slice(&buffer_content_raw);
 
-            gfx_state
-                .queue
+            gfx.queue
                 .write_buffer(&emitter.emitter_buffer, 0, buffer_content);
 
             ListAction::update_list(&mut emitter.particle_animations);
 
             for anim in emitter.particle_animations.iter_mut() {
-                anim.update(clock, gfx_state);
+                anim.update(clock, gfx);
             }
         }
     }
@@ -128,7 +124,7 @@ impl<'a> EmitterState {
         let State {
             clock,
             emitters,
-            gfx_state,
+            gfx,
             ..
         } = state;
 
@@ -139,16 +135,16 @@ impl<'a> EmitterState {
             timestamp_writes: None,
         });
 
-        gfx_state.begin_scope("Compute", &mut c_pass);
+        gfx.begin_scope("Compute", &mut c_pass);
 
         for emitter in emitters.iter() {
-            gfx_state.begin_scope(&format!("Compute emitter: {}", emitter.id()), &mut c_pass);
+            gfx.begin_scope(&format!("Compute emitter: {}", emitter.id()), &mut c_pass);
             c_pass.set_pipeline(&emitter.pipeline);
             c_pass.set_bind_group(0, &emitter.bgs[nr], &[]);
             c_pass.dispatch_workgroups(emitter.dispatch_x_count, 1, 1);
-            gfx_state.end_scope(&mut c_pass);
+            gfx.end_scope(&mut c_pass);
 
-            gfx_state.begin_scope("Compute particle animations", &mut c_pass);
+            gfx.begin_scope("Compute particle animations", &mut c_pass);
             for anim in emitter
                 .particle_animations
                 .iter()
@@ -156,10 +152,10 @@ impl<'a> EmitterState {
             {
                 anim.compute(emitter, clock, &mut c_pass);
             }
-            gfx_state.end_scope(&mut c_pass);
+            gfx.end_scope(&mut c_pass);
         }
 
-        gfx_state.end_scope(&mut c_pass);
+        gfx.end_scope(&mut c_pass);
     }
 
     pub fn render_particles(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
@@ -200,7 +196,7 @@ impl<'a> EmitterState {
         let clock = &state.clock;
         let emitters = &state.emitters;
         let camera = &state.camera;
-        let gfx_state = &mut state.gfx_state;
+        let gfx_state = &mut state.gfx;
         let collection = &mut state.collection;
 
         let nr = clock.get_alt_bindgroup_nr();
@@ -239,13 +235,13 @@ impl<'a> EmitterState {
 
         let mut new_self = Self::new(CreateEmitterOptions {
             uniform: old_self.uniform.clone(),
-            gfx_state: options.gfx_state,
+            gfx: options.gfx,
             camera: options.camera,
             collection: options.collection,
             emitter_type: options.emitter_type,
         });
 
-        let gfx_state = options.gfx_state;
+        let gfx_state = options.gfx;
 
         for i in 0..2 {
             let old_buf = &old_self.particle_buffers[i];
@@ -273,34 +269,6 @@ impl<'a> EmitterState {
 
     pub fn push_emitter_animation(&mut self, animation: Box<dyn EmitterAnimation>) {
         self.emitter_animations.push(animation);
-    }
-
-    pub fn ui_emitter_animations(&mut self, ui: &mut Ui, gui_state: &GuiState) {
-        ScrollArea::vertical()
-            .auto_shrink([true; 2])
-            .vscroll(true)
-            .max_height(500.)
-            .show(ui, |ui| {
-                for anim in self.emitter_animations.iter_mut() {
-                    ui.group(|ui| {
-                        anim.create_ui(ui, gui_state);
-                    });
-                }
-            });
-    }
-
-    pub fn ui_particle_animations(&mut self, ui: &mut Ui, gui_state: &GuiState) {
-        ScrollArea::vertical()
-            .auto_shrink([true; 2])
-            .vscroll(true)
-            .max_height(500.)
-            .show(ui, |ui| {
-                for anim in self.particle_animations.iter_mut() {
-                    ui.group(|ui| {
-                        anim.create_ui(ui, gui_state);
-                    });
-                }
-            });
     }
 
     pub fn update_diffuse(&mut self, _gfx_state: &GfxState, _path: &mut PathBuf) {
@@ -340,7 +308,7 @@ impl<'a> EmitterState {
     }
 
     pub fn new(options: CreateEmitterOptions) -> Self {
-        let gfx_state = options.gfx_state;
+        let gfx_state = options.gfx;
         let camera = options.camera;
         let uniform = options.uniform;
         let collection = options.collection;

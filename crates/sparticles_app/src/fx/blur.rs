@@ -5,7 +5,6 @@ use super::FxState;
 use crate::model::Camera;
 use crate::model::GfxState;
 use crate::traits::*;
-use crate::ui::GuiState;
 use crate::util::CommonBuffer;
 use crate::util::DynamicExport;
 use crate::util::ListAction;
@@ -120,37 +119,37 @@ impl PostFx for Blur {
         }
     }
 
-    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-        self.selected_action = ui_state.create_li_header(ui, "Gaussian blur");
+    //fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
+    //self.selected_action = ui_state.create_li_header(ui, "Gaussian blur");
 
-        if self.blur_type == BlurType::Gaussian {
-            let a = ui.add(Slider::new(&mut self.blur_uniform.sigma, 0.1..=3.0).text("Blur sigma"));
-            let b = ui.add(Slider::new(&mut self.blur_uniform.radius, 2..=6).text("Blur radius"));
-            let c = ui.add(
-                Slider::new(&mut self.blur_uniform.intensity, 0.9..=1.1).text("Blur intensity"),
-            );
+    //if self.blur_type == BlurType::Gaussian {
+    //let a = ui.add(Slider::new(&mut self.blur_uniform.sigma, 0.1..=3.0).text("Blur sigma"));
+    //let b = ui.add(Slider::new(&mut self.blur_uniform.radius, 2..=6).text("Blur radius"));
+    //let c = ui.add(
+    //Slider::new(&mut self.blur_uniform.intensity, 0.9..=1.1).text("Blur intensity"),
+    //);
 
-            if a.changed() || b.changed() || c.changed() {
-                self.update_uniform = Some(BlurEvent::UpdateUniform);
-            }
-        } else {
-            let a = ui.add(
-                Slider::new(&mut self.blur_uniform.brightness_threshold, 0.0..=1.0)
-                    .text("Brightness threshold"),
-            );
-            let b = ui.add(Slider::new(&mut self.blur_uniform.sigma, 0.1..=3.0).text("Blur sigma"));
-            let c = ui.add(Slider::new(&mut self.blur_uniform.radius, 2..=8).text("Blur radius"));
-            let d = ui.add(
-                Slider::new(&mut self.blur_uniform.intensity, 0.9..=1.1).text("Blur intensity"),
-            );
+    //if a.changed() || b.changed() || c.changed() {
+    //self.update_uniform = Some(BlurEvent::UpdateUniform);
+    //}
+    //} else {
+    //let a = ui.add(
+    //Slider::new(&mut self.blur_uniform.brightness_threshold, 0.0..=1.0)
+    //.text("Brightness threshold"),
+    //);
+    //let b = ui.add(Slider::new(&mut self.blur_uniform.sigma, 0.1..=3.0).text("Blur sigma"));
+    //let c = ui.add(Slider::new(&mut self.blur_uniform.radius, 2..=8).text("Blur radius"));
+    //let d = ui.add(
+    //Slider::new(&mut self.blur_uniform.intensity, 0.9..=1.1).text("Blur intensity"),
+    //);
 
-            if a.changed() || b.changed() || c.changed() || d.changed() {
-                self.update_uniform = Some(BlurEvent::UpdateUniform);
-            }
-        }
+    //if a.changed() || b.changed() || c.changed() || d.changed() {
+    //self.update_uniform = Some(BlurEvent::UpdateUniform);
+    //}
+    //}
 
-        ui.checkbox(&mut self.enabled, "Enabled");
-    }
+    //ui.checkbox(&mut self.enabled, "Enabled");
+    //}
 }
 
 impl HandleAction for Blur {
@@ -177,7 +176,7 @@ impl HandleAction for Blur {
 
 impl Blur {
     pub fn new(options: &FxOptions, blur_settings: BlurSettings) -> Self {
-        let FxOptions { gfx_state, .. } = options;
+        let FxOptions { gfx: gfx_state, .. } = options;
 
         let device = &gfx_state.device;
 

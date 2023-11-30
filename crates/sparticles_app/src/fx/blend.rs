@@ -97,7 +97,7 @@ impl BlendPass {
 
     pub fn new(options: &FxOptions, settings: BlendSettings) -> Self {
         let FxOptions {
-            gfx_state,
+            gfx: gfx_state,
             fx_state,
         } = options;
 

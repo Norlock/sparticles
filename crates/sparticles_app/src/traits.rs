@@ -1,13 +1,12 @@
 use crate::{
     fx::{FxOptions, FxState},
-    model::{Camera, Clock, EmitterState, EmitterUniform, GfxState, State},
-    ui::GuiState,
+    model::{Camera, Clock, EmitterState, EmitterUniform, Events, GfxState, State},
     util::persistence::DynamicExport,
     util::ListAction,
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
-use std::{num::NonZeroU64, slice::IterMut};
+use std::{collections::HashMap, num::NonZeroU64, slice::IterMut};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -66,14 +65,22 @@ pub trait ParticleAnimation: HandleAction {
     );
 
     fn recreate(&self, gfx_state: &GfxState, emitter: &EmitterState) -> Box<dyn ParticleAnimation>;
+    fn update(&mut self, clock: &Clock, gfx: &GfxState);
+    fn draw_ui(&mut self, ui: &mut Ui) {}
+}
 
-    fn update(&mut self, clock: &Clock, gfx_state: &GfxState);
-    fn create_ui(&mut self, ui: &mut Ui, gui: &GuiState);
+pub trait WidgetBuilder {
+    /// Root call -> from here your complete GUI can be created.
+    fn draw_ui(&mut self, state: &mut State, encoder: &mut wgpu::CommandEncoder) -> Events;
+}
+
+pub trait DrawWidget<PA: ParticleAnimation>: WidgetBuilder + Sync + Send {
+    /// Implementation for Particle animation so you can use GUI for dynamic dispatched animations
+    fn draw_widget(&mut self, ui: &mut Ui, anim: &mut PA);
 }
 
 pub trait EmitterAnimation: HandleAction {
     fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock);
-    fn create_ui(&mut self, ui: &mut Ui, gui: &GuiState);
 }
 
 // Post FX
@@ -88,8 +95,6 @@ pub trait PostFx: HandleAction {
     );
 
     fn resize(&mut self, options: &FxOptions);
-
-    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState);
 }
 
 pub trait RegisterPostFx {
@@ -106,11 +111,6 @@ pub trait HandleAction {
 
 pub trait CreateFxView {
     fn default_view(&self) -> wgpu::TextureView;
-}
-
-pub trait FxDimensions {
-    fn fx_dimensions(&self) -> [u32; 2];
-    fn fx_offset(&self) -> u32;
 }
 
 pub trait CalculateBufferSize {

@@ -1,7 +1,7 @@
 use super::{FxIOUniform, FxOptions};
-use crate::init::AppSettings;
+use crate::init::AppVisitor;
 use crate::model::events::ViewIOEvent;
-use crate::model::{GfxState, State};
+use crate::model::{Events, GfxState, State};
 use crate::shaders::{ShaderOptions, SDR_TONEMAPPING};
 use crate::traits::*;
 use crate::util::{
@@ -29,7 +29,7 @@ impl PostProcessState {
 
         let options = FxOptions {
             fx_state: &self.fx_state,
-            gfx_state,
+            gfx: gfx_state,
         };
 
         self.io_uniform.resize(&self.io_ctx.buf, &options);
@@ -39,17 +39,17 @@ impl PostProcessState {
         }
     }
 
-    pub fn update(state: &mut State) {
+    pub fn update(state: &mut State, events: &Events) {
         let State {
             post_process: pp,
-            gfx_state,
-            events,
+            gfx,
             camera,
             ..
         } = state;
 
-        if let Some(event) = events.get_io_view() {
+        if let Some(event) = &events.io_view {
             let io_uniform = &mut pp.io_uniform;
+
             match event {
                 ViewIOEvent::Add => {
                     if io_uniform.out_idx + 1 < 16 {
@@ -62,18 +62,18 @@ impl PostProcessState {
                     }
                 }
                 ViewIOEvent::Idx(val) => {
-                    io_uniform.out_idx = val;
+                    io_uniform.out_idx = *val;
                 }
             }
 
             let contents = CommonBuffer::uniform_content(&pp.io_uniform);
-            gfx_state.queue.write_buffer(&pp.io_ctx.buf, 0, &contents);
+            gfx.queue.write_buffer(&pp.io_ctx.buf, 0, &contents);
         }
 
         let effects = &mut pp.effects;
 
         for fx in effects.iter_mut() {
-            fx.update(&state.gfx_state, camera);
+            fx.update(&state.gfx, camera);
         }
 
         ListAction::update_list(effects);
@@ -92,7 +92,7 @@ impl PostProcessState {
     }
 
     pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
-        let gfx_state = &mut state.gfx_state;
+        let gfx_state = &mut state.gfx;
         let pp = &mut state.post_process;
         let fx_state = &mut pp.fx_state;
 
@@ -114,9 +114,10 @@ impl PostProcessState {
         state: &mut State,
         output_view: wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
-    ) {
-        let clipped_primitives = GfxState::draw_gui(state, encoder);
-        let gfx_state = &mut state.gfx_state;
+        app_visitor: &mut impl AppVisitor,
+    ) -> Events {
+        let draw_gui = GfxState::draw_ui(state, encoder, app_visitor);
+        let gfx = &mut state.gfx;
 
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Post process render"),
@@ -133,26 +134,25 @@ impl PostProcessState {
             occlusion_query_set: None,
         });
 
-        gfx_state.begin_scope("Post fx render", &mut r_pass);
+        gfx.begin_scope("Post fx render", &mut r_pass);
         let pp = &mut state.post_process;
 
         r_pass.set_pipeline(&pp.render_pipeline);
         r_pass.set_bind_group(0, &pp.fx_state.r_bg, &[]);
         r_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
         r_pass.draw(0..3, 0..1);
-        gfx_state.end_scope(&mut r_pass);
+        gfx.end_scope(&mut r_pass);
 
-        let profiler = &mut gfx_state.profiler;
-        profiler.begin_scope("Render GUI", &mut r_pass, &gfx_state.device);
-        gfx_state.renderer.render(
-            &mut r_pass,
-            &clipped_primitives,
-            &gfx_state.screen_descriptor,
-        );
+        let profiler = &mut gfx.profiler;
+        profiler.begin_scope("Render GUI", &mut r_pass, &gfx.device);
+        gfx.renderer
+            .render(&mut r_pass, &draw_gui.primitives, &gfx.screen_descriptor);
         profiler.end_scope(&mut r_pass).unwrap();
+
+        draw_gui.events
     }
 
-    pub fn new(gfx_state: &GfxState, app_settings: &impl AppSettings) -> Self {
+    pub fn new(gfx_state: &GfxState, app_settings: &impl AppVisitor) -> Self {
         let device = &gfx_state.device;
         let config = &gfx_state.surface_config;
 
@@ -199,10 +199,15 @@ impl PostProcessState {
             multiview: None,
         });
 
-        let effects = app_settings.add_post_fx(&FxOptions {
-            fx_state: &fx_state,
-            gfx_state,
-        });
+        let mut effects = vec![];
+
+        app_settings.add_post_fx(
+            &FxOptions {
+                fx_state: &fx_state,
+                gfx: gfx_state,
+            },
+            &mut effects,
+        );
 
         Self {
             fx_state,
@@ -218,16 +223,16 @@ impl PostProcessState {
     pub fn import_fx(
         &mut self,
         gfx_state: &GfxState,
-        registered_effects: &Vec<Box<dyn RegisterPostFx>>,
+        registry_fx: &Vec<Box<dyn RegisterPostFx>>,
         to_export: Vec<DynamicExport>,
     ) {
         let options = FxOptions {
-            gfx_state,
+            gfx: gfx_state,
             fx_state: &self.fx_state,
         };
 
         for item in to_export {
-            for reg in registered_effects {
+            for reg in registry_fx {
                 if item.tag == reg.tag() {
                     self.effects.push(reg.import(&options, item.data));
                     break;

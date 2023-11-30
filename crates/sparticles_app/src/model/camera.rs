@@ -1,4 +1,4 @@
-use super::{gfx_state::GfxState, State};
+use super::{gfx_state::GfxState, Events, State};
 use egui_wgpu::wgpu;
 use egui_winit::{
     egui::WidgetText,
@@ -151,23 +151,19 @@ impl Camera {
         }
     }
 
-    pub fn update(state: &mut State) {
+    pub fn update(state: &mut State, events: &Events) {
         let State {
-            gfx_state,
-            camera,
-            clock,
-            events,
-            ..
+            gfx, camera, clock, ..
         } = state;
 
-        if events.reset_camera().is_some() {
+        if events.reset_camera {
             camera.pitch = 0.;
             camera.yaw = 0.;
             camera.position = glam::Vec3::new(0., 0., 10.);
             camera.view_dir = glam::Vec3::new(0., 0., -10.);
         }
 
-        let queue = &gfx_state.queue;
+        let queue = &gfx.queue;
         let speed = 3.0;
 
         let move_delta = speed * clock.delta_sec();

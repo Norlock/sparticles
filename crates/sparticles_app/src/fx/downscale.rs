@@ -43,7 +43,7 @@ impl Downscale {
 
     pub fn new(options: &FxOptions, io_uniform: FxIOUniform) -> Self {
         let FxOptions {
-            gfx_state,
+            gfx: gfx_state,
             fx_state,
         } = options;
 

@@ -1,4 +1,8 @@
-use crate::ui::GuiState;
+use std::{
+    ops::{Deref, DerefMut},
+    sync::{Arc, Mutex},
+};
+
 use crate::{
     model::{Clock, EmitterState, GfxState},
     shaders::ShaderOptions,
@@ -6,12 +10,42 @@ use crate::{
     util::{persistence::DynamicExport, ListAction, UniformContext},
 };
 use egui_wgpu::wgpu;
-use egui_winit::egui::{
-    color_picker::{color_edit_button_rgba, Alpha},
-    DragValue, Rgba, Ui,
-};
+use egui_winit::egui::Ui;
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
+
+//pub type
+
+pub static COLOR_ANIM_WIDGETS: Widgets<ColorAnimation> = init();
+
+//pub struct ColorAnimationWidgets(Arc<Mutex<Vec<Box<dyn DrawWidget<ColorAnimation>>>>>);
+
+pub struct Widgets<T: ParticleAnimation>(Mutex<Vec<Arc<Mutex<dyn DrawWidget<T>>>>>);
+
+const fn init() -> Widgets<ColorAnimation> {
+    Widgets(Mutex::new(Vec::new()))
+}
+
+impl<T: ParticleAnimation> Widgets<T> {
+    pub fn add_widget(&self, widget: Arc<Mutex<dyn DrawWidget<T>>>) {
+        let mut lock = self.0.try_lock();
+
+        if let Ok(ref mut list) = lock {
+            list.push(widget);
+        }
+    }
+
+    pub fn draw(&self, anim: &mut T, ui: &mut Ui, idx: usize) {
+        let mut lock = self.0.try_lock();
+
+        if let Ok(ref mut list_lock) = lock {
+            if let Ok(ref mut lock) = list_lock[idx].try_lock() {
+                lock.draw_widget(ui, anim);
+            }
+            //list[idx].draw_widget(ui, anim);
+        }
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ColorUniform {
@@ -93,14 +127,14 @@ impl RegisterParticleAnimation for RegisterColorAnimation {
     }
 }
 
-struct ColorAnimation {
-    pipeline: wgpu::ComputePipeline,
-    bind_group: wgpu::BindGroup,
-    uniform: ColorUniform,
-    buffer: wgpu::Buffer,
-    update_uniform: bool,
-    selected_action: ListAction,
-    enabled: bool,
+pub struct ColorAnimation {
+    pub pipeline: wgpu::ComputePipeline,
+    pub bind_group: wgpu::BindGroup,
+    pub uniform: ColorUniform,
+    pub buffer: wgpu::Buffer,
+    pub update_uniform: bool,
+    pub selected_action: ListAction,
+    pub enabled: bool,
 }
 
 impl HandleAction for ColorAnimation {
@@ -147,50 +181,13 @@ impl ParticleAnimation for ColorAnimation {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
 
-    fn create_ui(&mut self, ui: &mut Ui, gui_state: &GuiState) {
-        self.selected_action = gui_state.create_li_header(ui, "Color animation");
-
-        let mut gui = self.uniform;
-
-        ui.horizontal(|ui| {
-            ui.label("Animate from sec");
-            ui.add(DragValue::new(&mut gui.from_sec).speed(0.1));
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Animate until sec");
-            ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
-        });
-
-        let f_col = gui.from_color;
-        let t_col = gui.to_color;
-        let mut from_color = Rgba::from_rgba_premultiplied(f_col.x, f_col.y, f_col.z, f_col.w);
-        let mut to_color = Rgba::from_rgba_premultiplied(t_col.x, t_col.y, t_col.z, t_col.w);
-
-        ui.horizontal(|ui| {
-            ui.label("From color: ");
-            color_edit_button_rgba(ui, &mut from_color, Alpha::Opaque);
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("To color: ");
-            color_edit_button_rgba(ui, &mut to_color, Alpha::Opaque);
-        });
-
-        ui.checkbox(&mut self.enabled, "Enabled");
-
-        gui.from_color = from_color.to_array().into();
-        gui.to_color = to_color.to_array().into();
-
-        if self.uniform != gui {
-            self.update_uniform = true;
-            self.uniform = gui;
-        }
+    fn draw_ui(&mut self, ui: &mut Ui) {
+        COLOR_ANIM_WIDGETS.draw(self, ui, 0);
     }
 }
 
 impl ColorAnimation {
-    fn new(uniform: ColorUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
+    pub fn new(uniform: ColorUniform, emitter: &EmitterState, gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
 
         let shader = gfx_state.create_shader_builtin(ShaderOptions {
@@ -224,6 +221,7 @@ impl ColorAnimation {
             update_uniform: false,
             selected_action: ListAction::None,
             enabled: true,
+            //visitors: HashMap::new(),
         }
     }
 }

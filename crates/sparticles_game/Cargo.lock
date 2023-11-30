@@ -473,18 +473,16 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "ecolor"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6d9d80ab06fc3e7ceb0a7c9b0514c9eba266c189e71044e7bac679e1736a7cb"
+version = "0.23.0"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "bytemuck",
 ]
 
 [[package]]
 name = "egui"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e46df77bb493b9ead5733540efdd2a1b0c18a5f75915921fc734495108172a5"
+version = "0.23.0"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "ahash",
  "epaint",
@@ -494,12 +492,10 @@ dependencies = [
 
 [[package]]
 name = "egui-wgpu"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2921b301f5aec17bc8601a01d27897589050094bd240eef3f10736ca065a5ae1"
+version = "0.23.0"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "bytemuck",
- "egui",
  "epaint",
  "log",
  "thiserror",
@@ -509,9 +505,8 @@ dependencies = [
 
 [[package]]
 name = "egui-winit"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "065960051f1ff843be036a1743bd9fc8dfd508c0444dce35d620febed91fad2b"
+version = "0.23.0"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "arboard",
  "egui",
@@ -531,9 +526,8 @@ checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 
 [[package]]
 name = "emath"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df747beaedee141dc3950edc68a156c0e548c92fe1a92f0a51c1bdca3d6a054d"
+version = "0.23.0"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "bytemuck",
 ]
@@ -585,9 +579,8 @@ dependencies = [
 
 [[package]]
 name = "epaint"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12f370b53e435fc235243174f3b2bf68a4b0202f3885cece16ad4aecd03222c4"
+version = "0.23.0"
+source = "git+https://github.com/norlock/egui.git?branch=collapsing-header-events#6b89f9e2427989806c2680b70c6e3307d3f8ad64"
 dependencies = [
  "ab_glyph",
  "ahash",
@@ -1950,19 +1943,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "sparticles_editor"
-version = "0.1.0"
-dependencies = [
- "sparticles_app",
-]
-
-[[package]]
 name = "sparticles_game"
 version = "0.1.0"
 dependencies = [
  "glam",
  "sparticles_app",
- "sparticles_editor",
 ]
 
 [[package]]

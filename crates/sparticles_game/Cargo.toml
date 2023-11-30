@@ -1,0 +1,15 @@
+[package]
+name = "sparticles_game"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "sparticles_game"
+path = "src/main.rs"
+
+[dependencies]
+glam = "0.24.2"
+sparticles_app = { path = "../sparticles_app" }
+sparticles_editor = { path = "../sparticles_editor" }

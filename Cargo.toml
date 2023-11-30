@@ -1,20 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[package]
+[workspace.package]
 name = "Sparticles"
 version = "0.1.0"
 edition = "2021"
 keywords = ["gamedev", "graphics"]
 authors = ["Norlock"]
 license = "Apache 2.0"
-
-[workspace]
-resolver = "2"
-members = ["crates/*"]
-
-[dependencies]
-sparticles_app = { path = "crates/sparticles_app" }
-glam = { version = "0.24.2", features = ["serde"] }
-
-[[example]]
-name = "default"
-path = "examples/default.rs"

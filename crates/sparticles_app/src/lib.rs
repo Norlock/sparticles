@@ -1,9 +1,20 @@
+use egui_wgpu;
+use egui_winit;
 use egui_winit::winit;
-use init::AppSettings;
-use model::State;
+use init::AppVisitor;
+use model::{Events, GfxState, State};
 use winit::event::Event::*;
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{self, WindowId};
+
+pub use egui_wgpu::wgpu;
+pub use glam;
+pub use wgpu_profiler as profiler;
+
+pub mod gui {
+    pub use egui_wgpu::*;
+    pub use egui_winit::*;
+}
 
 pub mod animations;
 pub mod fx;
@@ -13,10 +24,9 @@ pub mod model;
 pub mod shaders;
 pub mod texture;
 pub mod traits;
-pub mod ui;
 pub mod util;
 
-pub fn start(init_app: impl AppSettings) {
+pub fn start(mut app_visitor: impl AppVisitor + 'static) {
     env_logger::init();
 
     let event_loop = EventLoop::new();
@@ -30,23 +40,24 @@ pub fn start(init_app: impl AppSettings) {
         .build(&event_loop)
         .unwrap();
 
-    let mut state = State::new(init_app, window);
+    let mut state = State::new(&mut app_visitor, window);
     let mut shift_pressed = false;
+    let mut events = Events::default();
 
     event_loop.run(move |event, _, control_flow| {
-        let gfx_state = &mut state.gfx_state;
-        let do_exec = |window_id: WindowId| window_id == gfx_state.window_id();
+        let gfx = &mut state.gfx;
+        let do_exec = |window_id: WindowId| window_id == gfx.window_id();
 
         match event {
             RedrawRequested(window_id) if do_exec(window_id) => {
-                state.update();
-                state.render();
+                state.update(&events);
+                events = GfxState::render(&mut state, &mut app_visitor);
             }
             MainEventsCleared => {
-                gfx_state.request_redraw();
+                gfx.request_redraw();
             }
             WindowEvent { event, window_id } if do_exec(window_id) => {
-                let response = gfx_state.handle_event(&event);
+                let response = gfx.handle_event(&event);
 
                 match event {
                     winit::event::WindowEvent::Resized(size) => {

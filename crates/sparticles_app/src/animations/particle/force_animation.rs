@@ -1,4 +1,3 @@
-use crate::ui::GuiState;
 use crate::{
     model::{Clock, EmitterState, GfxState, LifeCycle},
     shaders::ShaderOptions,
@@ -7,7 +6,6 @@ use crate::{
     util::ListAction,
 };
 use egui_wgpu::wgpu::{self, util::DeviceExt};
-use egui_winit::egui::{DragValue, Ui};
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
@@ -85,14 +83,14 @@ impl RegisterParticleAnimation for RegisterForceAnimation {
 }
 
 pub struct ForceAnimation {
-    pipeline: wgpu::ComputePipeline,
-    uniform: ForceUniform,
-    bind_group: wgpu::BindGroup,
-    buffer: wgpu::Buffer,
-    update_uniform: bool,
-    should_animate: bool,
-    selected_action: ListAction,
-    enabled: bool,
+    pub pipeline: wgpu::ComputePipeline,
+    pub uniform: ForceUniform,
+    pub bind_group: wgpu::BindGroup,
+    pub buffer: wgpu::Buffer,
+    pub update_uniform: bool,
+    pub should_animate: bool,
+    pub selected_action: ListAction,
+    pub enabled: bool,
 }
 
 impl HandleAction for ForceAnimation {
@@ -149,49 +147,6 @@ impl ParticleAnimation for ForceAnimation {
 
     fn recreate(&self, gfx_state: &GfxState, emitter: &EmitterState) -> Box<dyn ParticleAnimation> {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
-    }
-
-    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-        self.selected_action = ui_state.create_li_header(ui, "Force animation");
-
-        let mut gui = self.uniform;
-
-        ui.horizontal(|ui| {
-            ui.label("Animate from sec");
-            ui.add(DragValue::new(&mut gui.life_cycle.from_sec).speed(0.1));
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Animate until sec");
-            ui.add(DragValue::new(&mut gui.life_cycle.until_sec).speed(0.1));
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Lifetime sec");
-            ui.add(DragValue::new(&mut gui.life_cycle.lifetime_sec).speed(0.1));
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Force velocity > ");
-            ui.label("x:");
-            ui.add(DragValue::new(&mut gui.velocity.x).speed(0.1));
-            ui.label("y:");
-            ui.add(DragValue::new(&mut gui.velocity.y).speed(0.1));
-            ui.label("z:");
-            ui.add(DragValue::new(&mut gui.velocity.z).speed(0.1));
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Mass applied per (1) unit length");
-            ui.add(DragValue::new(&mut gui.mass_per_unit).speed(0.1));
-        });
-
-        ui.checkbox(&mut self.enabled, "Enabled");
-
-        if self.uniform != gui {
-            self.update_uniform = true;
-            self.uniform = gui;
-        }
     }
 }
 

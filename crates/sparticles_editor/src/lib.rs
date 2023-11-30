@@ -1,30 +1,36 @@
-use crate::model::{
-    camera::TonemapType, emitter_state::RecreateEmitterOptions, events::ViewIOEvent,
-    EmitterSettings, EmitterState, EmitterType, GfxState, State,
-};
-use crate::{
+use sparticles_app::{
+    animations::{
+        color_animation::COLOR_ANIM_WIDGETS, force_animation::ForceAnimation, ColorAnimation,
+    },
     fx::{FxOptions, PostProcessState},
+    gui::egui::{load::SizedTexture, *},
+    gui::{
+        egui::{
+            self,
+            color_picker::{color_edit_button_rgba, Alpha},
+        },
+        winit::event::{ElementState, KeyboardInput, VirtualKeyCode},
+    },
+    model::{
+        camera::TonemapType, emitter_state::RecreateEmitterOptions, events::ViewIOEvent,
+        EmitterSettings, EmitterState, EmitterType, Events, GfxState, State,
+    },
+    profiler::GpuTimerScopeResult,
     texture::IconTexture,
-    traits::Splitting,
+    traits::{DrawWidget, Splitting, WidgetBuilder},
     util::ListAction,
     util::Persistence,
+    wgpu::{self, CommandEncoder},
 };
-use egui::{Color32, RichText, Slider, Ui, Window};
-use egui_wgpu::wgpu::{self, CommandEncoder};
-use egui_winit::{
-    egui::{
-        self,
-        color_picker::{color_edit_button_rgba, Alpha},
-        load::SizedTexture,
-        CollapsingHeader, ComboBox, DisplayEvent, ImageButton, Margin, Rgba, SetEvent, TextureId,
-    },
-    winit::event::{ElementState, KeyboardInput, VirtualKeyCode},
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Arc, Mutex},
 };
-use std::{collections::HashMap, path::PathBuf};
-use wgpu_profiler::GpuTimerScopeResult;
 
-pub struct GuiState {
-    enabled: bool,
+pub mod menu;
+
+pub struct Editor {
     new_emitter_tag: String,
     profiling_results: Vec<GpuTimerScopeResult>,
     pub selected_emitter_idx: usize,
@@ -42,9 +48,17 @@ pub struct GuiState {
     selected_new_em_anim: usize,
     selected_new_post_fx: usize,
 
-    performance_event: Option<DisplayEvent>,
-    display_event: Option<DisplayEvent>,
+    //performance_event: Option<DisplayEvent>,
+    //display_event: Option<DisplayEvent>,
     pub emitter_settings: Option<EmitterSettings>,
+}
+
+impl WidgetBuilder for Editor {
+    fn draw_ui(&mut self, state: &mut State, encoder: &mut wgpu::CommandEncoder) -> Events {
+        let mut events = Events::default();
+        self.update_gui(state, &mut events, encoder);
+        events
+    }
 }
 
 const CHEVRON_UP_ID: &str = "chevron-up";
@@ -61,11 +75,15 @@ enum Tab {
 
 const WINDOW_MARGIN: f32 = 10.;
 
-impl GuiState {
-    pub fn process_input(state: &mut State, input: &KeyboardInput, shift_pressed: bool) -> bool {
-        let gui = &mut state.gui;
-
-        if !gui.enabled || input.state == ElementState::Pressed {
+impl Editor {
+    pub fn process_input(
+        &mut self,
+        state: &State,
+        input: &KeyboardInput,
+        events: &mut Events,
+        shift_pressed: bool,
+    ) -> bool {
+        if input.state == ElementState::Pressed {
             return false;
         }
 
@@ -73,33 +91,33 @@ impl GuiState {
 
         match keycode {
             VirtualKeyCode::T if shift_pressed => {
-                state.events.set_io_view(ViewIOEvent::Subtract);
+                events.io_view = Some(ViewIOEvent::Subtract);
             }
             VirtualKeyCode::T if !shift_pressed => {
-                state.events.set_io_view(ViewIOEvent::Add);
+                events.io_view = Some(ViewIOEvent::Add);
             }
-            VirtualKeyCode::Key1 => gui.selected_tab = Tab::EmitterSettings,
-            VirtualKeyCode::Key2 => gui.selected_tab = Tab::PostFxSettings,
-            VirtualKeyCode::Key3 => gui.selected_tab = Tab::ParticleAnimations,
-            VirtualKeyCode::Key4 => gui.selected_tab = Tab::EmitterAnimations,
-            VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
-            VirtualKeyCode::P => gui.performance_event.set(DisplayEvent::ToggleCollapse),
-            VirtualKeyCode::F => state.events.toggle_game_state(),
+            VirtualKeyCode::Key1 => self.selected_tab = Tab::EmitterSettings,
+            VirtualKeyCode::Key2 => self.selected_tab = Tab::PostFxSettings,
+            VirtualKeyCode::Key3 => self.selected_tab = Tab::ParticleAnimations,
+            VirtualKeyCode::Key4 => self.selected_tab = Tab::EmitterAnimations,
+            //VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
+            //VirtualKeyCode::P => gui.performance_event.set(DisplayEvent::ToggleCollapse),
+            VirtualKeyCode::F => events.toggle_game_state(),
             _ => return false,
         }
 
         true
     }
 
-    pub fn update_gui(state: &mut State, encoder: &mut CommandEncoder) {
-        if !state.gui.enabled {
-            return;
-        }
-
-        let ctx = state.gfx_state.ctx.clone();
-
-        Window::new("Menu").show(&ctx, |ui| {
-            let gui = &mut state.gui;
+    // TODO return events
+    pub fn update_gui(
+        &mut self,
+        state: &mut State,
+        events: &mut Events,
+        encoder: &mut CommandEncoder,
+    ) {
+        Window::new("Menu").show(state.egui_ctx(), |ui| {
+            //let gui = &mut state.gui;
 
             //ComboBox::from_id_source("select-emitter").show_index(
             //ui,
@@ -112,7 +130,7 @@ impl GuiState {
         Window::new("Sparticles settings")
             .vscroll(true)
             .frame(egui::Frame {
-                fill: state.gfx_state.ctx.style().visuals.window_fill,
+                fill: state.gfx.ctx.style().visuals.window_fill,
 
                 inner_margin: Margin {
                     top: WINDOW_MARGIN,
@@ -123,15 +141,12 @@ impl GuiState {
                 ..Default::default()
             })
             .default_height(800.)
-            .display_event(&mut state.gui.display_event)
-            .show(&ctx, |ui| {
+            .show(&state.egui_ctx().clone(), |ui| {
                 let State {
                     clock,
                     emitters,
-                    gui,
-                    gfx_state,
+                    gfx,
                     post_process,
-                    events,
                     ..
                 } = state;
 
@@ -139,30 +154,29 @@ impl GuiState {
                 if clock.frame() % 20 == 0 && events.play() {
                     let count: u64 = emitters.iter().map(|s| s.particle_count()).sum();
 
-                    gui.cpu_time_text = clock.frame_time_text();
-                    gui.fps_text = clock.fps_text();
-                    gui.elapsed_text = clock.elapsed_text();
-                    gui.particle_count_text = format!("Particle count: {}", count);
+                    self.cpu_time_text = clock.frame_time_text();
+                    self.fps_text = clock.fps_text();
+                    self.elapsed_text = clock.elapsed_text();
+                    self.particle_count_text = format!("Particle count: {}", count);
 
-                    let prof = &mut gfx_state.profiler;
-                    let queue = &gfx_state.queue;
+                    let prof = &mut gfx.profiler;
+                    let queue = &gfx.queue;
 
                     if let Some(res) = prof.process_finished_frame(queue.get_timestamp_period()) {
-                        gui.profiling_results = res;
+                        self.profiling_results = res;
                     }
                 }
 
-                create_label(ui, &gui.fps_text);
-                create_label(ui, &gui.cpu_time_text);
-                create_label(ui, &gui.elapsed_text);
-                create_label(ui, &gui.particle_count_text);
+                create_label(ui, &self.fps_text);
+                create_label(ui, &self.cpu_time_text);
+                create_label(ui, &self.elapsed_text);
+                create_label(ui, &self.particle_count_text);
                 ui.separator();
 
                 CollapsingHeader::new("Performance")
                     .id_source("total")
-                    .display(&mut gui.performance_event)
                     .show(ui, |ui| {
-                        let total = Self::display_performance(ui, &mut gui.profiling_results);
+                        let total = Self::display_performance(ui, &mut self.profiling_results);
                         create_label(
                             ui,
                             format!("{} - {:.3}μs", "Total GPU time", total * 1_000_000.),
@@ -174,7 +188,7 @@ impl GuiState {
                 ui.horizontal(|ui| {
                     ComboBox::from_id_source("select-emitter").show_index(
                         ui,
-                        &mut gui.selected_emitter_idx,
+                        &mut self.selected_emitter_idx,
                         emitters.len(),
                         |i| emitters[i].id(),
                     );
@@ -183,18 +197,18 @@ impl GuiState {
 
                     ui.label("New emitter tag:");
                     ui.add(
-                        egui::TextEdit::singleline(&mut gui.new_emitter_tag).desired_width(100.),
+                        egui::TextEdit::singleline(&mut self.new_emitter_tag).desired_width(100.),
                     );
 
-                    let is_enabled = 3 <= gui.new_emitter_tag.len()
-                        && emitters.iter().all(|em| em.id() != &gui.new_emitter_tag);
+                    let is_enabled = 3 <= self.new_emitter_tag.len()
+                        && emitters.iter().all(|em| em.id() != &self.new_emitter_tag);
 
                     if ui
                         .add_enabled(is_enabled, egui::Button::new("Add emitter"))
                         .clicked()
                     {
-                        events.set_create_emitter(gui.new_emitter_tag.to_string());
-                        gui.new_emitter_tag = "".to_string();
+                        events.create_emitter = Some(self.new_emitter_tag.to_string());
+                        self.new_emitter_tag = "".to_string();
                     }
                 });
 
@@ -211,7 +225,7 @@ impl GuiState {
                     }
 
                     if ui.button("Reset camera").clicked() {
-                        events.set_reset_camera();
+                        events.reset_camera = true;
                     }
 
                     if ui.button("Toggle pause").clicked() {
@@ -244,12 +258,12 @@ impl GuiState {
                             );
                         });
 
-                    let emitter = &emitters[gui.selected_emitter_idx];
+                    let emitter = &emitters[self.selected_emitter_idx];
 
                     if !emitter.is_light && ui.button("Remove emitter").clicked() {
                         let id = emitter.id().to_string();
-                        events.set_delete_emitter(id);
-                        gui.selected_emitter_idx = 0;
+                        events.delete_emitter = Some(id);
+                        self.selected_emitter_idx = 0;
                     }
                 });
 
@@ -259,18 +273,18 @@ impl GuiState {
 
                 ui.horizontal(|ui| {
                     ui.selectable_value(
-                        &mut gui.selected_tab,
+                        &mut self.selected_tab,
                         Tab::EmitterSettings,
                         "Spawn settings",
                     );
-                    ui.selectable_value(&mut gui.selected_tab, Tab::PostFxSettings, "Post FX");
+                    ui.selectable_value(&mut self.selected_tab, Tab::PostFxSettings, "Post FX");
                     ui.selectable_value(
-                        &mut gui.selected_tab,
+                        &mut self.selected_tab,
                         Tab::ParticleAnimations,
                         "Particle animations",
                     );
                     ui.selectable_value(
-                        &mut gui.selected_tab,
+                        &mut self.selected_tab,
                         Tab::EmitterAnimations,
                         "Emitter animations",
                     );
@@ -278,11 +292,11 @@ impl GuiState {
 
                 ui.separator();
 
-                match gui.selected_tab {
-                    Tab::EmitterSettings => GuiState::emitter_settings_tab(state, ui, encoder),
-                    Tab::PostFxSettings => GuiState::post_fx_tab(state, ui),
-                    Tab::ParticleAnimations => GuiState::particle_animations_tab(state, ui),
-                    Tab::EmitterAnimations => GuiState::emitter_animations_tab(state, ui),
+                match self.selected_tab {
+                    Tab::EmitterSettings => self.emitter_settings_tab(state, ui, encoder),
+                    Tab::PostFxSettings => self.post_fx_tab(state, ui, events),
+                    Tab::ParticleAnimations => self.particle_animations_tab(state, ui),
+                    Tab::EmitterAnimations => self.emitter_animations_tab(state, ui),
                 };
             });
     }
@@ -310,18 +324,16 @@ impl GuiState {
         total_time
     }
 
-    fn emitter_animations_tab(state: &mut State, ui: &mut Ui) {
-        let gui = &mut state.gui;
+    fn emitter_animations_tab(&mut self, state: &mut State, ui: &mut Ui) {
+        let emitter = &mut state.emitters[self.selected_emitter_idx];
+        let registered_em_anims = &state.registry_em_anims;
 
-        let emitter = &mut state.emitters[gui.selected_emitter_idx];
-        let registered_em_anims = &state.registered_em_anims;
-
-        emitter.ui_emitter_animations(ui, gui);
+        self.ui_emitter_animations(emitter, ui);
 
         ui.separator();
 
         ui.horizontal(|ui| {
-            let sel_animation = &mut gui.selected_new_em_anim;
+            let sel_animation = &mut self.selected_new_em_anim;
 
             ComboBox::from_id_source("new-particle-animation").show_index(
                 ui,
@@ -337,35 +349,68 @@ impl GuiState {
         });
     }
 
-    fn particle_animations_tab(state: &mut State, ui: &mut Ui) {
+    fn particle_animations_tab(&mut self, state: &mut State, ui: &mut Ui) {
         let State {
             emitters,
-            gui,
-            registered_par_anims,
+            registry_par_anims,
             ..
         } = state;
 
-        let emitter = &mut emitters[gui.selected_emitter_idx];
-        emitter.ui_particle_animations(ui, gui);
+        let emitter = &mut emitters[self.selected_emitter_idx];
+        self.ui_particle_animations(emitter, ui);
 
         ui.separator();
 
         ui.horizontal(|ui| {
-            let sel_animation = &mut gui.selected_new_par_anim;
+            let sel_animation = &mut self.selected_new_par_anim;
 
             ComboBox::from_id_source("new-particle-animation").show_index(
                 ui,
                 sel_animation,
-                registered_par_anims.len(),
-                |i| registered_par_anims[i].tag(),
+                registry_par_anims.len(),
+                |i| registry_par_anims[i].tag(),
             );
 
             if ui.button("Add animation").clicked() {
                 emitter.push_particle_animation(
-                    registered_par_anims[*sel_animation].create_default(&state.gfx_state, emitter),
+                    registry_par_anims[*sel_animation].create_default(&state.gfx, emitter),
                 );
             }
         });
+    }
+
+    pub fn ui_emitter_animations(&mut self, emitter: &mut EmitterState, ui: &mut Ui) {
+        ScrollArea::vertical()
+            .auto_shrink([true; 2])
+            .vscroll(true)
+            .max_height(500.)
+            .show(ui, |ui| {
+                for anim in emitter.emitter_animations.iter_mut() {
+                    ui.group(|ui| {
+                        //anim.create_ui(ui, gui_state);
+                        // TODOOOOOO
+                    });
+                }
+            });
+    }
+
+    pub fn ui_particle_animations(&mut self, emitter: &mut EmitterState, ui: &mut Ui) {
+        ScrollArea::vertical()
+            .auto_shrink([true; 2])
+            .vscroll(true)
+            .max_height(500.)
+            .show(ui, |ui| {
+                for anim in emitter.particle_animations.iter_mut() {
+                    ui.group(|ui| {
+                        anim.draw_ui(ui);
+                        //anim.
+                        //anim.create_ui(ui, gui_state);
+                        //anim.draw(ui, self);
+                        //self.draw_widget(ui, anim);
+                        //anim.
+                    });
+                }
+            });
     }
 
     fn create_icons(gfx_state: &mut GfxState) -> HashMap<String, TextureId> {
@@ -376,8 +421,12 @@ impl GuiState {
         let mut textures = HashMap::new();
 
         let mut create_tex = |filename: &str, tag: &str| {
-            let mut icon_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            icon_path.push("src/assets/icons/");
+            // TODO weer goed zetten
+            let mut icon_path = PathBuf::from(
+                "/home/norlock/Projects/sparticles/crates/sparticles_app/src/assets/icons",
+            );
+            //icon_path.push("crates/sparticles_app/src/assets/icons/");
+            println!("{:?}", icon_path.to_str().unwrap());
             icon_path.push(filename);
             let path_str = icon_path
                 .to_str()
@@ -398,12 +447,15 @@ impl GuiState {
         textures
     }
 
-    pub fn new(show_gui: bool, gfx_state: &mut GfxState) -> Self {
+    pub fn new(show_gui: bool, gfx_state: &mut GfxState) -> Arc<Mutex<Self>> {
         let texture_paths = Persistence::import_textures().unwrap();
         let icon_textures = Self::create_icons(gfx_state);
 
-        Self {
-            enabled: show_gui,
+        //let editor = Arc::new(Mutex::new(Editor::new(true, gfx)));
+
+        //let can_visitor = ColorAnimationWidgets { widgets: editor };
+
+        let obj = Self {
             cpu_time_text: "".to_string(),
             fps_text: "".to_string(),
             elapsed_text: "".to_string(),
@@ -419,22 +471,33 @@ impl GuiState {
             icon_textures,
             new_emitter_tag: String::from(""),
             profiling_results: Vec::new(),
-            display_event: None,
-            performance_event: None,
+            //display_event: None,
+            //performance_event: None,
             emitter_settings: None,
-        }
+        };
+
+        let arc_obj = Arc::new(Mutex::new(obj));
+
+        // TODO add all widgets
+        COLOR_ANIM_WIDGETS.add_widget(arc_obj.clone());
+
+        arc_obj
     }
 
-    fn emitter_settings_tab(state: &mut State, ui: &mut Ui, encoder: &mut CommandEncoder) {
-        let gui = &mut state.gui;
+    fn emitter_settings_tab(
+        &mut self,
+        state: &mut State,
+        ui: &mut Ui,
+        encoder: &mut CommandEncoder,
+    ) {
+        let emitter = &mut state.emitters[self.selected_emitter_idx];
 
-        let emitter = &mut state.emitters[gui.selected_emitter_idx];
-        let mut emitter_settings = gui
+        let mut emitter_settings = self
             .emitter_settings
             .get_or_insert_with(|| emitter.uniform.create_settings());
 
         if emitter.id() != &emitter_settings.id {
-            emitter_settings = gui
+            emitter_settings = self
                 .emitter_settings
                 .insert(emitter.uniform.create_settings());
         }
@@ -542,34 +605,31 @@ impl GuiState {
 
         let combo_texture = ComboBox::from_label("Select texture").show_index(
             ui,
-            &mut gui.selected_texture,
-            gui.texture_paths.len(),
-            |i| gui.texture_paths[i].rich_text(),
+            &mut self.selected_texture,
+            self.texture_paths.len(),
+            |i| self.texture_paths[i].rich_text(),
         );
 
         if combo_texture.changed() {
-            emitter.update_diffuse(
-                &state.gfx_state,
-                &mut gui.texture_paths[gui.selected_texture],
-            );
+            emitter.update_diffuse(&state.gfx, &mut self.texture_paths[self.selected_texture]);
         };
 
-        Self::update_emitter(state, encoder);
+        self.update_emitter(state, encoder);
     }
 
-    fn update_emitter(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
+    fn update_emitter(&mut self, state: &mut State, encoder: &mut wgpu::CommandEncoder) {
+        // TODO move to APP and make events for recreating emitter!
         let State {
             camera,
             emitters,
-            gfx_state,
-            gui,
+            gfx,
             collection,
             ..
         } = state;
 
-        let settings = gui.emitter_settings.as_ref().unwrap();
+        let settings = self.emitter_settings.as_ref().unwrap();
 
-        let (em, mut others) = emitters.split_item_mut(gui.selected_emitter_idx);
+        let (em, mut others) = emitters.split_item_mut(self.selected_emitter_idx);
 
         em.uniform.update_settings(settings);
 
@@ -578,7 +638,7 @@ impl GuiState {
                 *em = EmitterState::recreate_emitter(
                     RecreateEmitterOptions {
                         old_self: em,
-                        gfx_state,
+                        gfx,
                         camera,
                         collection,
                         emitter_type: EmitterType::Lights,
@@ -590,7 +650,7 @@ impl GuiState {
                     *other = EmitterState::recreate_emitter(
                         RecreateEmitterOptions {
                             old_self: other,
-                            gfx_state,
+                            gfx,
                             camera,
                             collection,
                             emitter_type: EmitterType::Normal {
@@ -606,7 +666,7 @@ impl GuiState {
                 *em = EmitterState::recreate_emitter(
                     RecreateEmitterOptions {
                         old_self: em,
-                        gfx_state,
+                        gfx,
                         camera,
                         collection,
                         emitter_type: EmitterType::Normal {
@@ -619,26 +679,25 @@ impl GuiState {
         }
     }
 
-    fn post_fx_tab(state: &mut State, ui: &mut Ui) {
+    fn post_fx_tab(&mut self, state: &mut State, ui: &mut Ui, events: &mut Events) {
         let State {
             post_process,
-            gui,
             registered_post_fx,
-            gfx_state,
-            events,
+            gfx,
             ..
         } = state;
 
         let effects = &mut post_process.effects;
-        for fx in effects.iter_mut() {
-            fx.create_ui(ui, gui);
+        for _fx in effects.iter_mut() {
+            // TODO
+            //fx.create_ui(ui, gui);
             ui.separator();
         }
 
         ui.separator();
 
         ui.horizontal(|ui| {
-            let sel_post_fx = &mut gui.selected_new_post_fx;
+            let sel_post_fx = &mut self.selected_new_post_fx;
 
             ComboBox::from_id_source("new-post-fx").show_index(
                 ui,
@@ -648,9 +707,10 @@ impl GuiState {
             );
 
             if ui.button("Add post fx").clicked() {
+                // TODO events!
                 effects.push(registered_post_fx[*sel_post_fx].create_default(&FxOptions {
                     fx_state: &post_process.fx_state,
-                    gfx_state,
+                    gfx,
                 }));
             }
         });
@@ -666,7 +726,7 @@ impl GuiState {
                 })
                 .changed()
             {
-                events.set_io_view(ViewIOEvent::Idx(tex_output as u32))
+                events.io_view = Some(ViewIOEvent::Idx(tex_output as u32))
             }
         });
     }
@@ -681,7 +741,7 @@ impl GuiState {
         let mut selected_action = ListAction::None;
 
         ui.horizontal_top(|ui| {
-            GuiState::create_title(ui, title);
+            Editor::create_title(ui, title);
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 let trash_id = self
@@ -744,5 +804,93 @@ pub trait IntoRichText {
 impl IntoRichText for PathBuf {
     fn rich_text(&self) -> RichText {
         RichText::new(self.file_name().unwrap().to_str().unwrap())
+    }
+}
+
+impl DrawWidget<ColorAnimation> for Editor {
+    fn draw_widget(&mut self, ui: &mut Ui, anim: &mut ColorAnimation) {
+        anim.selected_action = self.create_li_header(ui, "Color animation");
+
+        let mut gui = anim.uniform;
+
+        ui.horizontal(|ui| {
+            ui.label("Animate from sec");
+            ui.add(DragValue::new(&mut gui.from_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Animate until sec");
+            ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
+        });
+
+        let f_col = gui.from_color;
+        let t_col = gui.to_color;
+        let mut from_color = Rgba::from_rgba_premultiplied(f_col.x, f_col.y, f_col.z, f_col.w);
+        let mut to_color = Rgba::from_rgba_premultiplied(t_col.x, t_col.y, t_col.z, t_col.w);
+
+        ui.horizontal(|ui| {
+            ui.label("From color: ");
+            color_edit_button_rgba(ui, &mut from_color, Alpha::Opaque);
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("To color: ");
+            color_edit_button_rgba(ui, &mut to_color, Alpha::Opaque);
+        });
+
+        ui.checkbox(&mut anim.enabled, "Enabled");
+
+        gui.from_color = from_color.to_array().into();
+        gui.to_color = to_color.to_array().into();
+
+        if anim.uniform != gui {
+            anim.update_uniform = true;
+            anim.uniform = gui;
+        }
+    }
+}
+
+impl DrawWidget<ForceAnimation> for Editor {
+    fn draw_widget(&mut self, ui: &mut Ui, anim: &mut ForceAnimation) {
+        anim.selected_action = self.create_li_header(ui, "Force animation");
+
+        let mut gui = anim.uniform;
+
+        ui.horizontal(|ui| {
+            ui.label("Animate from sec");
+            ui.add(DragValue::new(&mut gui.life_cycle.from_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Animate until sec");
+            ui.add(DragValue::new(&mut gui.life_cycle.until_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Lifetime sec");
+            ui.add(DragValue::new(&mut gui.life_cycle.lifetime_sec).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Force velocity > ");
+            ui.label("x:");
+            ui.add(DragValue::new(&mut gui.velocity.x).speed(0.1));
+            ui.label("y:");
+            ui.add(DragValue::new(&mut gui.velocity.y).speed(0.1));
+            ui.label("z:");
+            ui.add(DragValue::new(&mut gui.velocity.z).speed(0.1));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Mass applied per (1) unit length");
+            ui.add(DragValue::new(&mut gui.mass_per_unit).speed(0.1));
+        });
+
+        ui.checkbox(&mut anim.enabled, "Enabled");
+
+        if anim.uniform != gui {
+            anim.update_uniform = true;
+            anim.uniform = gui;
+        }
     }
 }

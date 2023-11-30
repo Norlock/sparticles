@@ -2,7 +2,6 @@ use crate::model::clock::Clock;
 use crate::model::{EmitterState, GfxState, LifeCycle};
 use crate::shaders::ShaderOptions;
 use crate::traits::*;
-use crate::ui::GuiState;
 use crate::util::persistence::DynamicExport;
 use crate::util::ListAction;
 use egui_wgpu::wgpu;
@@ -187,65 +186,65 @@ impl ParticleAnimation for GravityAnimation {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
 
-    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-        self.selected_action = ui_state.create_li_header(ui, "Gravity animation");
-        let mut gui = self.uniform;
+    //fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
+    //self.selected_action = ui_state.create_li_header(ui, "Gravity animation");
+    //let mut gui = self.uniform;
 
-        ui.horizontal(|ui| {
-            ui.label("Animate from sec");
-            ui.add(DragValue::new(&mut gui.life_cycle.from_sec).speed(0.1));
-        });
+    //ui.horizontal(|ui| {
+    //ui.label("Animate from sec");
+    //ui.add(DragValue::new(&mut gui.life_cycle.from_sec).speed(0.1));
+    //});
 
-        ui.horizontal(|ui| {
-            ui.label("Animate until sec");
-            ui.add(DragValue::new(&mut gui.life_cycle.until_sec).speed(0.1));
-        });
+    //ui.horizontal(|ui| {
+    //ui.label("Animate until sec");
+    //ui.add(DragValue::new(&mut gui.life_cycle.until_sec).speed(0.1));
+    //});
 
-        ui.horizontal(|ui| {
-            ui.label("Lifetime sec");
-            ui.add(DragValue::new(&mut gui.life_cycle.lifetime_sec).speed(0.1));
-        });
+    //ui.horizontal(|ui| {
+    //ui.label("Lifetime sec");
+    //ui.add(DragValue::new(&mut gui.life_cycle.lifetime_sec).speed(0.1));
+    //});
 
-        ui.horizontal(|ui| {
-            ui.label("Start position > ");
-            ui.label("x:");
-            ui.add(DragValue::new(&mut gui.start_pos.x).speed(0.1));
-            ui.label("y:");
-            ui.add(DragValue::new(&mut gui.start_pos.y).speed(0.1));
-            ui.label("z:");
-            ui.add(DragValue::new(&mut gui.start_pos.z).speed(0.1));
-        });
+    //ui.horizontal(|ui| {
+    //ui.label("Start position > ");
+    //ui.label("x:");
+    //ui.add(DragValue::new(&mut gui.start_pos.x).speed(0.1));
+    //ui.label("y:");
+    //ui.add(DragValue::new(&mut gui.start_pos.y).speed(0.1));
+    //ui.label("z:");
+    //ui.add(DragValue::new(&mut gui.start_pos.z).speed(0.1));
+    //});
 
-        ui.horizontal(|ui| {
-            ui.label("End position > ");
-            ui.label("x:");
-            ui.add(DragValue::new(&mut gui.end_pos.x).speed(0.1));
-            ui.label("y:");
-            ui.add(DragValue::new(&mut gui.end_pos.y).speed(0.1));
-            ui.label("z:");
-            ui.add(DragValue::new(&mut gui.end_pos.z).speed(0.1));
-        });
+    //ui.horizontal(|ui| {
+    //ui.label("End position > ");
+    //ui.label("x:");
+    //ui.add(DragValue::new(&mut gui.end_pos.x).speed(0.1));
+    //ui.label("y:");
+    //ui.add(DragValue::new(&mut gui.end_pos.y).speed(0.1));
+    //ui.label("z:");
+    //ui.add(DragValue::new(&mut gui.end_pos.z).speed(0.1));
+    //});
 
-        ui.horizontal(|ui| {
-            ui.label("Dead zone");
-            ui.add(DragValue::new(&mut gui.dead_zone).speed(0.1));
-        });
+    //ui.horizontal(|ui| {
+    //ui.label("Dead zone");
+    //ui.add(DragValue::new(&mut gui.dead_zone).speed(0.1));
+    //});
 
-        ui.horizontal(|ui| {
-            ui.label("Gravitational force");
-            ui.add(
-                DragValue::new(&mut gui.gravitational_force)
-                    .speed(0.001)
-                    .clamp_range(-0.02..=0.02),
-            );
-        });
+    //ui.horizontal(|ui| {
+    //ui.label("Gravitational force");
+    //ui.add(
+    //DragValue::new(&mut gui.gravitational_force)
+    //.speed(0.001)
+    //.clamp_range(-0.02..=0.02),
+    //);
+    //});
 
-        ui.checkbox(&mut self.enabled, "Enabled");
+    //ui.checkbox(&mut self.enabled, "Enabled");
 
-        if self.uniform != gui {
-            self.uniform = gui;
-        }
-    }
+    //if self.uniform != gui {
+    //self.uniform = gui;
+    //}
+    //}
 }
 
 impl GravityAnimation {

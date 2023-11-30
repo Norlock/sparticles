@@ -1,10 +1,10 @@
+use super::events::GameState;
 use super::{Camera, Clock, EmitterState, Events, GfxState, Material, MaterialRef, Mesh, MeshRef};
-use crate::init::{InitEmitters, InitSettings};
+use crate::fx::PostProcessState;
+use crate::init::{AppVisitor, Init};
 use crate::loader::{Model, BUILTIN_ID};
 use crate::traits::*;
-use crate::ui::GuiState;
 use crate::util::ID;
-use crate::{fx::PostProcessState, AppSettings};
 use egui_winit::winit::{dpi::PhysicalSize, event::KeyboardInput, window::Window};
 use std::collections::HashMap;
 
@@ -12,14 +12,13 @@ pub struct State {
     pub camera: Camera,
     pub clock: Clock,
     pub emitters: Vec<EmitterState>,
-    pub gui: GuiState,
     pub post_process: PostProcessState,
-    pub gfx_state: GfxState,
-    pub registered_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
-    pub registered_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
-    pub registered_post_fx: Vec<Box<dyn RegisterPostFx>>,
-    pub events: Events,
+    pub gfx: GfxState,
     pub collection: HashMap<ID, Model>,
+    pub registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
+    pub registry_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
+    pub registered_post_fx: Vec<Box<dyn RegisterPostFx>>,
+    pub game_state: GameState,
 }
 
 pub trait FastFetch {
@@ -52,22 +51,19 @@ impl FastFetch for HashMap<ID, Model> {
 }
 
 impl State {
-    pub fn update(&mut self) {
-        self.clock.update(&self.events);
+    pub fn update(&mut self, events: &Events) {
+        self.clock.update(events);
+        self.game_state = events.game_state;
 
-        Camera::update(self);
-        PostProcessState::update(self);
-        EmitterState::update(self);
-    }
-
-    pub fn render(&mut self) {
-        GfxState::render(self);
+        Camera::update(self, events);
+        PostProcessState::update(self, events);
+        EmitterState::update(self, events);
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
-        self.gfx_state.resize(size);
-        self.post_process.resize(&self.gfx_state);
-        self.camera.resize(&self.gfx_state);
+        self.gfx.resize(size);
+        self.post_process.resize(&self.gfx);
+        self.camera.resize(&self.gfx);
     }
 
     pub fn process_events(&mut self, input: KeyboardInput, shift_pressed: bool) {
@@ -75,64 +71,62 @@ impl State {
             return;
         }
 
-        if GuiState::process_input(self, &input, shift_pressed) {
-            return;
-        }
+        // TODO
+        //if GuiState::process_input(self, &input, shift_pressed) {
+        //return;
+        //}
     }
 
-    pub fn new(app_settings: impl AppSettings, window: Window) -> Self {
-        let mut gfx_state = pollster::block_on(GfxState::new(window));
+    pub fn egui_ctx(&self) -> &egui_winit::egui::Context {
+        &self.gfx.ctx
+    }
+
+    pub fn new(init: &mut impl AppVisitor, window: Window) -> Self {
+        let mut gfx = pollster::block_on(GfxState::new(window));
 
         let clock = Clock::new();
-        let camera = Camera::new(&gfx_state);
+        let camera = Camera::new(&gfx);
         let mut collection = HashMap::new();
+        let mut post_process = PostProcessState::new(&gfx, init);
 
-        let builtin = Model::load_builtin(&gfx_state);
+        let builtin = Model::load_builtin(&gfx);
         collection.insert(builtin.id.to_string(), builtin);
 
-        for em in app_settings.emitters().iter() {
-            let mesh_key = &em.mesh.collection_id;
-            let mat_key = &em.material.collection_id;
+        let init_settings = Init::new(init, &gfx, &camera, &collection, &mut post_process);
+
+        for em in init_settings.emitters.iter() {
+            let uniform = &em.uniform;
+            let mesh_key = &uniform.mesh.collection_id;
+            let mat_key = &uniform.material.collection_id;
 
             if (mesh_key != &BUILTIN_ID) && !collection.contains_key(mesh_key) {
                 collection.insert(
                     mesh_key.to_string(),
-                    Model::load_gltf(&gfx_state, mesh_key).expect("Can't load model"),
+                    Model::load_gltf(&gfx, mesh_key).expect("Can't load model"),
                 );
             }
 
             if (mat_key != &BUILTIN_ID) && !collection.contains_key(mat_key) {
                 collection.insert(
                     mat_key.to_string(),
-                    Model::load_gltf(&gfx_state, mat_key).expect("Can't load model"),
+                    Model::load_gltf(&gfx, mat_key).expect("Can't load model"),
                 );
             }
         }
 
-        let InitEmitters {
-            emitters,
-            registered_em_anims,
-            registered_par_anims,
-        } = InitSettings::create_emitters(&app_settings, &gfx_state, &camera, &collection);
-
-        let mut post_process = PostProcessState::new(&gfx_state, &app_settings);
-        let registered_post_fx =
-            InitSettings::create_post_fx(&app_settings, &gfx_state, &mut post_process);
-
-        let gui = GuiState::new(app_settings.show_gui(), &mut gfx_state);
+        init.add_widget_builders(&mut gfx);
 
         Self {
             clock,
             camera,
-            emitters,
-            gui,
+            emitters: init_settings.emitters,
             post_process,
-            gfx_state,
-            registered_par_anims,
-            registered_em_anims,
-            registered_post_fx,
-            events: Events::default(),
+            gfx,
+            registry_par_anims: init_settings.registry_par_anims,
+            registry_em_anims: init_settings.registry_em_anims,
+            registered_post_fx: init_settings.registry_post_fx,
             collection,
+            game_state: GameState::Play,
         }
     }
 }

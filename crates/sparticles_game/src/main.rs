@@ -6,65 +6,97 @@ use sparticles_app::{
         RegisterColorAnimation, RegisterForceAnimation, RegisterGravityAnimation,
         RegisterStrayAnimation, StrayUniform, SwayAnimation,
     },
-    init::{AppSettings, JsonImportMode},
+    gui::{winit::event::KeyboardInput, State},
+    init::{AppVisitor, DataSource},
     loader::{BUILTIN_ID, CIRCLE_MAT_ID, CIRCLE_MESH_ID},
     model::{
         emitter::{MaterialRef, MeshRef},
         Boundry, EmitterState, EmitterUniform, GfxState, LifeCycle,
     },
     traits::*,
+    wgpu::CommandEncoder,
+};
+use sparticles_editor::Editor;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
 };
 
-struct CustomSettings;
+struct CustomSettings {
+    widget_builders: Vec<Arc<Mutex<dyn WidgetBuilder>>>,
+}
+
+impl CustomSettings {
+    fn new() -> Self {
+        Self {
+            widget_builders: vec![],
+        }
+    }
+}
+//editor: Editor,
 
 const LIGHT_ID: &str = "Light";
 const PARTICLE_ID: &str = "Particles";
 
-impl AppSettings for CustomSettings {
-    fn light(&self) -> EmitterUniform {
-        let mut emitter = EmitterUniform::new(LIGHT_ID.to_string());
+impl AppVisitor for CustomSettings {
+    //fn lights(&self) -> EmitterUniform {
+    //let mut emitter = EmitterUniform::new(LIGHT_ID.to_string());
 
-        emitter.box_position.x = -3.;
-        emitter.box_position.y = -3.;
-        emitter.particle_color = Vec4::new(0.9, 0.9, 0.9, 1.0);
-        emitter.hdr_mul = 5.0;
-        emitter.particle_size = Boundry::new(0.25, 0.25);
-        emitter.particle_speed = Boundry::new(5., 7.);
-        emitter.spawn_count = 1;
-        emitter.spawn_delay_sec = 1.;
+    //emitter.box_position.x = -3.;
+    //emitter.box_position.y = -3.;
+    //emitter.particle_color = Vec4::new(0.9, 0.9, 0.9, 1.0);
+    //emitter.hdr_mul = 5.0;
+    //emitter.particle_size = Boundry::new(0.25, 0.25);
+    //emitter.particle_speed = Boundry::new(5., 7.);
+    //emitter.spawn_count = 1;
+    //emitter.spawn_delay_sec = 1.;
 
-        emitter
+    //emitter
+    //}
+
+    //fn emitters(&self) -> Vec<EmitterUniform> {
+    //let mut emitter = EmitterUniform::new(PARTICLE_ID.to_string());
+    //emitter.spawn_count = 1;
+    //emitter.spawn_delay_sec = 2.0;
+
+    ////emitter.mesh = MeshRef {
+    ////collection_id: "drone.glb".to_string(),
+    ////mesh_id: "RetopoGroup2".to_string(),
+    //////collection_id: "StarSparrow.glb".to_string(),
+    //////mesh_id: "Mesh.001".to_string(),
+    ////};
+
+    ////emitter.material = MaterialRef {
+    ////collection_id: "drone.glb".to_string(),
+    ////material_id: "Material.001".to_string(),
+    //////collection_id: "StarSparrow.glb".to_string(),
+    //////material_id: "StarSparrowRed".to_string(),
+    ////};
+
+    //vec![emitter]
+    //}
+    fn draw_ui(
+        &mut self,
+        state: &mut sparticles_app::model::State,
+        encoder: &mut CommandEncoder,
+    ) -> sparticles_app::model::Events {
+        if let Ok(ref mut wb) = self.widget_builders[0].try_lock() {
+            wb.draw_ui(state, encoder);
+        }
+
+        sparticles_app::model::Events::default()
     }
 
-    fn emitters(&self) -> Vec<EmitterUniform> {
-        let mut emitter = EmitterUniform::new(PARTICLE_ID.to_string());
-        emitter.spawn_count = 1;
-        emitter.spawn_delay_sec = 2.0;
-
-        //emitter.mesh = MeshRef {
-        //collection_id: "drone.glb".to_string(),
-        //mesh_id: "RetopoGroup2".to_string(),
-        ////collection_id: "StarSparrow.glb".to_string(),
-        ////mesh_id: "Mesh.001".to_string(),
-        //};
-
-        //emitter.material = MaterialRef {
-        //collection_id: "drone.glb".to_string(),
-        //material_id: "Material.001".to_string(),
-        ////collection_id: "StarSparrow.glb".to_string(),
-        ////material_id: "StarSparrowRed".to_string(),
-        //};
-
-        vec![emitter]
+    fn add_widget_builders(&mut self, gfx: &mut GfxState) {
+        self.widget_builders.push(Editor::new(true, gfx));
     }
 
-    fn show_gui(&self) -> bool {
-        true
-    }
-
-    fn import_mode(&self) -> JsonImportMode {
-        //JsonImportMode::Replace
-        JsonImportMode::Ignore
+    fn process_events(
+        &mut self,
+        state: &mut sparticles_app::model::State,
+        input: KeyboardInput,
+        shift_pressed: bool,
+    ) {
     }
 
     fn add_emitter_anim(&self, emitter: &mut EmitterState) {
@@ -168,5 +200,5 @@ impl AppSettings for CustomSettings {
 }
 
 fn main() {
-    sparticles_app::start(CustomSettings);
+    sparticles_app::start(CustomSettings::new());
 }

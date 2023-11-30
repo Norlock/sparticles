@@ -1,4 +1,3 @@
-use crate::ui::GuiState;
 use crate::{
     model::{Clock, EmitterState, GfxState},
     shaders::ShaderOptions,
@@ -133,39 +132,39 @@ impl ParticleAnimation for StrayAnimation {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
 
-    fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-        self.selected_action = ui_state.create_li_header(ui, "Stray animation");
+    //fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
+    //self.selected_action = ui_state.create_li_header(ui, "Stray animation");
 
-        let mut gui = self.uniform;
-        let mut stray_degrees = gui.stray_radians.to_degrees();
+    //let mut gui = self.uniform;
+    //let mut stray_degrees = gui.stray_radians.to_degrees();
 
-        ui.horizontal(|ui| {
-            ui.label("Animate from sec");
-            ui.add(DragValue::new(&mut gui.from_sec).speed(0.1));
-        });
+    //ui.horizontal(|ui| {
+    //ui.label("Animate from sec");
+    //ui.add(DragValue::new(&mut gui.from_sec).speed(0.1));
+    //});
 
-        ui.horizontal(|ui| {
-            ui.label("Animate until sec");
-            ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
-        });
+    //ui.horizontal(|ui| {
+    //ui.label("Animate until sec");
+    //ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
+    //});
 
-        ui.spacing_mut().slider_width = 200.0;
+    //ui.spacing_mut().slider_width = 200.0;
 
-        ui.add(
-            Slider::new(&mut stray_degrees, 0.0..=45.)
-                .step_by(0.1)
-                .text("Stray degrees"),
-        );
+    //ui.add(
+    //Slider::new(&mut stray_degrees, 0.0..=45.)
+    //.step_by(0.1)
+    //.text("Stray degrees"),
+    //);
 
-        ui.checkbox(&mut self.enabled, "Enabled");
+    //ui.checkbox(&mut self.enabled, "Enabled");
 
-        gui.stray_radians = stray_degrees.to_radians();
+    //gui.stray_radians = stray_degrees.to_radians();
 
-        if self.uniform != gui {
-            self.update_uniform = true;
-            self.uniform = gui;
-        }
-    }
+    //if self.uniform != gui {
+    //self.update_uniform = true;
+    //self.uniform = gui;
+    //}
+    //}
 }
 
 impl StrayAnimation {
