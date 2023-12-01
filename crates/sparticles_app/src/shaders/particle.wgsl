@@ -18,10 +18,10 @@ struct VertexOutput {
     @location(5) bitangent: vec3<f32>,
 }
 
-@group(3) @binding(0) var<storage, read> light_particles: array<particle>;
+@group(3) @binding(0) var<storage, read> light_particles: array<Particle>;
 
 @vertex
-fn vs_main(in: array<VertexInput, 2>) -> VertexOutput {
+fn vs_main(in: VertexInput) -> VertexOutput {
     let p = particles[in.instance_idx];
 
     if is_decayed(em, p) {
