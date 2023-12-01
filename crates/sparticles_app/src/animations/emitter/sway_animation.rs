@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::{
     model::{Clock, EmitterUniform, LifeCycle},
     traits::{EmitterAnimation, HandleAction, HandleAngles, RegisterEmitterAnimation},
@@ -8,24 +10,25 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
-struct Gui {
-    yaw: Vec2,
-    pitch: Vec2,
-    roll: Vec2,
+pub struct Gui {
+    pub yaw: Vec2,
+    pub pitch: Vec2,
+    pub roll: Vec2,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SwayAnimation {
-    life_cycle: LifeCycle,
-    yaw: Vec2,
-    pitch: Vec2,
-    roll: Vec2,
-    gui: Gui,
+    pub life_cycle: LifeCycle,
+    // TODO use start and end rotation matrix instead
+    pub yaw: Vec2,
+    pub pitch: Vec2,
+    pub roll: Vec2,
+    pub gui: Gui,
 
     #[serde(skip_serializing, skip_deserializing)]
-    selected_action: ListAction,
+    pub selected_action: ListAction,
 
-    enabled: bool,
+    pub enabled: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -107,6 +110,10 @@ impl EmitterAnimation for SwayAnimation {
         emitter.box_rotation.x = self.yaw.x + fraction * (self.yaw.y - self.yaw.x);
         emitter.box_rotation.y = self.pitch.x + fraction * (self.pitch.y - self.pitch.x);
         emitter.box_rotation.z = self.roll.x + fraction * (self.roll.y - self.roll.x);
+    }
+
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 
     //fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {

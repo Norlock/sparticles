@@ -1,10 +1,10 @@
-use crate::widgets::EditorWidgets;
+pub use crate::pa_widgets::EditorWidgets;
 use sparticles_app::{
     animations::{
-        color_animation::COLOR_ANIM_WIDGETS, force_animation::ForceAnimation,
-        gravity_animation::GravityAnimation, ColorAnimation, StrayAnimation,
+        ColorAnimation, DiffusionAnimation, ForceAnimation, GravityAnimation, StrayAnimation,
+        SwayAnimation,
     },
-    fx::{FxOptions, PostProcessState},
+    fx::{blur::BlurFx, BloomFx, ColorFx, FxOptions, PostProcessState},
     gui::egui::{load::SizedTexture, *},
     gui::{
         egui::{
@@ -19,9 +19,8 @@ use sparticles_app::{
     },
     profiler::GpuTimerScopeResult,
     texture::IconTexture,
-    traits::{ParticleAnimation, Splitting, WidgetBuilder},
-    util::ListAction,
-    util::Persistence,
+    traits::{EmitterAnimation, ParticleAnimation, PostFx, Splitting, WidgetBuilder},
+    util::{ListAction, Persistence},
     wgpu::{self, CommandEncoder},
 };
 use std::{
@@ -30,16 +29,26 @@ use std::{
     path::PathBuf,
 };
 
+pub mod em_widgets;
+pub mod fx_widgets;
 pub mod menu;
-pub mod widgets;
+pub mod pa_widgets;
 
 pub type PAWidgetPtr = Box<dyn Fn(&mut EditorData, &mut Box<dyn ParticleAnimation>, &mut Ui)>;
+pub type EMWidgetPtr = Box<dyn Fn(&mut EditorData, &mut Box<dyn EmitterAnimation>, &mut Ui)>;
+pub type FXWidgetPtr = Box<dyn Fn(&mut EditorData, &mut Box<dyn PostFx>, &mut Ui)>;
 
 pub struct Editor {
     pub data: EditorData,
 
-    /// Particle animation Widgets
+    /// Particle animation widgets
     pub pa_widgets: HashMap<TypeId, PAWidgetPtr>,
+
+    /// Emitter animation widgets
+    pub em_widgets: HashMap<TypeId, EMWidgetPtr>,
+
+    /// Post fx animation widgets
+    pub fx_widgets: HashMap<TypeId, FXWidgetPtr>,
 }
 
 pub struct EditorData {
@@ -94,8 +103,8 @@ impl WidgetBuilder for Editor {
         self
     }
 
-    fn draw_widget(&mut self, anim: &mut Box<dyn ParticleAnimation>, ui: &mut Ui) {
-        let type_id = get_type_id(anim.as_any());
+    fn draw_pa_widget(&mut self, anim: &mut Box<dyn ParticleAnimation>, ui: &mut Ui) {
+        let type_id = (*anim.as_any()).type_id();
 
         if let Some(widget) = self.pa_widgets.get_mut(&type_id) {
             widget(&mut self.data, anim, ui);
@@ -103,11 +112,26 @@ impl WidgetBuilder for Editor {
             println!("widget not found");
         }
     }
-}
 
-/// Weird trick to avoid the borrow checker nonsense
-fn get_type_id<T: ?Sized + Any>(s: &T) -> TypeId {
-    s.type_id()
+    fn draw_em_widget(&mut self, anim: &mut Box<dyn EmitterAnimation>, ui: &mut Ui) {
+        let type_id = (*anim.as_any()).type_id();
+
+        if let Some(widget) = self.em_widgets.get_mut(&type_id) {
+            widget(&mut self.data, anim, ui);
+        } else {
+            println!("widget not found");
+        }
+    }
+
+    fn draw_fx_widget(&mut self, anim: &mut Box<dyn PostFx>, ui: &mut Ui) {
+        let type_id = (*anim.as_any()).type_id();
+
+        if let Some(widget) = self.fx_widgets.get_mut(&type_id) {
+            widget(&mut self.data, anim, ui);
+        } else {
+            println!("widget not found");
+        }
+    }
 }
 
 impl Editor {
@@ -426,9 +450,9 @@ impl Editor {
             .max_height(500.)
             .show(ui, |ui| {
                 for anim in emitter.emitter_animations.iter_mut() {
+                    // TODO maybe group inside widget
                     ui.group(|ui| {
-                        //anim.create_ui(ui, gui_state);
-                        // TODOOOOOO
+                        self.draw_em_widget(anim, ui);
                     });
                 }
             });
@@ -441,14 +465,9 @@ impl Editor {
             .max_height(500.)
             .show(ui, |ui| {
                 for anim in emitter.particle_animations.iter_mut() {
+                    // TODO maybe group inside widget
                     ui.group(|ui| {
-                        //let dc = anim.type_id();
-                        self.draw_widget(anim, ui);
-                        //anim.
-                        //anim.create_ui(ui, gui_state);
-                        //anim.draw(ui, self);
-                        //self.draw_widget(ui, anim);
-                        //anim.
+                        self.draw_pa_widget(anim, ui);
                     });
                 }
             });
@@ -492,6 +511,8 @@ impl Editor {
         let texture_paths = Persistence::import_textures().unwrap();
         let icon_textures = Self::create_icons(gfx_state);
         let mut pa_widgets: HashMap<TypeId, PAWidgetPtr> = HashMap::new();
+        let mut em_widgets: HashMap<TypeId, EMWidgetPtr> = HashMap::new();
+        let mut fx_widgets: HashMap<TypeId, FXWidgetPtr> = HashMap::new();
 
         pa_widgets.insert(
             TypeId::of::<ColorAnimation>(),
@@ -512,6 +533,20 @@ impl Editor {
             TypeId::of::<StrayAnimation>(),
             Box::new(EditorWidgets::stray_anim),
         );
+
+        em_widgets.insert(
+            TypeId::of::<SwayAnimation>(),
+            Box::new(EditorWidgets::sway_anim),
+        );
+
+        em_widgets.insert(
+            TypeId::of::<DiffusionAnimation>(),
+            Box::new(EditorWidgets::diffusion_anim),
+        );
+
+        fx_widgets.insert(TypeId::of::<BloomFx>(), Box::new(EditorWidgets::bloom_fx));
+        fx_widgets.insert(TypeId::of::<BlurFx>(), Box::new(EditorWidgets::blur_fx));
+        fx_widgets.insert(TypeId::of::<ColorFx>(), Box::new(EditorWidgets::color_fx));
 
         let data = EditorData {
             cpu_time_text: "".to_string(),
@@ -534,7 +569,12 @@ impl Editor {
             emitter_settings: None,
         };
 
-        Self { data, pa_widgets }
+        Self {
+            data,
+            pa_widgets,
+            em_widgets,
+            fx_widgets,
+        }
     }
 
     fn emitter_settings_tab(
@@ -736,7 +776,6 @@ impl Editor {
     }
 
     fn post_fx_tab(&mut self, state: &mut State, ui: &mut Ui, events: &mut Events) {
-        let data = &mut self.data;
         let State {
             post_process,
             registered_post_fx,
@@ -745,11 +784,12 @@ impl Editor {
         } = state;
 
         let effects = &mut post_process.effects;
-        for _fx in effects.iter_mut() {
-            // TODO
-            //fx.create_ui(ui, gui);
+        for fx in effects.iter_mut() {
+            self.draw_fx_widget(fx, ui);
             ui.separator();
         }
+
+        let data = &mut self.data;
 
         ui.separator();
 
@@ -788,23 +828,23 @@ impl Editor {
         });
     }
 
-    pub fn create_title(ui: &mut Ui, str: &str) {
-        ui.label(RichText::new(str).color(Color32::WHITE).size(16.0));
-        ui.add_space(5.0);
-    }
-
     pub fn create_degree_slider(ui: &mut Ui, val: &mut f32, str: &str) {
         ui.add(Slider::new(val, 0.0..=360.).text(str));
     }
 }
 
 impl EditorData {
+    pub fn create_title(&self, ui: &mut Ui, str: &str) {
+        ui.label(RichText::new(str).color(Color32::WHITE).size(16.0));
+        ui.add_space(5.0);
+    }
+
     /// Creates list item header
     pub fn create_li_header(&self, ui: &mut Ui, title: &str) -> ListAction {
         let mut selected_action = ListAction::None;
 
         ui.horizontal_top(|ui| {
-            Editor::create_title(ui, title);
+            self.create_title(ui, title);
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 let trash_id = self

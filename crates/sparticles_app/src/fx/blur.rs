@@ -10,8 +10,6 @@ use crate::util::DynamicExport;
 use crate::util::ListAction;
 use crate::util::UniformContext;
 use egui_wgpu::wgpu;
-use egui_winit::egui::Slider;
-use egui_winit::egui::Ui;
 use encase::ShaderType;
 use serde::Deserialize;
 use serde::Serialize;
@@ -23,20 +21,30 @@ pub enum BlurType {
     Sharpen,
 }
 
-enum BlurEvent {
+pub enum BlurEvent {
     UpdateUniform,
 }
 
-pub struct Blur {
-    blur_uniform: BlurUniform,
-    blur_ctx: UniformContext,
-    blur_type: BlurType,
-    blur_pass: BlurPass,
+pub struct BlurFx {
+    pub blur_uniform: BlurUniform,
+    pub blur_ctx: UniformContext,
+    pub blur_type: BlurType,
+    pub blur_pass: BlurPass,
 
-    update_uniform: Option<BlurEvent>,
+    pub update_uniform: Option<BlurEvent>,
 
-    selected_action: ListAction,
-    enabled: bool,
+    pub selected_action: ListAction,
+    pub enabled: bool,
+}
+
+#[derive(ShaderType, Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct BlurUniform {
+    pub brightness_threshold: f32,
+
+    // How far to look
+    pub radius: i32,
+    pub sigma: f32,
+    pub intensity: f32,
 }
 
 pub struct RegisterBlurFx;
@@ -53,24 +61,14 @@ impl RegisterPostFx for RegisterBlurFx {
             blur_type: BlurType::Gaussian,
         };
 
-        Box::new(Blur::new(options, settings))
+        Box::new(BlurFx::new(options, settings))
     }
 
     fn import(&self, options: &FxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
         let settings = serde_json::from_value(value).expect("Can't parse blur");
 
-        Box::new(Blur::new(options, settings))
+        Box::new(BlurFx::new(options, settings))
     }
-}
-
-#[derive(ShaderType, Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-pub struct BlurUniform {
-    pub brightness_threshold: f32,
-
-    // How far to look
-    pub radius: i32,
-    pub sigma: f32,
-    pub intensity: f32,
 }
 
 impl Default for BlurUniform {
@@ -90,7 +88,7 @@ pub struct BlurSettings {
     pub blur_type: BlurType,
 }
 
-impl PostFx for Blur {
+impl PostFx for BlurFx {
     fn resize(&mut self, options: &FxOptions) {
         self.blur_pass.resize(options);
     }
@@ -101,6 +99,10 @@ impl PostFx for Blur {
             let buffer_content = CommonBuffer::uniform_content(&self.blur_uniform);
             queue.write_buffer(&self.blur_ctx.buf, 0, &buffer_content);
         }
+    }
+
+    fn as_any(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 
     fn compute<'a>(
@@ -118,41 +120,9 @@ impl PostFx for Blur {
             _ => {}
         }
     }
-
-    //fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-    //self.selected_action = ui_state.create_li_header(ui, "Gaussian blur");
-
-    //if self.blur_type == BlurType::Gaussian {
-    //let a = ui.add(Slider::new(&mut self.blur_uniform.sigma, 0.1..=3.0).text("Blur sigma"));
-    //let b = ui.add(Slider::new(&mut self.blur_uniform.radius, 2..=6).text("Blur radius"));
-    //let c = ui.add(
-    //Slider::new(&mut self.blur_uniform.intensity, 0.9..=1.1).text("Blur intensity"),
-    //);
-
-    //if a.changed() || b.changed() || c.changed() {
-    //self.update_uniform = Some(BlurEvent::UpdateUniform);
-    //}
-    //} else {
-    //let a = ui.add(
-    //Slider::new(&mut self.blur_uniform.brightness_threshold, 0.0..=1.0)
-    //.text("Brightness threshold"),
-    //);
-    //let b = ui.add(Slider::new(&mut self.blur_uniform.sigma, 0.1..=3.0).text("Blur sigma"));
-    //let c = ui.add(Slider::new(&mut self.blur_uniform.radius, 2..=8).text("Blur radius"));
-    //let d = ui.add(
-    //Slider::new(&mut self.blur_uniform.intensity, 0.9..=1.1).text("Blur intensity"),
-    //);
-
-    //if a.changed() || b.changed() || c.changed() || d.changed() {
-    //self.update_uniform = Some(BlurEvent::UpdateUniform);
-    //}
-    //}
-
-    //ui.checkbox(&mut self.enabled, "Enabled");
-    //}
 }
 
-impl HandleAction for Blur {
+impl HandleAction for BlurFx {
     fn selected_action(&mut self) -> &mut ListAction {
         &mut self.selected_action
     }
@@ -174,7 +144,7 @@ impl HandleAction for Blur {
     }
 }
 
-impl Blur {
+impl BlurFx {
     pub fn new(options: &FxOptions, blur_settings: BlurSettings) -> Self {
         let FxOptions { gfx: gfx_state, .. } = options;
 

@@ -1,9 +1,6 @@
 use crate::EditorData;
 use sparticles_app::{
-    animations::{
-        force_animation::ForceAnimation, gravity_animation::GravityAnimation, ColorAnimation,
-        StrayAnimation,
-    },
+    animations::{ColorAnimation, ForceAnimation, GravityAnimation, StrayAnimation},
     gui::egui::{
         color_picker::{color_edit_button_rgba, Alpha},
         DragValue, Rgba, Slider, Ui,

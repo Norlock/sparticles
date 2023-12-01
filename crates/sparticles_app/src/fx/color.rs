@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use super::{FxIOUniform, FxOptions, FxState};
 use crate::{
     model::{Camera, GfxState},
@@ -17,15 +19,15 @@ pub enum UpdateAction {
 #[allow(unused)]
 pub struct ColorFx {
     pub color_uniform: ColorFxUniform,
-    color_buffer: wgpu::Buffer,
-    color_bg: wgpu::BindGroup,
-    io_uniform: FxIOUniform,
-    io_ctx: UniformContext,
-    general_pipeline: wgpu::ComputePipeline,
-    tonemap_pipeline: wgpu::ComputePipeline,
-    selected_action: ListAction,
-    enabled: bool,
-    update_event: Option<UpdateAction>,
+    pub color_buffer: wgpu::Buffer,
+    pub color_bg: wgpu::BindGroup,
+    pub io_uniform: FxIOUniform,
+    pub io_ctx: UniformContext,
+    pub general_pipeline: wgpu::ComputePipeline,
+    pub tonemap_pipeline: wgpu::ComputePipeline,
+    pub selected_action: ListAction,
+    pub enabled: bool,
+    pub update_event: Option<UpdateAction>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -115,15 +117,9 @@ impl PostFx for ColorFx {
         }
     }
 
-    //fn create_ui(&mut self, ui: &mut egui::Ui, ui_state: &GuiState) {
-    //self.selected_action = ui_state.create_li_header(ui, "Color correction");
-
-    //self.ui_gamma(ui);
-    //self.ui_contrast(ui);
-    //self.ui_brightness(ui);
-
-    //ui.checkbox(&mut self.enabled, "Enabled");
-    //}
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 impl HandleAction for ColorFx {
@@ -166,24 +162,6 @@ impl ColorFx {
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
         gfx_state.end_scope(c_pass);
-    }
-
-    pub fn ui_contrast(&mut self, ui: &mut egui::Ui) {
-        ui.add(Slider::new(&mut self.color_uniform.contrast, 0.1..=4.0).text("Contrast"))
-            .changed()
-            .then(|| self.update_event = Some(UpdateAction::UpdateBuffer));
-    }
-
-    pub fn ui_brightness(&mut self, ui: &mut egui::Ui) {
-        ui.add(Slider::new(&mut self.color_uniform.brightness, 0.01..=1.0).text("Brightness"))
-            .changed()
-            .then(|| self.update_event = Some(UpdateAction::UpdateBuffer));
-    }
-
-    pub fn ui_gamma(&mut self, ui: &mut egui::Ui) {
-        ui.add(Slider::new(&mut self.color_uniform.gamma, 0.1..=4.0).text("Gamma"))
-            .changed()
-            .then(|| self.update_event = Some(UpdateAction::UpdateBuffer));
     }
 
     pub fn new(options: &FxOptions, settings: ColorFxSettings) -> Self {

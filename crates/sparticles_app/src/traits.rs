@@ -82,7 +82,9 @@ pub trait WidgetBuilder {
     fn as_any(&mut self) -> &mut dyn Any;
 
     /// Pass the type id of the animation (e.g. ColorAnimation::type_id())
-    fn draw_widget<'a>(&'a mut self, anim: &'a mut Box<dyn ParticleAnimation>, ui: &mut Ui);
+    fn draw_pa_widget(&mut self, anim: &mut Box<dyn ParticleAnimation>, ui: &mut Ui);
+    fn draw_em_widget(&mut self, anim: &mut Box<dyn EmitterAnimation>, ui: &mut Ui);
+    fn draw_fx_widget(&mut self, anim: &mut Box<dyn PostFx>, ui: &mut Ui);
 
     /// Root call -> from here your complete GUI can be created.
     fn draw_ui(&mut self, state: &mut State, encoder: &mut wgpu::CommandEncoder) -> Events;
@@ -95,6 +97,7 @@ pub trait DrawWidget<PA: ParticleAnimation>: Sync + Send {
 
 pub trait EmitterAnimation: HandleAction {
     fn animate(&mut self, emitter: &mut EmitterUniform, clock: &Clock);
+    fn as_any(&mut self) -> &mut dyn Any;
 }
 
 // Post FX
@@ -109,6 +112,7 @@ pub trait PostFx: HandleAction {
     );
 
     fn resize(&mut self, options: &FxOptions);
+    fn as_any(&mut self) -> &mut dyn Any;
 }
 
 pub trait RegisterPostFx {

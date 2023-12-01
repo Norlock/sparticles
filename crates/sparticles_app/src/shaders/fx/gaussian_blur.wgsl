@@ -10,15 +10,15 @@ fn apply_blur(pos: vec2<i32>, offset: vec2<i32>) {
 
     let edge = globals.radius;
     let two_ss = 2. * globals.sigma * globals.sigma;
-    let lhs = 1. / sqrt(two_ss * pi());
+    let lhs = 1. / sqrt(two_ss * PI);
+
     var result = vec3<f32>(0.);
 
     for (var i = -edge; i < edge; i++) {
         var tex_offset = offset * i;
         var tex_pos = pos + tex_offset;
 
-        if (all(vec2<i32>(0) < tex_pos) 
-                && all(tex_pos < out_size)) {
+        if all(vec2<i32>(0) < tex_pos) && all(tex_pos < out_size) {
             var t_off = vec2<f32>(tex_offset * tex_offset);
             var rhs = exp(-(t_off.x + t_off.y) / two_ss);
 

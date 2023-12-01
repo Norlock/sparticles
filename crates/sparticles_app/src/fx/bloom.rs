@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use super::BlendPass;
 use super::ColorFx;
 use super::Downscale;
@@ -16,47 +18,45 @@ use crate::util::DynamicExport;
 use crate::util::ListAction;
 use crate::util::UniformContext;
 use egui_wgpu::wgpu;
-use egui_winit::egui::Slider;
-use egui_winit::egui::Ui;
 use serde::Deserialize;
 use serde::Serialize;
 
-enum UIAction {
+pub enum UIAction {
     UpdateBuffer(usize),
 }
 
-pub struct Bloom {
-    enabled: bool,
-    update_event: Option<UIAction>,
-    selected_action: ListAction,
+pub struct BloomFx {
+    pub enabled: bool,
+    pub update_event: Option<UIAction>,
+    pub selected_action: ListAction,
 
-    downscale_passes: Vec<DownscalePass>,
-    upscale_passes: Vec<UpscalePass>,
-    color: ColorFx,
+    pub downscale_passes: Vec<DownscalePass>,
+    pub upscale_passes: Vec<UpscalePass>,
+    pub color: ColorFx,
 
-    blend_uniform: BlendUniform,
-    blend_ctx: UniformContext,
-    blend: BlendPass,
+    pub blend_uniform: BlendUniform,
+    pub blend_ctx: UniformContext,
+    pub blend: BlendPass,
 
-    bloom_treshold: f32,
+    pub bloom_treshold: f32,
 }
 
-struct DownscalePass {
-    downscale: Downscale,
+pub struct DownscalePass {
+    pub downscale: Downscale,
 }
 
-struct UpscalePass {
-    blend: BlendPass,
-    blend_uniform: BlendUniform,
-    blend_ctx: UniformContext,
+pub struct UpscalePass {
+    pub blend: BlendPass,
+    pub blend_uniform: BlendUniform,
+    pub blend_ctx: UniformContext,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BloomSettings {
-    final_blend: BlendUniform,
-    upscale_blends: Vec<BlendUniform>,
-    color: ColorFxUniform,
-    bloom_treshold: f32,
+    pub final_blend: BlendUniform,
+    pub upscale_blends: Vec<BlendUniform>,
+    pub color: ColorFxUniform,
+    pub bloom_treshold: f32,
 }
 
 pub struct RegisterBloomFx;
@@ -68,7 +68,7 @@ impl RegisterPostFx for RegisterBloomFx {
 
     fn import(&self, options: &FxOptions, value: serde_json::Value) -> Box<dyn PostFx> {
         let bloom_settings = serde_json::from_value(value).unwrap();
-        Box::new(Bloom::new(options, bloom_settings))
+        Box::new(BloomFx::new(options, bloom_settings))
     }
 
     fn create_default(&self, options: &FxOptions) -> Box<dyn PostFx> {
@@ -78,7 +78,7 @@ impl RegisterPostFx for RegisterBloomFx {
             upscale_blends.push(BlendUniform { io_mix: 0.5 });
         }
 
-        Box::new(Bloom::new(
+        Box::new(BloomFx::new(
             options,
             BloomSettings {
                 color: ColorFxUniform::default_srgb(),
@@ -90,7 +90,7 @@ impl RegisterPostFx for RegisterBloomFx {
     }
 }
 
-impl PostFx for Bloom {
+impl PostFx for BloomFx {
     fn resize(&mut self, options: &FxOptions) {
         self.blend.resize(options);
         self.color.resize(options);
@@ -102,6 +102,10 @@ impl PostFx for Bloom {
         for up in self.upscale_passes.iter_mut() {
             up.blend.resize(options);
         }
+    }
+
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 
     fn compute<'a>(
@@ -129,44 +133,6 @@ impl PostFx for Bloom {
         gfx_state.end_scope(c_pass);
     }
 
-    //fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-    //self.selected_action = ui_state.create_li_header(ui, "Bloom settings");
-    //ui.add_space(5.0);
-
-    //ui.add(Slider::new(&mut self.bloom_treshold, 0.0..=10.0).text("Brightness treshold"));
-
-    //for (i, up) in self.upscale_passes.iter_mut().enumerate() {
-    //let io_uniform = up.blend.io();
-    //let text = format!(
-    //"IO mix from downscale {} to {}",
-    //io_uniform.in_downscale, io_uniform.out_downscale
-    //);
-
-    //if ui
-    //.add(Slider::new(&mut up.blend_uniform.io_mix, 0.0..=1.0).text(&text))
-    //.changed()
-    //{
-    //self.update_event = Some(UIAction::UpdateBuffer(i));
-    //}
-    //}
-
-    //GuiState::create_title(ui, "Blend");
-    //if ui
-    //.add(
-    //Slider::new(&mut self.blend_uniform.io_mix, 0.0..=1.0)
-    //.text("IO mix bloom to frame"),
-    //)
-    //.changed()
-    //{
-    //self.update_event = Some(UIAction::UpdateBuffer(self.upscale_passes.len()));
-    //}
-
-    //GuiState::create_title(ui, "Color correction");
-    //self.color.ui_gamma(ui);
-
-    //ui.checkbox(&mut self.enabled, "Enabled");
-    //}
-
     fn update(&mut self, gfx_state: &GfxState, camera: &mut Camera) {
         camera.bloom_treshold = glam::Vec3::splat(self.bloom_treshold);
 
@@ -189,7 +155,7 @@ impl PostFx for Bloom {
     }
 }
 
-impl HandleAction for Bloom {
+impl HandleAction for BloomFx {
     fn selected_action(&mut self) -> &mut ListAction {
         &mut self.selected_action
     }
@@ -217,7 +183,7 @@ impl HandleAction for Bloom {
     }
 }
 
-impl Bloom {
+impl BloomFx {
     pub fn new(options: &FxOptions, settings: BloomSettings) -> Self {
         let FxOptions {
             gfx: gfx_state,

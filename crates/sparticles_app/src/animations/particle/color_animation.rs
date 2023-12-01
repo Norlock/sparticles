@@ -1,5 +1,3 @@
-use std::{any::Any, sync::Mutex};
-
 use crate::{
     model::{Clock, EmitterState, GfxState},
     shaders::ShaderOptions,
@@ -7,55 +5,9 @@ use crate::{
     util::{persistence::DynamicExport, ListAction, UniformContext},
 };
 use egui_wgpu::wgpu;
-use egui_winit::egui::Ui;
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
-
-//pub type
-
-/// Color particle animation widgets
-pub static COLOR_ANIM_WIDGETS: Widgets<ColorAnimation> = init();
-
-//pub struct ColorAnimationWidgets(Arc<Mutex<Vec<Box<dyn DrawWidget<ColorAnimation>>>>>);
-
-pub struct Widgets<T: ParticleAnimation>(Mutex<Vec<Box<dyn DrawWidget<T>>>>);
-
-const fn init<T: ParticleAnimation>() -> Widgets<T> {
-    Widgets(Mutex::new(Vec::new()))
-}
-
-impl<T: ParticleAnimation> Widgets<T> {
-    pub fn add_widget(&self, widget: Box<dyn DrawWidget<T>>) {
-        if let Ok(ref mut widgets) = self.0.try_lock() {
-            widgets.push(widget);
-        }
-    }
-
-    pub fn draw(&self, wb: &mut dyn WidgetBuilder, anim: &mut T, ui: &mut Ui) {
-        if let Ok(widgets) = self.0.try_lock() {
-            //let widget = widgets
-            //.iter()
-            //.find(|widget| widget.widget_builder_id() == wb.id());
-
-            //if let Some(ref widget) = widget {
-            //widget.draw_widget(wb, anim, ui);
-            //} else {
-            //println!("widget not found");
-            //}
-        };
-        //if
-        //}
-        //if let Ok(ref mut list_lock) = lock {
-        //println!("komt in lock");
-        //let test = list_lock[idx].clone();
-        //if let Ok(ref mut lock) = test.try_lock() {
-        //println!("komt in tweede lock");
-        //lock.draw_widget(ui, anim);
-        //};
-        ////list[idx].draw_widget(ui, anim);
-        //}
-    }
-}
+use std::any::Any;
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ColorUniform {
@@ -63,6 +15,16 @@ pub struct ColorUniform {
     pub to_color: Vec4,
     pub from_sec: f32,
     pub until_sec: f32,
+}
+
+pub struct ColorAnimation {
+    pub pipeline: wgpu::ComputePipeline,
+    pub bind_group: wgpu::BindGroup,
+    pub uniform: ColorUniform,
+    pub buffer: wgpu::Buffer,
+    pub update_uniform: bool,
+    pub selected_action: ListAction,
+    pub enabled: bool,
 }
 
 impl Default for ColorUniform {
@@ -77,6 +39,7 @@ impl Default for ColorUniform {
 }
 
 impl ColorUniform {
+    // TODO direct parsen
     fn create_buffer_content(&self) -> Vec<u8> {
         let raw = [
             self.from_color.x,
@@ -99,15 +62,6 @@ impl ColorUniform {
 
 #[derive(Clone, Copy)]
 pub struct RegisterColorAnimation;
-
-impl RegisterColorAnimation {
-    /// Will append animation to emitter
-    pub fn append(uniform: ColorUniform, emitter: &mut EmitterState, gfx_state: &GfxState) {
-        let anim = Box::new(ColorAnimation::new(uniform, emitter, gfx_state));
-
-        emitter.push_particle_animation(anim);
-    }
-}
 
 impl RegisterParticleAnimation for RegisterColorAnimation {
     fn tag(&self) -> &'static str {
@@ -135,16 +89,6 @@ impl RegisterParticleAnimation for RegisterColorAnimation {
         let uniform = serde_json::from_value(value).unwrap();
         Box::new(ColorAnimation::new(uniform, emitter, gfx_state))
     }
-}
-
-pub struct ColorAnimation {
-    pub pipeline: wgpu::ComputePipeline,
-    pub bind_group: wgpu::BindGroup,
-    pub uniform: ColorUniform,
-    pub buffer: wgpu::Buffer,
-    pub update_uniform: bool,
-    pub selected_action: ListAction,
-    pub enabled: bool,
 }
 
 impl HandleAction for ColorAnimation {

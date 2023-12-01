@@ -2,9 +2,9 @@
 use glam::{f32::Vec4, vec4, Vec2, Vec3};
 use sparticles_app::{
     animations::{
-        ColorUniform, DiffusionAnimation, ForceUniform, GravityUniform, GravityUniformOptions,
-        RegisterColorAnimation, RegisterForceAnimation, RegisterGravityAnimation,
-        RegisterStrayAnimation, StrayUniform, SwayAnimation,
+        ColorAnimation, ColorUniform, DiffusionAnimation, ForceUniform, GravityUniform,
+        GravityUniformOptions, RegisterColorAnimation, RegisterForceAnimation,
+        RegisterGravityAnimation, RegisterStrayAnimation, StrayUniform, SwayAnimation,
     },
     gui::{winit::event::KeyboardInput, State},
     init::{AppVisitor, DataSource},
@@ -136,7 +136,7 @@ impl AppVisitor for GameState {
         );
 
         if emitter.id() == PARTICLE_ID {
-            RegisterColorAnimation::append(
+            let color_anim = Box::new(ColorAnimation::new(
                 ColorUniform {
                     from_sec: 0.,
                     until_sec: 0.5,
@@ -145,7 +145,9 @@ impl AppVisitor for GameState {
                 },
                 emitter,
                 gfx_state,
-            );
+            ));
+
+            emitter.push_particle_animation(color_anim);
 
             RegisterForceAnimation::append(
                 ForceUniform {

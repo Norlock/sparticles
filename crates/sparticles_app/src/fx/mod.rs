@@ -8,7 +8,7 @@ pub mod fx_io;
 pub mod post_process;
 
 pub use blend::BlendPass;
-pub use bloom::Bloom;
+pub use bloom::BloomFx;
 pub use color::{ColorFx, ColorFxSettings, ColorFxUniform, RegisterColorFx};
 pub use downscale::Downscale;
 pub use fx_io::{FxIO, FxIOSwapCtx, FxIOUniform, FxIOUniformOptions, FxOptions};
