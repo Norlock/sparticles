@@ -14,14 +14,14 @@ use wgpu::util::DeviceExt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct GravityUniform {
-    life_cycle: LifeCycle,
-    gravitational_force: f32,
-    dead_zone: f32,
-    mass: f32,
-    should_animate: bool,
-    start_pos: Vec3,
-    end_pos: Vec3,
-    current_pos: Vec3,
+    pub life_cycle: LifeCycle,
+    pub gravitational_force: f32,
+    pub dead_zone: f32,
+    pub mass: f32,
+    pub should_animate: bool,
+    pub start_pos: Vec3,
+    pub end_pos: Vec3,
+    pub current_pos: Vec3,
 }
 
 impl Default for GravityUniform {
@@ -121,12 +121,12 @@ impl RegisterParticleAnimation for RegisterGravityAnimation {
 }
 
 pub struct GravityAnimation {
-    pipeline: wgpu::ComputePipeline,
-    uniform: GravityUniform,
-    buffer: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
-    selected_action: ListAction,
-    enabled: bool,
+    pub pipeline: wgpu::ComputePipeline,
+    pub uniform: GravityUniform,
+    pub buffer: wgpu::Buffer,
+    pub bind_group: wgpu::BindGroup,
+    pub selected_action: ListAction,
+    pub enabled: bool,
 }
 
 impl HandleAction for GravityAnimation {
@@ -191,66 +191,6 @@ impl ParticleAnimation for GravityAnimation {
     fn recreate(&self, gfx_state: &GfxState, emitter: &EmitterState) -> Box<dyn ParticleAnimation> {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
-
-    //fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-    //self.selected_action = ui_state.create_li_header(ui, "Gravity animation");
-    //let mut gui = self.uniform;
-
-    //ui.horizontal(|ui| {
-    //ui.label("Animate from sec");
-    //ui.add(DragValue::new(&mut gui.life_cycle.from_sec).speed(0.1));
-    //});
-
-    //ui.horizontal(|ui| {
-    //ui.label("Animate until sec");
-    //ui.add(DragValue::new(&mut gui.life_cycle.until_sec).speed(0.1));
-    //});
-
-    //ui.horizontal(|ui| {
-    //ui.label("Lifetime sec");
-    //ui.add(DragValue::new(&mut gui.life_cycle.lifetime_sec).speed(0.1));
-    //});
-
-    //ui.horizontal(|ui| {
-    //ui.label("Start position > ");
-    //ui.label("x:");
-    //ui.add(DragValue::new(&mut gui.start_pos.x).speed(0.1));
-    //ui.label("y:");
-    //ui.add(DragValue::new(&mut gui.start_pos.y).speed(0.1));
-    //ui.label("z:");
-    //ui.add(DragValue::new(&mut gui.start_pos.z).speed(0.1));
-    //});
-
-    //ui.horizontal(|ui| {
-    //ui.label("End position > ");
-    //ui.label("x:");
-    //ui.add(DragValue::new(&mut gui.end_pos.x).speed(0.1));
-    //ui.label("y:");
-    //ui.add(DragValue::new(&mut gui.end_pos.y).speed(0.1));
-    //ui.label("z:");
-    //ui.add(DragValue::new(&mut gui.end_pos.z).speed(0.1));
-    //});
-
-    //ui.horizontal(|ui| {
-    //ui.label("Dead zone");
-    //ui.add(DragValue::new(&mut gui.dead_zone).speed(0.1));
-    //});
-
-    //ui.horizontal(|ui| {
-    //ui.label("Gravitational force");
-    //ui.add(
-    //DragValue::new(&mut gui.gravitational_force)
-    //.speed(0.001)
-    //.clamp_range(-0.02..=0.02),
-    //);
-    //});
-
-    //ui.checkbox(&mut self.enabled, "Enabled");
-
-    //if self.uniform != gui {
-    //self.uniform = gui;
-    //}
-    //}
 }
 
 impl GravityAnimation {

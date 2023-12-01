@@ -231,7 +231,6 @@ impl ColorAnimation {
             update_uniform: false,
             selected_action: ListAction::None,
             enabled: true,
-            //visitors: HashMap::new(),
         }
     }
 }

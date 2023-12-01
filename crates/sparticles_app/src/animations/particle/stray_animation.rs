@@ -8,7 +8,6 @@ use crate::{
     util::ListAction,
 };
 use egui_wgpu::wgpu;
-use egui_winit::egui::{DragValue, Slider, Ui};
 use serde::{Deserialize, Serialize};
 use wgpu::util::DeviceExt;
 
@@ -75,14 +74,14 @@ impl RegisterParticleAnimation for RegisterStrayAnimation {
     }
 }
 
-struct StrayAnimation {
-    pipeline: wgpu::ComputePipeline,
-    uniform: StrayUniform,
-    buffer: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
-    selected_action: ListAction,
-    update_uniform: bool,
-    enabled: bool,
+pub struct StrayAnimation {
+    pub pipeline: wgpu::ComputePipeline,
+    pub uniform: StrayUniform,
+    pub buffer: wgpu::Buffer,
+    pub bind_group: wgpu::BindGroup,
+    pub selected_action: ListAction,
+    pub update_uniform: bool,
+    pub enabled: bool,
 }
 
 impl HandleAction for StrayAnimation {
@@ -137,40 +136,6 @@ impl ParticleAnimation for StrayAnimation {
     fn recreate(&self, gfx_state: &GfxState, emitter: &EmitterState) -> Box<dyn ParticleAnimation> {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
-
-    //fn create_ui(&mut self, ui: &mut Ui, ui_state: &GuiState) {
-    //self.selected_action = ui_state.create_li_header(ui, "Stray animation");
-
-    //let mut gui = self.uniform;
-    //let mut stray_degrees = gui.stray_radians.to_degrees();
-
-    //ui.horizontal(|ui| {
-    //ui.label("Animate from sec");
-    //ui.add(DragValue::new(&mut gui.from_sec).speed(0.1));
-    //});
-
-    //ui.horizontal(|ui| {
-    //ui.label("Animate until sec");
-    //ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
-    //});
-
-    //ui.spacing_mut().slider_width = 200.0;
-
-    //ui.add(
-    //Slider::new(&mut stray_degrees, 0.0..=45.)
-    //.step_by(0.1)
-    //.text("Stray degrees"),
-    //);
-
-    //ui.checkbox(&mut self.enabled, "Enabled");
-
-    //gui.stray_radians = stray_degrees.to_radians();
-
-    //if self.uniform != gui {
-    //self.update_uniform = true;
-    //self.uniform = gui;
-    //}
-    //}
 }
 
 impl StrayAnimation {

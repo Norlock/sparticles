@@ -1,7 +1,8 @@
 use crate::widgets::EditorWidgets;
 use sparticles_app::{
     animations::{
-        color_animation::COLOR_ANIM_WIDGETS, force_animation::ForceAnimation, ColorAnimation,
+        color_animation::COLOR_ANIM_WIDGETS, force_animation::ForceAnimation,
+        gravity_animation::GravityAnimation, ColorAnimation, StrayAnimation,
     },
     fx::{FxOptions, PostProcessState},
     gui::egui::{load::SizedTexture, *},
@@ -95,6 +96,7 @@ impl WidgetBuilder for Editor {
 
     fn draw_widget(&mut self, anim: &mut Box<dyn ParticleAnimation>, ui: &mut Ui) {
         let type_id = get_type_id(anim.as_any());
+
         if let Some(widget) = self.pa_widgets.get_mut(&type_id) {
             widget(&mut self.data, anim, ui);
         } else {
@@ -499,6 +501,16 @@ impl Editor {
         pa_widgets.insert(
             TypeId::of::<ForceAnimation>(),
             Box::new(EditorWidgets::force_anim),
+        );
+
+        pa_widgets.insert(
+            TypeId::of::<GravityAnimation>(),
+            Box::new(EditorWidgets::gravity_anim),
+        );
+
+        pa_widgets.insert(
+            TypeId::of::<StrayAnimation>(),
+            Box::new(EditorWidgets::stray_anim),
         );
 
         let data = EditorData {

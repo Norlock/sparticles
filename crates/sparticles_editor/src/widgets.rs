@@ -1,9 +1,12 @@
 use crate::EditorData;
 use sparticles_app::{
-    animations::{force_animation::ForceAnimation, ColorAnimation},
+    animations::{
+        force_animation::ForceAnimation, gravity_animation::GravityAnimation, ColorAnimation,
+        StrayAnimation,
+    },
     gui::egui::{
         color_picker::{color_edit_button_rgba, Alpha},
-        DragValue, Rgba, Ui,
+        DragValue, Rgba, Slider, Ui,
     },
     traits::ParticleAnimation,
 };
@@ -49,6 +52,112 @@ impl EditorWidgets {
 
             gui.from_color = from_color.to_array().into();
             gui.to_color = to_color.to_array().into();
+
+            if anim.uniform != gui {
+                anim.update_uniform = true;
+                anim.uniform = gui;
+            }
+        }
+    }
+
+    pub fn gravity_anim(
+        editor: &mut EditorData,
+        anim: &mut Box<dyn ParticleAnimation>,
+        ui: &mut Ui,
+    ) {
+        let downcast = anim.as_any().downcast_mut::<GravityAnimation>();
+
+        if let Some(anim) = downcast {
+            anim.selected_action = editor.create_li_header(ui, "Gravity animation");
+            let mut gui = anim.uniform;
+
+            ui.horizontal(|ui| {
+                ui.label("Animate from sec");
+                ui.add(DragValue::new(&mut gui.life_cycle.from_sec).speed(0.1));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("Animate until sec");
+                ui.add(DragValue::new(&mut gui.life_cycle.until_sec).speed(0.1));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("Lifetime sec");
+                ui.add(DragValue::new(&mut gui.life_cycle.lifetime_sec).speed(0.1));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("Start position > ");
+                ui.label("x:");
+                ui.add(DragValue::new(&mut gui.start_pos.x).speed(0.1));
+                ui.label("y:");
+                ui.add(DragValue::new(&mut gui.start_pos.y).speed(0.1));
+                ui.label("z:");
+                ui.add(DragValue::new(&mut gui.start_pos.z).speed(0.1));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("End position > ");
+                ui.label("x:");
+                ui.add(DragValue::new(&mut gui.end_pos.x).speed(0.1));
+                ui.label("y:");
+                ui.add(DragValue::new(&mut gui.end_pos.y).speed(0.1));
+                ui.label("z:");
+                ui.add(DragValue::new(&mut gui.end_pos.z).speed(0.1));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("Dead zone");
+                ui.add(DragValue::new(&mut gui.dead_zone).speed(0.1));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("Gravitational force");
+                ui.add(
+                    DragValue::new(&mut gui.gravitational_force)
+                        .speed(0.001)
+                        .clamp_range(-0.02..=0.02),
+                );
+            });
+
+            ui.checkbox(&mut anim.enabled, "Enabled");
+
+            if anim.uniform != gui {
+                anim.uniform = gui;
+            }
+        }
+    }
+
+    pub fn stray_anim(editor: &mut EditorData, anim: &mut Box<dyn ParticleAnimation>, ui: &mut Ui) {
+        let downcast = anim.as_any().downcast_mut::<StrayAnimation>();
+
+        if let Some(anim) = downcast {
+            anim.selected_action = editor.create_li_header(ui, "Stray animation");
+
+            let mut gui = anim.uniform;
+            let mut stray_degrees = gui.stray_radians.to_degrees();
+
+            ui.horizontal(|ui| {
+                ui.label("Animate from sec");
+                ui.add(DragValue::new(&mut gui.from_sec).speed(0.1));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("Animate until sec");
+                ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
+            });
+
+            ui.spacing_mut().slider_width = 200.0;
+
+            ui.add(
+                Slider::new(&mut stray_degrees, 0.0..=45.)
+                    .step_by(0.1)
+                    .text("Stray degrees"),
+            );
+
+            ui.checkbox(&mut anim.enabled, "Enabled");
+
+            gui.stray_radians = stray_degrees.to_radians();
 
             if anim.uniform != gui {
                 anim.update_uniform = true;
