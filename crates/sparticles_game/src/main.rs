@@ -11,7 +11,7 @@ use sparticles_app::{
     loader::{BUILTIN_ID, CIRCLE_MAT_ID, CIRCLE_MESH_ID},
     model::{
         emitter::{MaterialRef, MeshRef},
-        Boundry, EmitterState, EmitterUniform, GfxState, LifeCycle,
+        Boundry, EmitterState, EmitterUniform, GfxState, LifeCycle, SparEvents, SparState,
     },
     traits::*,
     wgpu::CommandEncoder,
@@ -33,7 +33,6 @@ impl GameState {
         }
     }
 }
-//editor: Editor,
 
 const LIGHT_ID: &str = "Light";
 const PARTICLE_ID: &str = "Particles";
@@ -77,9 +76,9 @@ impl AppVisitor for GameState {
     //}
     fn draw_ui(
         &mut self,
-        state: &mut sparticles_app::model::State,
+        state: &mut SparState,
         encoder: &mut CommandEncoder,
-    ) -> sparticles_app::model::Events {
+    ) -> sparticles_app::model::SparEvents {
         self.widget_builders[0].draw_ui(state, encoder)
     }
 
@@ -89,10 +88,11 @@ impl AppVisitor for GameState {
 
     fn process_events(
         &mut self,
-        state: &mut sparticles_app::model::State,
-        input: KeyboardInput,
+        events: &mut SparEvents,
+        input: &KeyboardInput,
         shift_pressed: bool,
     ) {
+        self.widget_builders[0].process_input(events, &input, shift_pressed);
     }
 
     fn add_emitter_anim(&self, emitter: &mut EmitterState) {

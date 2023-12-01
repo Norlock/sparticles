@@ -15,8 +15,8 @@ use crate::fx::PostProcessState;
 use crate::fx::RegisterColorFx;
 use crate::loader::Model;
 use crate::model::{
-    Camera, CreateEmitterOptions, EmitterState, EmitterType, EmitterUniform, Events, GfxState,
-    State,
+    Camera, CreateEmitterOptions, EmitterState, EmitterType, EmitterUniform, GfxState, SparEvents,
+    SparState,
 };
 use crate::traits::*;
 use crate::util::persistence::ExportEmitter;
@@ -52,8 +52,13 @@ pub trait AppVisitor {
 
     fn add_widget_builders(&mut self, gfx: &mut GfxState);
 
-    fn draw_ui(&mut self, state: &mut State, encoder: &mut wgpu::CommandEncoder) -> Events;
-    fn process_events(&mut self, state: &mut State, input: KeyboardInput, shift_pressed: bool);
+    fn draw_ui(&mut self, state: &mut SparState, encoder: &mut wgpu::CommandEncoder) -> SparEvents;
+    fn process_events(
+        &mut self,
+        events: &mut SparEvents,
+        input: &KeyboardInput,
+        shift_pressed: bool,
+    );
 
     /// If you want to add through code use this function otherwise use gui
     fn add_particle_anim(&self, emitter: &mut EmitterState, gfx_state: &GfxState) {}

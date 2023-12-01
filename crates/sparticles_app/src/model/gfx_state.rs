@@ -1,10 +1,8 @@
-use super::events::GameState;
-use super::state::State;
+use super::state::SparState;
 use super::EmitterState;
-use super::Events;
+use super::SparEvents;
 use crate::fx::PostProcessState;
 use crate::init::AppVisitor;
-use crate::winit::event::KeyboardInput;
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::CommandEncoder;
@@ -39,7 +37,7 @@ pub struct GfxState {
 
 pub struct DrawGuiResult {
     pub primitives: Vec<ClippedPrimitive>,
-    pub events: Events,
+    pub events: SparEvents,
 }
 
 impl GfxState {
@@ -206,7 +204,7 @@ impl GfxState {
     }
 
     pub fn draw_ui(
-        state: &mut State,
+        state: &mut SparState,
         encoder: &mut wgpu::CommandEncoder,
         app_visitor: &mut impl AppVisitor,
     ) -> DrawGuiResult {
@@ -247,24 +245,15 @@ impl GfxState {
         DrawGuiResult { events, primitives }
     }
 
-    pub fn process_events(state: &mut State, input: KeyboardInput, shift_pressed: bool) {
-        if state.camera.process_input(&input) {
-            return;
-        }
-
-        // TODO PROCESS EVENTS FOR EGUI
-        //state.process_events(&mut self.state, input, shift_pressed);
-    }
-
-    pub fn render(state: &mut State, app_visitor: &mut impl AppVisitor) -> Events {
+    pub fn render(state: &mut SparState, app_visitor: &mut impl AppVisitor) -> SparEvents {
         let output_frame = match state.gfx.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Outdated) => {
-                return Events::default();
+                return SparEvents::default();
             }
             Err(e) => {
                 eprintln!("Dropped frame with error: {}", e);
-                return Events::default();
+                return SparEvents::default();
             }
         };
 
@@ -280,7 +269,7 @@ impl GfxState {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        if GameState::Play == state.game_state {
+        if state.play {
             EmitterState::compute_particles(state, &mut encoder);
         }
 

@@ -1,4 +1,4 @@
-use super::{gfx_state::GfxState, Events, State};
+use super::{gfx_state::GfxState, SparEvents, SparState};
 use egui_wgpu::wgpu;
 use egui_winit::{
     egui::WidgetText,
@@ -151,8 +151,8 @@ impl Camera {
         }
     }
 
-    pub fn update(state: &mut State, events: &Events) {
-        let State {
+    pub fn update(state: &mut SparState, events: &SparEvents) {
+        let SparState {
             gfx, camera, clock, ..
         } = state;
 

@@ -1,5 +1,6 @@
-use super::events::GameState;
-use super::{Camera, Clock, EmitterState, Events, GfxState, Material, MaterialRef, Mesh, MeshRef};
+use super::{
+    Camera, Clock, EmitterState, GfxState, Material, MaterialRef, Mesh, MeshRef, SparEvents,
+};
 use crate::fx::PostProcessState;
 use crate::init::{AppVisitor, Init};
 use crate::loader::{Model, BUILTIN_ID};
@@ -8,17 +9,18 @@ use crate::util::ID;
 use egui_winit::winit::{dpi::PhysicalSize, event::KeyboardInput, window::Window};
 use std::collections::HashMap;
 
-pub struct State {
+/// Sparticles state
+pub struct SparState {
     pub camera: Camera,
     pub clock: Clock,
     pub emitters: Vec<EmitterState>,
     pub post_process: PostProcessState,
     pub gfx: GfxState,
     pub collection: HashMap<ID, Model>,
+    pub play: bool,
     pub registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
     pub registry_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
     pub registered_post_fx: Vec<Box<dyn RegisterPostFx>>,
-    pub game_state: GameState,
 }
 
 pub trait FastFetch {
@@ -50,10 +52,13 @@ impl FastFetch for HashMap<ID, Model> {
     }
 }
 
-impl State {
-    pub fn update(&mut self, events: &Events) {
-        self.clock.update(events);
-        self.game_state = events.game_state;
+impl SparState {
+    pub fn update(&mut self, events: &SparEvents) {
+        self.clock.update(self.play);
+
+        if events.toggle_play {
+            self.play = !self.play;
+        }
 
         Camera::update(self, events);
         PostProcessState::update(self, events);
@@ -66,15 +71,10 @@ impl State {
         self.camera.resize(&self.gfx);
     }
 
-    pub fn process_events(&mut self, input: KeyboardInput, shift_pressed: bool) {
+    pub fn process_events(&mut self, input: &KeyboardInput) {
         if self.camera.process_input(&input) {
             return;
         }
-
-        // TODO
-        //if GuiState::process_input(self, &input, shift_pressed) {
-        //return;
-        //}
     }
 
     pub fn egui_ctx(&self) -> &egui_winit::egui::Context {
@@ -126,7 +126,7 @@ impl State {
             registry_em_anims: init_settings.registry_em_anims,
             registered_post_fx: init_settings.registry_post_fx,
             collection,
-            game_state: GameState::Play,
+            play: true,
         }
     }
 }

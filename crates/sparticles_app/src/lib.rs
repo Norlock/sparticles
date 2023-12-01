@@ -2,7 +2,7 @@ use egui_wgpu;
 use egui_winit;
 use egui_winit::winit;
 use init::AppVisitor;
-use model::{Events, GfxState, State};
+use model::{GfxState, SparEvents, SparState};
 use winit::event::Event::*;
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{self, WindowId};
@@ -40,9 +40,9 @@ pub fn start(mut app_visitor: impl AppVisitor + 'static) {
         .build(&event_loop)
         .unwrap();
 
-    let mut state = State::new(&mut app_visitor, window);
+    let mut state = SparState::new(&mut app_visitor, window);
     let mut shift_pressed = false;
-    let mut events = Events::default();
+    let mut events = SparEvents::default();
 
     event_loop.run(move |event, _, control_flow| {
         let gfx = &mut state.gfx;
@@ -71,7 +71,8 @@ pub fn start(mut app_visitor: impl AppVisitor + 'static) {
                     }
                     winit::event::WindowEvent::KeyboardInput { input, .. } => {
                         if !response.consumed {
-                            state.process_events(input, shift_pressed);
+                            state.process_events(&input);
+                            app_visitor.process_events(&mut events, &input, shift_pressed);
                         }
                     }
                     winit::event::WindowEvent::ModifiersChanged(modifier) => {

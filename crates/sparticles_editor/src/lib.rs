@@ -15,7 +15,7 @@ use sparticles_app::{
     },
     model::{
         camera::TonemapType, emitter_state::RecreateEmitterOptions, events::ViewIOEvent,
-        EmitterSettings, EmitterState, EmitterType, Events, GfxState, State,
+        EmitterSettings, EmitterState, EmitterType, GfxState, SparEvents, SparState,
     },
     profiler::GpuTimerScopeResult,
     texture::IconTexture,
@@ -26,7 +26,7 @@ use sparticles_app::{
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 pub mod em_widgets;
@@ -89,8 +89,8 @@ enum Tab {
 const WINDOW_MARGIN: f32 = 10.;
 
 impl WidgetBuilder for Editor {
-    fn draw_ui(&mut self, state: &mut State, encoder: &mut wgpu::CommandEncoder) -> Events {
-        let mut events = Events::default();
+    fn draw_ui(&mut self, state: &mut SparState, encoder: &mut wgpu::CommandEncoder) -> SparEvents {
+        let mut events = SparEvents::default();
         self.update_gui(state, &mut events, encoder);
         events
     }
@@ -99,7 +99,7 @@ impl WidgetBuilder for Editor {
         "editor"
     }
 
-    fn as_any(&mut self) -> &mut dyn std::any::Any {
+    fn as_any(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -132,14 +132,11 @@ impl WidgetBuilder for Editor {
             println!("widget not found");
         }
     }
-}
 
-impl Editor {
-    pub fn process_input(
+    fn process_input(
         &mut self,
-        state: &mut State,
+        events: &mut SparEvents,
         input: &KeyboardInput,
-        events: &mut Events,
         shift_pressed: bool,
     ) -> bool {
         if input.state == ElementState::Pressed {
@@ -163,17 +160,19 @@ impl Editor {
             VirtualKeyCode::Key4 => data.selected_tab = Tab::EmitterAnimations,
             //VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
             //VirtualKeyCode::P => gui.performance_event.set(DisplayEvent::ToggleCollapse),
-            VirtualKeyCode::F => events.toggle_game_state(),
+            VirtualKeyCode::F => events.toggle_play = true,
             _ => return false,
         }
 
         true
     }
+}
 
+impl Editor {
     pub fn update_gui(
         &mut self,
-        state: &mut State,
-        events: &mut Events,
+        state: &mut SparState,
+        events: &mut SparEvents,
         encoder: &mut CommandEncoder,
     ) {
         Window::new("Menu").show(state.egui_ctx(), |ui| {
@@ -202,17 +201,18 @@ impl Editor {
             })
             .default_height(800.)
             .show(&state.egui_ctx().clone(), |ui| {
-                let State {
+                let SparState {
                     clock,
                     emitters,
                     gfx,
                     post_process,
+                    play,
                     ..
                 } = state;
                 let data = &mut self.data;
 
                 // Update gui info
-                if clock.frame() % 20 == 0 && events.play() {
+                if clock.frame() % 20 == 0 && *play {
                     let count: u64 = emitters.iter().map(|s| s.particle_count()).sum();
 
                     data.cpu_time_text = clock.frame_time_text();
@@ -290,7 +290,7 @@ impl Editor {
                     }
 
                     if ui.button("Toggle pause").clicked() {
-                        events.toggle_game_state();
+                        events.toggle_play = true;
                     }
 
                     // TODO via events
@@ -385,7 +385,7 @@ impl Editor {
         total_time
     }
 
-    fn emitter_animations_tab(&mut self, state: &mut State, ui: &mut Ui) {
+    fn emitter_animations_tab(&mut self, state: &mut SparState, ui: &mut Ui) {
         let emitter = &mut state.emitters[self.data.selected_emitter_idx];
         let registered_em_anims = &state.registry_em_anims;
 
@@ -412,8 +412,8 @@ impl Editor {
         });
     }
 
-    fn particle_animations_tab(&mut self, state: &mut State, ui: &mut Ui) {
-        let State {
+    fn particle_animations_tab(&mut self, state: &mut SparState, ui: &mut Ui) {
+        let SparState {
             emitters,
             registry_par_anims,
             ..
@@ -481,13 +481,10 @@ impl Editor {
         let mut textures = HashMap::new();
 
         let mut create_tex = |filename: &str, tag: &str| {
-            // TODO weer goed zetten
-            let mut icon_path = PathBuf::from(
-                "/home/norlock/Projects/sparticles/crates/sparticles_app/src/assets/icons",
-            );
-            //icon_path.push("crates/sparticles_app/src/assets/icons/");
-            println!("{:?}", icon_path.to_str().unwrap());
-            icon_path.push(filename);
+            let icon_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("src/assets/icons")
+                .join(filename);
+
             let path_str = icon_path
                 .to_str()
                 .unwrap_or_else(|| panic!("File doesn't exist: {}", filename));
@@ -579,7 +576,7 @@ impl Editor {
 
     fn emitter_settings_tab(
         &mut self,
-        state: &mut State,
+        state: &mut SparState,
         ui: &mut Ui,
         encoder: &mut CommandEncoder,
     ) {
@@ -711,11 +708,11 @@ impl Editor {
         self.update_emitter(state, encoder);
     }
 
-    fn update_emitter(&mut self, state: &mut State, encoder: &mut wgpu::CommandEncoder) {
+    fn update_emitter(&mut self, state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
         // TODO move to APP and make events for recreating emitter!
         let data = &mut self.data;
 
-        let State {
+        let SparState {
             camera,
             emitters,
             gfx,
@@ -775,8 +772,8 @@ impl Editor {
         }
     }
 
-    fn post_fx_tab(&mut self, state: &mut State, ui: &mut Ui, events: &mut Events) {
-        let State {
+    fn post_fx_tab(&mut self, state: &mut SparState, ui: &mut Ui, events: &mut SparEvents) {
+        let SparState {
             post_process,
             registered_post_fx,
             gfx,

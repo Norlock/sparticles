@@ -1,4 +1,3 @@
-use super::Events;
 use std::time::{Duration, Instant};
 
 pub struct Clock {
@@ -24,12 +23,12 @@ impl Clock {
         }
     }
 
-    pub fn update(&mut self, events: &Events) {
+    pub fn update(&mut self, play: bool) {
         let now = self.instant.elapsed();
         self.current_delta = now - self.last_update;
         self.last_update = now;
 
-        if events.play() {
+        if play {
             self.frame += 1;
         }
     }

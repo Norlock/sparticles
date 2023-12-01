@@ -1,5 +1,5 @@
 use super::state::FastFetch;
-use super::{Camera, EmitterUniform, Events, GfxState, Material, Mesh, ModelVertex, State};
+use super::{Camera, EmitterUniform, GfxState, Material, Mesh, ModelVertex, SparEvents, SparState};
 use crate::fx::PostProcessState;
 use crate::loader::{Model, BUILTIN_ID};
 use crate::shaders::{ShaderOptions, SDR_PBR, SDR_TONEMAPPING};
@@ -61,8 +61,8 @@ impl<'a> EmitterState {
         &self.uniform.id
     }
 
-    pub fn update(state: &mut State, events: &Events) {
-        let State {
+    pub fn update(state: &mut SparState, events: &SparEvents) {
+        let SparState {
             clock,
             emitters,
             gfx,
@@ -120,8 +120,8 @@ impl<'a> EmitterState {
         }
     }
 
-    pub fn compute_particles(state: &'a mut State, encoder: &'a mut wgpu::CommandEncoder) {
-        let State {
+    pub fn compute_particles(state: &'a mut SparState, encoder: &'a mut wgpu::CommandEncoder) {
+        let SparState {
             clock,
             emitters,
             gfx,
@@ -158,7 +158,7 @@ impl<'a> EmitterState {
         gfx.end_scope(&mut c_pass);
     }
 
-    pub fn render_particles(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
+    pub fn render_particles(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
         let pp = &state.post_process;
 
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

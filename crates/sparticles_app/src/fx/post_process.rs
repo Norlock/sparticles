@@ -1,7 +1,7 @@
 use super::{FxIOUniform, FxOptions};
 use crate::init::AppVisitor;
 use crate::model::events::ViewIOEvent;
-use crate::model::{Events, GfxState, State};
+use crate::model::{GfxState, SparEvents, SparState};
 use crate::shaders::{ShaderOptions, SDR_TONEMAPPING};
 use crate::traits::*;
 use crate::util::{
@@ -39,8 +39,8 @@ impl PostProcessState {
         }
     }
 
-    pub fn update(state: &mut State, events: &Events) {
-        let State {
+    pub fn update(state: &mut SparState, events: &SparEvents) {
+        let SparState {
             post_process: pp,
             gfx,
             camera,
@@ -91,7 +91,7 @@ impl PostProcessState {
         &self.fx_state.depth_view
     }
 
-    pub fn compute(state: &mut State, encoder: &mut wgpu::CommandEncoder) {
+    pub fn compute(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
         let gfx_state = &mut state.gfx;
         let pp = &mut state.post_process;
         let fx_state = &mut pp.fx_state;
@@ -111,11 +111,11 @@ impl PostProcessState {
     }
 
     pub fn render(
-        state: &mut State,
+        state: &mut SparState,
         output_view: wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
         app_visitor: &mut impl AppVisitor,
-    ) -> Events {
+    ) -> SparEvents {
         let draw_gui = GfxState::draw_ui(state, encoder, app_visitor);
         let gfx = &mut state.gfx;
 

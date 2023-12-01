@@ -268,10 +268,6 @@ impl Model {
             );
         }
 
-        for _sampler in gltf.samplers() {
-            //println!("sampler: {:?}", sampler);
-        }
-
         let mut meshes: HashMap<ID, Mesh> = HashMap::new();
 
         for scene in gltf.scenes() {
