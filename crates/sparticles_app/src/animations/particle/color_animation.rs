@@ -1,7 +1,4 @@
-use std::{
-    ops::{Deref, DerefMut},
-    sync::{Arc, Mutex},
-};
+use std::{any::Any, sync::Mutex};
 
 use crate::{
     model::{Clock, EmitterState, GfxState},
@@ -16,38 +13,47 @@ use serde::{Deserialize, Serialize};
 
 //pub type
 
+/// Color particle animation widgets
 pub static COLOR_ANIM_WIDGETS: Widgets<ColorAnimation> = init();
 
 //pub struct ColorAnimationWidgets(Arc<Mutex<Vec<Box<dyn DrawWidget<ColorAnimation>>>>>);
 
-pub struct Widgets<T: ParticleAnimation>(Mutex<Vec<Arc<Mutex<dyn DrawWidget<T>>>>>);
+pub struct Widgets<T: ParticleAnimation>(Mutex<Vec<Box<dyn DrawWidget<T>>>>);
 
-const fn init() -> Widgets<ColorAnimation> {
+const fn init<T: ParticleAnimation>() -> Widgets<T> {
     Widgets(Mutex::new(Vec::new()))
 }
 
 impl<T: ParticleAnimation> Widgets<T> {
-    pub fn add_widget(&self, widget: Arc<Mutex<dyn DrawWidget<T>>>) {
-        let mut lock = self.0.try_lock();
-
-        if let Ok(ref mut list) = lock {
-            list.push(widget);
+    pub fn add_widget(&self, widget: Box<dyn DrawWidget<T>>) {
+        if let Ok(ref mut widgets) = self.0.try_lock() {
+            widgets.push(widget);
         }
     }
 
-    pub fn draw(&self, anim: &mut T, ui: &mut Ui, idx: usize) {
-        let mut lock = self.0.try_lock();
-        println!("komt hier");
+    pub fn draw(&self, wb: &mut dyn WidgetBuilder, anim: &mut T, ui: &mut Ui) {
+        if let Ok(widgets) = self.0.try_lock() {
+            //let widget = widgets
+            //.iter()
+            //.find(|widget| widget.widget_builder_id() == wb.id());
 
-        if let Ok(ref mut list_lock) = lock {
-            println!("komt in lock");
-            let test = list_lock[idx].clone();
-            if let Ok(ref mut lock) = test.try_lock() {
-                println!("komt in tweede lock");
-                lock.draw_widget(ui, anim);
-            };
-            //list[idx].draw_widget(ui, anim);
-        }
+            //if let Some(ref widget) = widget {
+            //widget.draw_widget(wb, anim, ui);
+            //} else {
+            //println!("widget not found");
+            //}
+        };
+        //if
+        //}
+        //if let Ok(ref mut list_lock) = lock {
+        //println!("komt in lock");
+        //let test = list_lock[idx].clone();
+        //if let Ok(ref mut lock) = test.try_lock() {
+        //println!("komt in tweede lock");
+        //lock.draw_widget(ui, anim);
+        //};
+        ////list[idx].draw_widget(ui, anim);
+        //}
     }
 }
 
@@ -185,12 +191,8 @@ impl ParticleAnimation for ColorAnimation {
         Box::new(Self::new(self.uniform, emitter, gfx_state))
     }
 
-    fn draw_widget(&mut self, ui: &mut Ui) {
-        COLOR_ANIM_WIDGETS.draw(self, ui, 0);
-    }
-
-    fn draw_widget2(&mut self, ui: &mut Ui, wb: Box<dyn WidgetBuilder>) {
-        COLOR_ANIM_WIDGETS.draw(self, ui, 0);
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 

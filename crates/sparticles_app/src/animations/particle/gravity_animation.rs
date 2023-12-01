@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::model::clock::Clock;
 use crate::model::{EmitterState, GfxState, LifeCycle};
 use crate::shaders::ShaderOptions;
@@ -163,6 +165,10 @@ impl ParticleAnimation for GravityAnimation {
         compute_pass.set_bind_group(0, &emitter.bgs[nr], &[]);
         compute_pass.set_bind_group(1, &self.bind_group, &[]);
         compute_pass.dispatch_workgroups(emitter.dispatch_x_count, 1, 1);
+    }
+
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 
     fn update(&mut self, clock: &Clock, gfx_state: &GfxState) {

@@ -1,3 +1,4 @@
+use crate::widgets::EditorWidgets;
 use sparticles_app::{
     animations::{
         color_animation::COLOR_ANIM_WIDGETS, force_animation::ForceAnimation, ColorAnimation,
@@ -17,21 +18,30 @@ use sparticles_app::{
     },
     profiler::GpuTimerScopeResult,
     texture::IconTexture,
-    traits::{DrawWidget, Splitting, WidgetBuilder},
+    traits::{ParticleAnimation, Splitting, WidgetBuilder},
     util::ListAction,
     util::Persistence,
     wgpu::{self, CommandEncoder},
 };
 use std::{
+    any::{Any, TypeId},
     collections::HashMap,
-    ops::Deref,
     path::PathBuf,
-    sync::{Arc, Mutex},
 };
 
 pub mod menu;
+pub mod widgets;
+
+pub type PAWidgetPtr = Box<dyn Fn(&mut EditorData, &mut Box<dyn ParticleAnimation>, &mut Ui)>;
 
 pub struct Editor {
+    pub data: EditorData,
+
+    /// Particle animation Widgets
+    pub pa_widgets: HashMap<TypeId, PAWidgetPtr>,
+}
+
+pub struct EditorData {
     new_emitter_tag: String,
     profiling_results: Vec<GpuTimerScopeResult>,
     pub selected_emitter_idx: usize,
@@ -74,6 +84,28 @@ impl WidgetBuilder for Editor {
         self.update_gui(state, &mut events, encoder);
         events
     }
+
+    fn id(&self) -> &'static str {
+        "editor"
+    }
+
+    fn as_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn draw_widget(&mut self, anim: &mut Box<dyn ParticleAnimation>, ui: &mut Ui) {
+        let type_id = get_type_id(anim.as_any());
+        if let Some(widget) = self.pa_widgets.get_mut(&type_id) {
+            widget(&mut self.data, anim, ui);
+        } else {
+            println!("widget not found");
+        }
+    }
+}
+
+/// Weird trick to avoid the borrow checker nonsense
+fn get_type_id<T: ?Sized + Any>(s: &T) -> TypeId {
+    s.type_id()
 }
 
 impl Editor {
@@ -88,6 +120,8 @@ impl Editor {
             return false;
         }
 
+        let data = &mut self.data;
+
         let keycode = input.virtual_keycode.unwrap_or(VirtualKeyCode::Return);
 
         match keycode {
@@ -97,10 +131,10 @@ impl Editor {
             VirtualKeyCode::T if !shift_pressed => {
                 events.io_view = Some(ViewIOEvent::Add);
             }
-            VirtualKeyCode::Key1 => self.selected_tab = Tab::EmitterSettings,
-            VirtualKeyCode::Key2 => self.selected_tab = Tab::PostFxSettings,
-            VirtualKeyCode::Key3 => self.selected_tab = Tab::ParticleAnimations,
-            VirtualKeyCode::Key4 => self.selected_tab = Tab::EmitterAnimations,
+            VirtualKeyCode::Key1 => data.selected_tab = Tab::EmitterSettings,
+            VirtualKeyCode::Key2 => data.selected_tab = Tab::PostFxSettings,
+            VirtualKeyCode::Key3 => data.selected_tab = Tab::ParticleAnimations,
+            VirtualKeyCode::Key4 => data.selected_tab = Tab::EmitterAnimations,
             //VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
             //VirtualKeyCode::P => gui.performance_event.set(DisplayEvent::ToggleCollapse),
             VirtualKeyCode::F => events.toggle_game_state(),
@@ -149,34 +183,35 @@ impl Editor {
                     post_process,
                     ..
                 } = state;
+                let data = &mut self.data;
 
                 // Update gui info
                 if clock.frame() % 20 == 0 && events.play() {
                     let count: u64 = emitters.iter().map(|s| s.particle_count()).sum();
 
-                    self.cpu_time_text = clock.frame_time_text();
-                    self.fps_text = clock.fps_text();
-                    self.elapsed_text = clock.elapsed_text();
-                    self.particle_count_text = format!("Particle count: {}", count);
+                    data.cpu_time_text = clock.frame_time_text();
+                    data.fps_text = clock.fps_text();
+                    data.elapsed_text = clock.elapsed_text();
+                    data.particle_count_text = format!("Particle count: {}", count);
 
                     let prof = &mut gfx.profiler;
                     let queue = &gfx.queue;
 
                     if let Some(res) = prof.process_finished_frame(queue.get_timestamp_period()) {
-                        self.profiling_results = res;
+                        data.profiling_results = res;
                     }
                 }
 
-                create_label(ui, &self.fps_text);
-                create_label(ui, &self.cpu_time_text);
-                create_label(ui, &self.elapsed_text);
-                create_label(ui, &self.particle_count_text);
+                create_label(ui, &data.fps_text);
+                create_label(ui, &data.cpu_time_text);
+                create_label(ui, &data.elapsed_text);
+                create_label(ui, &data.particle_count_text);
                 ui.separator();
 
                 CollapsingHeader::new("Performance")
                     .id_source("total")
                     .show(ui, |ui| {
-                        let total = Self::display_performance(ui, &mut self.profiling_results);
+                        let total = Self::display_performance(ui, &mut data.profiling_results);
                         create_label(
                             ui,
                             format!("{} - {:.3}μs", "Total GPU time", total * 1_000_000.),
@@ -188,7 +223,7 @@ impl Editor {
                 ui.horizontal(|ui| {
                     ComboBox::from_id_source("select-emitter").show_index(
                         ui,
-                        &mut self.selected_emitter_idx,
+                        &mut data.selected_emitter_idx,
                         emitters.len(),
                         |i| emitters[i].id(),
                     );
@@ -197,18 +232,18 @@ impl Editor {
 
                     ui.label("New emitter tag:");
                     ui.add(
-                        egui::TextEdit::singleline(&mut self.new_emitter_tag).desired_width(100.),
+                        egui::TextEdit::singleline(&mut data.new_emitter_tag).desired_width(100.),
                     );
 
-                    let is_enabled = 3 <= self.new_emitter_tag.len()
-                        && emitters.iter().all(|em| em.id() != &self.new_emitter_tag);
+                    let is_enabled = 3 <= data.new_emitter_tag.len()
+                        && emitters.iter().all(|em| em.id() != &data.new_emitter_tag);
 
                     if ui
                         .add_enabled(is_enabled, egui::Button::new("Add emitter"))
                         .clicked()
                     {
-                        events.create_emitter = Some(self.new_emitter_tag.to_string());
-                        self.new_emitter_tag = "".to_string();
+                        events.create_emitter = Some(data.new_emitter_tag.to_string());
+                        data.new_emitter_tag = "".to_string();
                     }
                 });
 
@@ -258,12 +293,12 @@ impl Editor {
                             );
                         });
 
-                    let emitter = &emitters[self.selected_emitter_idx];
+                    let emitter = &emitters[data.selected_emitter_idx];
 
                     if !emitter.is_light && ui.button("Remove emitter").clicked() {
                         let id = emitter.id().to_string();
                         events.delete_emitter = Some(id);
-                        self.selected_emitter_idx = 0;
+                        data.selected_emitter_idx = 0;
                     }
                 });
 
@@ -273,18 +308,18 @@ impl Editor {
 
                 ui.horizontal(|ui| {
                     ui.selectable_value(
-                        &mut self.selected_tab,
+                        &mut data.selected_tab,
                         Tab::EmitterSettings,
                         "Spawn settings",
                     );
-                    ui.selectable_value(&mut self.selected_tab, Tab::PostFxSettings, "Post FX");
+                    ui.selectable_value(&mut data.selected_tab, Tab::PostFxSettings, "Post FX");
                     ui.selectable_value(
-                        &mut self.selected_tab,
+                        &mut data.selected_tab,
                         Tab::ParticleAnimations,
                         "Particle animations",
                     );
                     ui.selectable_value(
-                        &mut self.selected_tab,
+                        &mut data.selected_tab,
                         Tab::EmitterAnimations,
                         "Emitter animations",
                     );
@@ -292,7 +327,7 @@ impl Editor {
 
                 ui.separator();
 
-                match self.selected_tab {
+                match data.selected_tab {
                     Tab::EmitterSettings => self.emitter_settings_tab(state, ui, encoder),
                     Tab::PostFxSettings => self.post_fx_tab(state, ui, events),
                     Tab::ParticleAnimations => self.particle_animations_tab(state, ui),
@@ -325,15 +360,17 @@ impl Editor {
     }
 
     fn emitter_animations_tab(&mut self, state: &mut State, ui: &mut Ui) {
-        let emitter = &mut state.emitters[self.selected_emitter_idx];
+        let emitter = &mut state.emitters[self.data.selected_emitter_idx];
         let registered_em_anims = &state.registry_em_anims;
 
         self.ui_emitter_animations(emitter, ui);
 
+        let data = &mut self.data;
+
         ui.separator();
 
         ui.horizontal(|ui| {
-            let sel_animation = &mut self.selected_new_em_anim;
+            let sel_animation = &mut data.selected_new_em_anim;
 
             ComboBox::from_id_source("new-particle-animation").show_index(
                 ui,
@@ -356,13 +393,14 @@ impl Editor {
             ..
         } = state;
 
-        let emitter = &mut emitters[self.selected_emitter_idx];
+        let emitter = &mut emitters[self.data.selected_emitter_idx];
         self.ui_particle_animations(emitter, ui);
+        let data = &mut self.data;
 
         ui.separator();
 
         ui.horizontal(|ui| {
-            let sel_animation = &mut self.selected_new_par_anim;
+            let sel_animation = &mut data.selected_new_par_anim;
 
             ComboBox::from_id_source("new-particle-animation").show_index(
                 ui,
@@ -402,7 +440,8 @@ impl Editor {
             .show(ui, |ui| {
                 for anim in emitter.particle_animations.iter_mut() {
                     ui.group(|ui| {
-                        anim.draw_widget(ui);
+                        //let dc = anim.type_id();
+                        self.draw_widget(anim, ui);
                         //anim.
                         //anim.create_ui(ui, gui_state);
                         //anim.draw(ui, self);
@@ -447,13 +486,22 @@ impl Editor {
         textures
     }
 
-    pub fn new(gfx_state: &mut GfxState) -> Arc<Mutex<Self>> {
+    pub fn new(gfx_state: &mut GfxState) -> Self {
         let texture_paths = Persistence::import_textures().unwrap();
         let icon_textures = Self::create_icons(gfx_state);
+        let mut pa_widgets: HashMap<TypeId, PAWidgetPtr> = HashMap::new();
 
-        //let editor = Arc::new(Mutex::new(Editor::new(true, gfx)));
+        pa_widgets.insert(
+            TypeId::of::<ColorAnimation>(),
+            Box::new(EditorWidgets::color_anim),
+        );
 
-        let obj = Editor {
+        pa_widgets.insert(
+            TypeId::of::<ForceAnimation>(),
+            Box::new(EditorWidgets::force_anim),
+        );
+
+        let data = EditorData {
             cpu_time_text: "".to_string(),
             fps_text: "".to_string(),
             elapsed_text: "".to_string(),
@@ -474,12 +522,7 @@ impl Editor {
             emitter_settings: None,
         };
 
-        let arc_obj = Arc::new(Mutex::new(obj));
-
-        // TODO add all widgets
-        COLOR_ANIM_WIDGETS.add_widget(arc_obj.clone());
-
-        arc_obj
+        Self { data, pa_widgets }
     }
 
     fn emitter_settings_tab(
@@ -488,14 +531,15 @@ impl Editor {
         ui: &mut Ui,
         encoder: &mut CommandEncoder,
     ) {
-        let emitter = &mut state.emitters[self.selected_emitter_idx];
+        let data = &mut self.data;
+        let emitter = &mut state.emitters[data.selected_emitter_idx];
 
-        let mut emitter_settings = self
+        let mut emitter_settings = data
             .emitter_settings
             .get_or_insert_with(|| emitter.uniform.create_settings());
 
         if emitter.id() != &emitter_settings.id {
-            emitter_settings = self
+            emitter_settings = data
                 .emitter_settings
                 .insert(emitter.uniform.create_settings());
         }
@@ -603,13 +647,13 @@ impl Editor {
 
         let combo_texture = ComboBox::from_label("Select texture").show_index(
             ui,
-            &mut self.selected_texture,
-            self.texture_paths.len(),
-            |i| self.texture_paths[i].rich_text(),
+            &mut data.selected_texture,
+            data.texture_paths.len(),
+            |i| data.texture_paths[i].rich_text(),
         );
 
         if combo_texture.changed() {
-            emitter.update_diffuse(&state.gfx, &mut self.texture_paths[self.selected_texture]);
+            emitter.update_diffuse(&state.gfx, &mut data.texture_paths[data.selected_texture]);
         };
 
         self.update_emitter(state, encoder);
@@ -617,6 +661,8 @@ impl Editor {
 
     fn update_emitter(&mut self, state: &mut State, encoder: &mut wgpu::CommandEncoder) {
         // TODO move to APP and make events for recreating emitter!
+        let data = &mut self.data;
+
         let State {
             camera,
             emitters,
@@ -625,9 +671,9 @@ impl Editor {
             ..
         } = state;
 
-        let settings = self.emitter_settings.as_ref().unwrap();
+        let settings = data.emitter_settings.as_ref().unwrap();
 
-        let (em, mut others) = emitters.split_item_mut(self.selected_emitter_idx);
+        let (em, mut others) = emitters.split_item_mut(data.selected_emitter_idx);
 
         em.uniform.update_settings(settings);
 
@@ -678,6 +724,7 @@ impl Editor {
     }
 
     fn post_fx_tab(&mut self, state: &mut State, ui: &mut Ui, events: &mut Events) {
+        let data = &mut self.data;
         let State {
             post_process,
             registered_post_fx,
@@ -695,7 +742,7 @@ impl Editor {
         ui.separator();
 
         ui.horizontal(|ui| {
-            let sel_post_fx = &mut self.selected_new_post_fx;
+            let sel_post_fx = &mut data.selected_new_post_fx;
 
             ComboBox::from_id_source("new-post-fx").show_index(
                 ui,
@@ -734,6 +781,12 @@ impl Editor {
         ui.add_space(5.0);
     }
 
+    pub fn create_degree_slider(ui: &mut Ui, val: &mut f32, str: &str) {
+        ui.add(Slider::new(val, 0.0..=360.).text(str));
+    }
+}
+
+impl EditorData {
     /// Creates list item header
     pub fn create_li_header(&self, ui: &mut Ui, title: &str) -> ListAction {
         let mut selected_action = ListAction::None;
@@ -776,10 +829,6 @@ impl Editor {
 
         selected_action
     }
-
-    pub fn create_degree_slider(ui: &mut Ui, val: &mut f32, str: &str) {
-        ui.add(Slider::new(val, 0.0..=360.).text(str));
-    }
 }
 
 fn create_label(ui: &mut Ui, text: impl Into<String>) {
@@ -802,93 +851,5 @@ pub trait IntoRichText {
 impl IntoRichText for PathBuf {
     fn rich_text(&self) -> RichText {
         RichText::new(self.file_name().unwrap().to_str().unwrap())
-    }
-}
-
-impl DrawWidget<ColorAnimation> for Editor {
-    fn draw_widget(&mut self, ui: &mut Ui, anim: &mut ColorAnimation) {
-        anim.selected_action = self.create_li_header(ui, "Color animation");
-
-        let mut gui = anim.uniform;
-
-        ui.horizontal(|ui| {
-            ui.label("Animate from sec");
-            ui.add(DragValue::new(&mut gui.from_sec).speed(0.1));
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Animate until sec");
-            ui.add(DragValue::new(&mut gui.until_sec).speed(0.1));
-        });
-
-        let f_col = gui.from_color;
-        let t_col = gui.to_color;
-        let mut from_color = Rgba::from_rgba_premultiplied(f_col.x, f_col.y, f_col.z, f_col.w);
-        let mut to_color = Rgba::from_rgba_premultiplied(t_col.x, t_col.y, t_col.z, t_col.w);
-
-        ui.horizontal(|ui| {
-            ui.label("From color: ");
-            color_edit_button_rgba(ui, &mut from_color, Alpha::Opaque);
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("To color: ");
-            color_edit_button_rgba(ui, &mut to_color, Alpha::Opaque);
-        });
-
-        ui.checkbox(&mut anim.enabled, "Enabled");
-
-        gui.from_color = from_color.to_array().into();
-        gui.to_color = to_color.to_array().into();
-
-        if anim.uniform != gui {
-            anim.update_uniform = true;
-            anim.uniform = gui;
-        }
-    }
-}
-
-impl DrawWidget<ForceAnimation> for Editor {
-    fn draw_widget(&mut self, ui: &mut Ui, anim: &mut ForceAnimation) {
-        anim.selected_action = self.create_li_header(ui, "Force animation");
-
-        let mut gui = anim.uniform;
-
-        ui.horizontal(|ui| {
-            ui.label("Animate from sec");
-            ui.add(DragValue::new(&mut gui.life_cycle.from_sec).speed(0.1));
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Animate until sec");
-            ui.add(DragValue::new(&mut gui.life_cycle.until_sec).speed(0.1));
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Lifetime sec");
-            ui.add(DragValue::new(&mut gui.life_cycle.lifetime_sec).speed(0.1));
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Force velocity > ");
-            ui.label("x:");
-            ui.add(DragValue::new(&mut gui.velocity.x).speed(0.1));
-            ui.label("y:");
-            ui.add(DragValue::new(&mut gui.velocity.y).speed(0.1));
-            ui.label("z:");
-            ui.add(DragValue::new(&mut gui.velocity.z).speed(0.1));
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Mass applied per (1) unit length");
-            ui.add(DragValue::new(&mut gui.mass_per_unit).speed(0.1));
-        });
-
-        ui.checkbox(&mut anim.enabled, "Enabled");
-
-        if anim.uniform != gui {
-            anim.update_uniform = true;
-            anim.uniform = gui;
-        }
     }
 }

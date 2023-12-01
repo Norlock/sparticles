@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::{
     model::{Clock, EmitterState, GfxState, LifeCycle},
     shaders::ShaderOptions,
@@ -125,6 +127,10 @@ impl ParticleAnimation for ForceAnimation {
             queue.write_buffer(&self.buffer, 0, buf_content);
             self.update_uniform = false;
         }
+    }
+
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 
     fn compute<'a>(

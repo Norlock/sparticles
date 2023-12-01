@@ -22,11 +22,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-struct CustomSettings {
-    widget_builders: Vec<Arc<Mutex<dyn WidgetBuilder>>>,
+struct GameState {
+    widget_builders: Vec<Box<dyn WidgetBuilder>>,
 }
 
-impl CustomSettings {
+impl GameState {
     fn new() -> Self {
         Self {
             widget_builders: vec![],
@@ -38,7 +38,7 @@ impl CustomSettings {
 const LIGHT_ID: &str = "Light";
 const PARTICLE_ID: &str = "Particles";
 
-impl AppVisitor for CustomSettings {
+impl AppVisitor for GameState {
     //fn lights(&self) -> EmitterUniform {
     //let mut emitter = EmitterUniform::new(LIGHT_ID.to_string());
 
@@ -80,15 +80,11 @@ impl AppVisitor for CustomSettings {
         state: &mut sparticles_app::model::State,
         encoder: &mut CommandEncoder,
     ) -> sparticles_app::model::Events {
-        if let Ok(ref mut wb) = self.widget_builders[0].try_lock() {
-            wb.draw_ui(state, encoder);
-        }
-
-        sparticles_app::model::Events::default()
+        self.widget_builders[0].draw_ui(state, encoder)
     }
 
     fn add_widget_builders(&mut self, gfx: &mut GfxState) {
-        self.widget_builders.push(Editor::new(gfx));
+        self.widget_builders.push(Box::new(Editor::new(gfx)));
     }
 
     fn process_events(
@@ -200,5 +196,5 @@ impl AppVisitor for CustomSettings {
 }
 
 fn main() {
-    sparticles_app::start(CustomSettings::new());
+    sparticles_app::start(GameState::new());
 }

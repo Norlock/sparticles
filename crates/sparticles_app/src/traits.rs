@@ -6,7 +6,12 @@ use crate::{
 };
 use egui_wgpu::wgpu;
 use egui_winit::egui::Ui;
-use std::{collections::HashMap, num::NonZeroU64, slice::IterMut};
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+    num::NonZeroU64,
+    slice::IterMut,
+};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -56,6 +61,7 @@ impl PartialEq for dyn RegisterParticleAnimation {
     }
 }
 
+#[allow(unused)]
 pub trait ParticleAnimation: HandleAction {
     fn compute<'a>(
         &'a self,
@@ -64,19 +70,27 @@ pub trait ParticleAnimation: HandleAction {
         compute_pass: &mut wgpu::ComputePass<'a>,
     );
 
+    fn as_any(&mut self) -> &mut dyn Any;
+
     fn recreate(&self, gfx_state: &GfxState, emitter: &EmitterState) -> Box<dyn ParticleAnimation>;
     fn update(&mut self, clock: &Clock, gfx: &GfxState);
-    fn draw_widget(&mut self, ui: &mut Ui) {}
 }
 
 pub trait WidgetBuilder {
+    fn id(&self) -> &'static str;
+
+    fn as_any(&mut self) -> &mut dyn Any;
+
+    /// Pass the type id of the animation (e.g. ColorAnimation::type_id())
+    fn draw_widget<'a>(&'a mut self, anim: &'a mut Box<dyn ParticleAnimation>, ui: &mut Ui);
+
     /// Root call -> from here your complete GUI can be created.
     fn draw_ui(&mut self, state: &mut State, encoder: &mut wgpu::CommandEncoder) -> Events;
 }
 
-pub trait DrawWidget<PA: ParticleAnimation>: WidgetBuilder + Sync + Send {
+pub trait DrawWidget<PA: ParticleAnimation>: Sync + Send {
     /// Implementation for Particle animation so you can use GUI for dynamic dispatched animations
-    fn draw_widget(&mut self, ui: &mut Ui, anim: &mut PA);
+    fn draw_widget(&self, wb: &mut dyn WidgetBuilder, anim: &mut PA, ui: &mut Ui);
 }
 
 pub trait EmitterAnimation: HandleAction {
