@@ -6,12 +6,7 @@ use crate::{
 };
 use egui_wgpu::wgpu;
 use egui_winit::{egui::Ui, winit::event::KeyboardInput};
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-    num::NonZeroU64,
-    slice::IterMut,
-};
+use std::{any::Any, num::NonZeroU64, slice::IterMut};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -80,14 +75,6 @@ pub trait WidgetBuilder {
     fn id(&self) -> &'static str;
 
     fn as_any(&mut self) -> &mut dyn Any;
-
-    /// Pass the type id of the animation (e.g. ColorAnimation::type_id())
-    fn draw_pa_widget(&mut self, anim: &mut Box<dyn ParticleAnimation>, ui: &mut Ui);
-    fn draw_em_widget(&mut self, anim: &mut Box<dyn EmitterAnimation>, ui: &mut Ui);
-    fn draw_fx_widget(&mut self, anim: &mut Box<dyn PostFx>, ui: &mut Ui);
-
-    /// Root call -> from here your complete GUI can be created.
-    fn draw_ui(&mut self, state: &mut SparState, encoder: &mut wgpu::CommandEncoder) -> SparEvents;
 
     fn process_input(
         &mut self,

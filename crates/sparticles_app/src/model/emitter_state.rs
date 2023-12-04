@@ -87,16 +87,16 @@ impl<'a> EmitterState {
             emitters.push(Self::new(options));
         }
 
-        if let Some(model) = collection.get_mut(BUILTIN_ID) {
-            let queue = &mut gfx.queue;
-            // TODO only update when in use
-            Mesh::update(&mut model.meshes, queue, &camera);
-        }
+        let mut update_mesh = false;
 
         for emitter in emitters.iter_mut() {
             emitter.uniform.update(clock);
 
             ListAction::update_list(&mut emitter.emitter_animations);
+
+            if emitter.uniform.mesh.collection_id == BUILTIN_ID {
+                update_mesh = true;
+            }
 
             for anim in emitter
                 .emitter_animations
@@ -116,6 +116,12 @@ impl<'a> EmitterState {
 
             for anim in emitter.particle_animations.iter_mut() {
                 anim.update(clock, gfx);
+            }
+        }
+
+        if update_mesh {
+            if let Some(model) = collection.get_mut(BUILTIN_ID) {
+                Mesh::update_2d_meshes(&mut model.meshes, &mut gfx.queue, &camera);
             }
         }
     }

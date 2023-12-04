@@ -68,7 +68,6 @@ fn aces_hill(input: vec3<f32>) -> vec3<f32> {
 }
 
 //fn linearToneMapping(color: vec3<f32>) -> vec3<f32> {
-//    // TODO meegeven aan camera
 //    let exposure = 1.;
 //    return clamp(exposure * color, 0., 1.);
 //}

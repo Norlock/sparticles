@@ -23,14 +23,12 @@ use std::{
 };
 
 struct GameState {
-    widget_builders: Vec<Box<dyn WidgetBuilder>>,
+    editor: Option<Editor>,
 }
 
 impl GameState {
     fn new() -> Self {
-        Self {
-            widget_builders: vec![],
-        }
+        Self { editor: None }
     }
 }
 
@@ -79,11 +77,15 @@ impl AppVisitor for GameState {
         state: &mut SparState,
         encoder: &mut CommandEncoder,
     ) -> sparticles_app::model::SparEvents {
-        self.widget_builders[0].draw_ui(state, encoder)
+        let mut events = SparEvents::default();
+        let mut editor = self.editor.as_mut().unwrap();
+
+        editor.draw_gui(state, &mut events, encoder);
+        events
     }
 
     fn add_widget_builders(&mut self, gfx: &mut GfxState) {
-        self.widget_builders.push(Box::new(Editor::new(gfx)));
+        self.editor = Some(Editor::new(gfx));
     }
 
     fn process_events(
@@ -92,7 +94,8 @@ impl AppVisitor for GameState {
         input: &KeyboardInput,
         shift_pressed: bool,
     ) {
-        self.widget_builders[0].process_input(events, &input, shift_pressed);
+        let editor = self.editor.as_mut().unwrap();
+        editor.process_input(events, &input, shift_pressed);
     }
 
     fn add_emitter_anim(&self, emitter: &mut EmitterState) {

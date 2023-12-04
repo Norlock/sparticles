@@ -1,5 +1,3 @@
-use std::any::Any;
-
 use crate::model::clock::Clock;
 use crate::model::{EmitterState, GfxState, LifeCycle};
 use crate::shaders::ShaderOptions;
@@ -7,9 +5,9 @@ use crate::traits::*;
 use crate::util::persistence::DynamicExport;
 use crate::util::ListAction;
 use egui_wgpu::wgpu;
-use egui_winit::egui::{DragValue, Ui};
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use wgpu::util::DeviceExt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

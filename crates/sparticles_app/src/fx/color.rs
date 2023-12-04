@@ -8,7 +8,6 @@ use crate::{
     util::{CommonBuffer, DynamicExport, ListAction, UniformContext},
 };
 use egui_wgpu::wgpu;
-use egui_winit::egui::{self, Slider};
 use encase::ShaderType;
 use serde::{Deserialize, Serialize};
 

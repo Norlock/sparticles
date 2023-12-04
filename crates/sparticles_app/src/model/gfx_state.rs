@@ -212,7 +212,6 @@ impl GfxState {
 
         state.gfx.ctx.begin_frame(input);
 
-        // TODO DRAW UI!!!!!!!!!!!!!
         let events = app_visitor.draw_ui(state, encoder);
         let gfx = &mut state.gfx;
 

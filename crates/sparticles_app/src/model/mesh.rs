@@ -15,7 +15,7 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn update(meshes: &mut HashMap<ID, Mesh>, queue: &wgpu::Queue, camera: &Camera) {
+    pub fn update_2d_meshes(meshes: &mut HashMap<ID, Mesh>, queue: &wgpu::Queue, camera: &Camera) {
         if let Some(mesh) = meshes.get_mut(CIRCLE_MESH_ID) {
             let view_mat = camera.view_mat();
             let view_proj = camera.view_proj(&view_mat);
