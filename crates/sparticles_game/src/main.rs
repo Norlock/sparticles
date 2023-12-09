@@ -36,42 +36,42 @@ const LIGHT_ID: &str = "Light";
 const PARTICLE_ID: &str = "Particles";
 
 impl AppVisitor for GameState {
-    //fn lights(&self) -> EmitterUniform {
-    //let mut emitter = EmitterUniform::new(LIGHT_ID.to_string());
+    fn data_source(&self) -> DataSource {
+        let mut lights = EmitterUniform::new(LIGHT_ID.to_string());
 
-    //emitter.box_position.x = -3.;
-    //emitter.box_position.y = -3.;
-    //emitter.particle_color = Vec4::new(0.9, 0.9, 0.9, 1.0);
-    //emitter.hdr_mul = 5.0;
-    //emitter.particle_size = Boundry::new(0.25, 0.25);
-    //emitter.particle_speed = Boundry::new(5., 7.);
-    //emitter.spawn_count = 1;
-    //emitter.spawn_delay_sec = 1.;
+        lights.box_position.x = -3.;
+        lights.box_position.y = -3.;
+        lights.particle_color = Vec4::new(0.9, 0.9, 0.9, 1.0);
+        lights.hdr_mul = 5.0;
+        lights.particle_size = Boundry::new(0.25, 0.25);
+        lights.particle_speed = Boundry::new(5., 7.);
+        lights.spawn_count = 1;
+        lights.spawn_delay_sec = 1.;
 
-    //emitter
-    //}
+        let mut emitter = EmitterUniform::new(PARTICLE_ID.to_string());
+        emitter.spawn_count = 1;
+        emitter.spawn_delay_sec = 2.0;
 
-    //fn emitters(&self) -> Vec<EmitterUniform> {
-    //let mut emitter = EmitterUniform::new(PARTICLE_ID.to_string());
-    //emitter.spawn_count = 1;
-    //emitter.spawn_delay_sec = 2.0;
+        emitter.mesh = MeshRef {
+            //collection_id: "drone.glb".to_string(),
+            //mesh_id: "RetopoGroup2".to_string(),
+            collection_id: "StarSparrow.glb".to_string(),
+            mesh_id: "Mesh.001".to_string(),
+        };
 
-    ////emitter.mesh = MeshRef {
-    ////collection_id: "drone.glb".to_string(),
-    ////mesh_id: "RetopoGroup2".to_string(),
-    //////collection_id: "StarSparrow.glb".to_string(),
-    //////mesh_id: "Mesh.001".to_string(),
-    ////};
+        emitter.material = MaterialRef {
+            //collection_id: "drone.glb".to_string(),
+            //material_id: "Material.001".to_string(),
+            collection_id: "StarSparrow.glb".to_string(),
+            material_id: "StarSparrowRed".to_string(),
+        };
 
-    ////emitter.material = MaterialRef {
-    ////collection_id: "drone.glb".to_string(),
-    ////material_id: "Material.001".to_string(),
-    //////collection_id: "StarSparrow.glb".to_string(),
-    //////material_id: "StarSparrowRed".to_string(),
-    ////};
+        DataSource::Code {
+            lights,
+            emitters: vec![emitter],
+        }
+    }
 
-    //vec![emitter]
-    //}
     fn draw_ui(
         &mut self,
         state: &mut SparState,

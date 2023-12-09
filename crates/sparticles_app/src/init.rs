@@ -93,7 +93,7 @@ impl Init {
         lights_uniform: EmitterUniform,
         emitter_uniforms: Vec<EmitterUniform>,
         gfx: &GfxState,
-        collection: &HashMap<ID, Model>,
+        collection: &mut HashMap<ID, Model>,
         camera: &Camera,
     ) -> Vec<EmitterState> {
         let mut emitters: Vec<EmitterState> = Vec::new();
@@ -136,7 +136,7 @@ impl Init {
         app_visitor: &impl AppVisitor,
         gfx: &GfxState,
         camera: &Camera,
-        collection: &HashMap<ID, Model>,
+        collection: &mut HashMap<ID, Model>,
         pp: &mut PostProcessState,
     ) -> Init {
         let mut registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>> = vec![];
@@ -212,7 +212,7 @@ impl Init {
         mut emitters_export: Vec<ExportEmitter>,
         gfx: &GfxState,
         camera: &Camera,
-        collection: &HashMap<ID, Model>,
+        collection: &mut HashMap<ID, Model>,
         registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
         registry_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
         registry_post_fx: Vec<Box<dyn RegisterPostFx>>,

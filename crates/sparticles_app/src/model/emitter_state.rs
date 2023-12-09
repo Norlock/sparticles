@@ -44,7 +44,7 @@ pub struct CreateEmitterOptions<'a> {
     pub uniform: EmitterUniform,
     pub gfx: &'a GfxState,
     pub camera: &'a Camera,
-    pub collection: &'a HashMap<ID, Model>,
+    pub collection: &'a mut HashMap<ID, Model>,
     pub emitter_type: EmitterType<'a>,
 }
 
@@ -52,7 +52,7 @@ pub struct RecreateEmitterOptions<'a> {
     pub old_self: &'a mut EmitterState,
     pub gfx: &'a GfxState,
     pub camera: &'a Camera,
-    pub collection: &'a HashMap<ID, Model>,
+    pub collection: &'a mut HashMap<ID, Model>,
     pub emitter_type: EmitterType<'a>,
 }
 
@@ -313,13 +313,33 @@ impl<'a> EmitterState {
         Persistence::write_to_file(to_export, ExportType::EmitterStates);
     }
 
-    pub fn new(options: CreateEmitterOptions) -> Self {
-        let gfx_state = options.gfx;
+    pub fn new(mut options: CreateEmitterOptions) -> Self {
+        let gfx = options.gfx;
         let camera = options.camera;
         let uniform = options.uniform;
         let collection = options.collection;
 
-        let device = &gfx_state.device;
+        let device = &gfx.device;
+
+        let mesh_key = &uniform.mesh.collection_id;
+        let mat_key = &uniform.material.collection_id;
+
+        if !collection.contains_key(mesh_key) {
+            println!("import mesh: {:?}", mesh_key);
+            collection.insert(
+                mesh_key.to_string(),
+                Model::load_gltf(&gfx, mesh_key).expect("Can't load model"),
+            );
+        }
+
+        if !collection.contains_key(mesh_key) {
+            println!("import mat: {:?}", mat_key);
+            collection.insert(
+                mat_key.to_string(),
+                Model::load_gltf(&gfx, mat_key).expect("Can't load model"),
+            );
+        }
+
         let emitter_buf_content = uniform.create_buffer_content(collection);
 
         let mut particle_buffers = Vec::<wgpu::Buffer>::new();
@@ -420,7 +440,7 @@ impl<'a> EmitterState {
         let workgroup_size = 128f64;
         let dispatch_x_count = (particle_count / workgroup_size).ceil() as u32;
 
-        let shader = gfx_state.create_shader_builtin(ShaderOptions {
+        let shader = gfx.create_shader_builtin(ShaderOptions {
             files: &["emitter.wgsl"],
             if_directives: &[],
             label: "Emitter compute",
@@ -449,7 +469,7 @@ impl<'a> EmitterState {
 
         match &options.emitter_type {
             EmitterType::Lights => {
-                shader = gfx_state.create_shader_builtin(ShaderOptions {
+                shader = gfx.create_shader_builtin(ShaderOptions {
                     files: &[SDR_TONEMAPPING, SDR_PBR, "light_particle.wgsl"],
                     if_directives: &[],
                     label: "Light particle render",
@@ -463,7 +483,7 @@ impl<'a> EmitterState {
                 is_light = true;
             }
             EmitterType::Normal { lights_layout } => {
-                shader = gfx_state.create_shader_builtin(ShaderOptions {
+                shader = gfx.create_shader_builtin(ShaderOptions {
                     files: &[SDR_TONEMAPPING, SDR_PBR, "particle.wgsl"],
                     if_directives: &[],
                     label: "Particle render",

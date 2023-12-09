@@ -92,27 +92,7 @@ impl SparState {
 
         collection.insert(builtin.id.to_string(), builtin);
 
-        let init_settings = Init::new(init, &gfx, &camera, &collection, &mut post_process);
-
-        for em in init_settings.emitters.iter() {
-            let uniform = &em.uniform;
-            let mesh_key = &uniform.mesh.collection_id;
-            let mat_key = &uniform.material.collection_id;
-
-            if (mesh_key != &BUILTIN_ID) && !collection.contains_key(mesh_key) {
-                collection.insert(
-                    mesh_key.to_string(),
-                    Model::load_gltf(&gfx, mesh_key).expect("Can't load model"),
-                );
-            }
-
-            if (mat_key != &BUILTIN_ID) && !collection.contains_key(mat_key) {
-                collection.insert(
-                    mat_key.to_string(),
-                    Model::load_gltf(&gfx, mat_key).expect("Can't load model"),
-                );
-            }
-        }
+        let init_settings = Init::new(init, &gfx, &camera, &mut collection, &mut post_process);
 
         let mut state = Self {
             clock,
