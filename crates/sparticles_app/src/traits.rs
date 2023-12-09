@@ -74,19 +74,12 @@ pub trait ParticleAnimation: HandleAction {
 pub trait WidgetBuilder {
     fn id(&self) -> &'static str;
 
-    fn as_any(&mut self) -> &mut dyn Any;
-
     fn process_input(
         &mut self,
         events: &mut SparEvents,
         input: &KeyboardInput,
         shift_pressed: bool,
     ) -> bool;
-}
-
-pub trait DrawWidget<PA: ParticleAnimation>: Sync + Send {
-    /// Implementation for Particle animation so you can use GUI for dynamic dispatched animations
-    fn draw_widget(&self, wb: &mut dyn WidgetBuilder, anim: &mut PA, ui: &mut Ui);
 }
 
 pub trait EmitterAnimation: HandleAction {

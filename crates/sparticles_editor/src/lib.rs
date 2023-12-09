@@ -24,8 +24,10 @@ use sparticles_app::{
     wgpu::{self, CommandEncoder},
 };
 use std::{
-    any::{Any, TypeId},
+    any::TypeId,
     collections::HashMap,
+    ffi::OsString,
+    fs::DirEntry,
     path::{Path, PathBuf},
 };
 
@@ -68,7 +70,7 @@ pub struct EditorData {
     elapsed_text: String,
     particle_count_text: String,
     texture_paths: Vec<PathBuf>,
-    pub icon_textures: HashMap<String, TextureId>,
+    icon_textures: HashMap<String, TextureId>,
     selected_tab: Tab,
     selected_texture: usize,
     selected_new_par_anim: usize,
@@ -78,20 +80,18 @@ pub struct EditorData {
     //performance_event: Option<DisplayEvent>,
     //display_event: Option<DisplayEvent>,
     pub emitter_settings: Option<EmitterSettings>,
+    pub model_files: Vec<PathBuf>,
 }
 
 const CHEVRON_UP_ID: &str = "chevron-up";
 const CHEVRON_DOWN_ID: &str = "chevron-down";
 const TRASH_ID: &str = "trash";
+const MENU_ID: &str = "menu";
 const WINDOW_MARGIN: f32 = 10.;
 
 impl WidgetBuilder for Editor {
     fn id(&self) -> &'static str {
         "editor"
-    }
-
-    fn as_any(&mut self) -> &mut dyn Any {
-        self
     }
 
     fn process_input(
@@ -138,18 +138,24 @@ impl Editor {
     ) {
         let ctx = &state.egui_ctx().clone();
 
-        Window::new("Sparticles settings")
+        Window::new("Menu")
             .collapsible(false)
             .anchor(Align2::RIGHT_TOP, [-10., 10.])
+            .resizable(false)
+            .title_bar(false)
+            .frame(Frame {
+                fill: Color32::GRAY,
+                inner_margin: 2f32.into(),
+                ..Default::default()
+            })
             .show(&ctx, |ui| {
                 let data = &mut self.data;
 
-                ComboBox::from_id_source("select-menu").show_index(
-                    ui,
-                    &mut data.selected_menu_idx,
-                    self.menus.len(),
-                    |i| self.menus[i].title(),
-                );
+                ComboBox::from_id_source("select-menu")
+                    .width(200.)
+                    .show_index(ui, &mut data.selected_menu_idx, self.menus.len(), |i| {
+                        RichText::new(format!("{}: {}", i, self.menus[i].title())).size(18.)
+                    });
             });
 
         let idx = self.data.selected_menu_idx;
@@ -157,13 +163,21 @@ impl Editor {
         let mut menu_ctx = MenuCtx {
             ctx,
             dyn_widgets: &mut self.dyn_widgets,
-            data: &mut self.data,
+            emitter_data: &mut self.data,
             state,
             events,
             encoder,
         };
 
         self.menus[idx].draw_ui(&mut menu_ctx);
+
+        egui::Area::new("help")
+            .anchor(Align2::RIGHT_BOTTOM, [-10., -10.])
+            .show(ctx, |ui| {
+                if ui.button(RichText::new("?").size(24.)).clicked() {
+                    println!("juustem");
+                }
+            });
     }
 
     pub fn create_label(ui: &mut Ui, text: impl Into<String>) {
@@ -198,13 +212,15 @@ impl Editor {
         create_tex("chevron-up.png", CHEVRON_UP_ID);
         create_tex("chevron-down.png", CHEVRON_DOWN_ID);
         create_tex("trash.png", TRASH_ID);
+        create_tex("menu.png", MENU_ID);
 
         textures
     }
 
-    pub fn new(gfx_state: &mut GfxState) -> Self {
+    pub fn new(state: &mut SparState, model_dir: PathBuf) -> Self {
+        let gfx = &mut state.gfx;
         let texture_paths = Persistence::import_textures().unwrap();
-        let icon_textures = Self::create_icons(gfx_state);
+        let icon_textures = Self::create_icons(gfx);
         let mut pa_widgets: HashMap<TypeId, PAWidgetPtr> = HashMap::new();
         let mut em_widgets: HashMap<TypeId, EMWidgetPtr> = HashMap::new();
         let mut fx_widgets: HashMap<TypeId, FXWidgetPtr> = HashMap::new();
@@ -243,6 +259,33 @@ impl Editor {
         fx_widgets.insert(TypeId::of::<BlurFx>(), Box::new(EditorWidgets::blur_fx));
         fx_widgets.insert(TypeId::of::<ColorFx>(), Box::new(EditorWidgets::color_fx));
 
+        let mut model_files = vec![];
+
+        match model_dir.read_dir() {
+            Ok(dir) => {
+                for item in dir.into_iter() {
+                    match item {
+                        Ok(dir) => {
+                            if let Some(extension) = dir.path().extension() {
+                                println!("{:?}", extension);
+                                if extension.to_os_string() == OsString::from("glb")
+                                    || extension.to_os_string() == OsString::from("gltf")
+                                {
+                                    model_files.push(dir.path());
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            println!("{:?}", err);
+                        }
+                    }
+                }
+            }
+            Err(err) => {
+                println!("{:?}", err);
+            }
+        }
+
         let data = EditorData {
             cpu_time_text: "".to_string(),
             fps_text: "".to_string(),
@@ -262,6 +305,7 @@ impl Editor {
             //display_event: None,
             //performance_event: None,
             emitter_settings: None,
+            model_files,
         };
 
         let mut menus: Vec<Box<dyn MenuWidget>> = Vec::new();

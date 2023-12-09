@@ -50,7 +50,7 @@ pub trait AppVisitor {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("exports")
     }
 
-    fn add_widget_builders(&mut self, gfx: &mut GfxState);
+    fn add_widget_builders(&mut self, state: &mut SparState);
 
     fn draw_ui(&mut self, state: &mut SparState, encoder: &mut wgpu::CommandEncoder) -> SparEvents;
 

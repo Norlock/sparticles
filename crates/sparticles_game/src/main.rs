@@ -78,14 +78,14 @@ impl AppVisitor for GameState {
         encoder: &mut CommandEncoder,
     ) -> sparticles_app::model::SparEvents {
         let mut events = SparEvents::default();
-        let mut editor = self.editor.as_mut().unwrap();
+        let editor = self.editor.as_mut().unwrap();
 
         editor.draw_gui(state, &mut events, encoder);
         events
     }
 
-    fn add_widget_builders(&mut self, gfx: &mut GfxState) {
-        self.editor = Some(Editor::new(gfx));
+    fn add_widget_builders(&mut self, state: &mut SparState) {
+        self.editor = Some(Editor::new(state, self.model_dir()));
     }
 
     fn process_events(

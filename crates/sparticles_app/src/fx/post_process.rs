@@ -8,6 +8,7 @@ use crate::util::{
     CommonBuffer, DynamicExport, ExportType, ListAction, Persistence, UniformContext,
 };
 use egui_wgpu::wgpu;
+use egui_winit::egui::ClippedPrimitive;
 use glam::Vec2;
 use std::num::NonZeroU32;
 
@@ -114,9 +115,8 @@ impl PostProcessState {
         state: &mut SparState,
         output_view: wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
-        app_visitor: &mut impl AppVisitor,
-    ) -> SparEvents {
-        let draw_gui = GfxState::draw_ui(state, encoder, app_visitor);
+        primitives: &[ClippedPrimitive],
+    ) {
         let gfx = &mut state.gfx;
 
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -146,10 +146,8 @@ impl PostProcessState {
         let profiler = &mut gfx.profiler;
         profiler.begin_scope("Render GUI", &mut r_pass, &gfx.device);
         gfx.renderer
-            .render(&mut r_pass, &draw_gui.primitives, &gfx.screen_descriptor);
+            .render(&mut r_pass, primitives, &gfx.screen_descriptor);
         profiler.end_scope(&mut r_pass).unwrap();
-
-        draw_gui.events
     }
 
     pub fn new(gfx_state: &GfxState, app_settings: &impl AppVisitor) -> Self {

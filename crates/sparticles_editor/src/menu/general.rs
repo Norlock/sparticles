@@ -1,10 +1,10 @@
-use crate::{DynamicWidgets, Editor, EditorData, IntoRichText, WINDOW_MARGIN};
+use crate::{DynamicWidgets, Editor, EditorData, IntoRichText};
 use sparticles_app::{
     fx::{FxOptions, PostProcessState},
     gui::egui::{
         self,
         color_picker::{color_edit_button_rgba, Alpha},
-        Margin, Rgba, Ui,
+        Rgba, Ui,
     },
     model::{
         camera::TonemapType, emitter_state::RecreateEmitterOptions, events::ViewIOEvent,
@@ -29,13 +29,14 @@ pub struct GeneralMenu;
 
 impl MenuWidget for GeneralMenu {
     fn title(&self) -> &'static str {
-        "General settings"
+        "General"
     }
 
     fn draw_ui(&self, menu_ctx: &mut MenuCtx) {
         egui::Window::new("General settings")
             .vscroll(true)
             .default_height(800.)
+            .title_bar(false)
             .show(menu_ctx.ctx, |ui| {
                 let SparState {
                     clock,
@@ -47,7 +48,7 @@ impl MenuWidget for GeneralMenu {
                     ..
                 } = menu_ctx.state;
 
-                let data = &mut menu_ctx.data;
+                let data = &mut menu_ctx.emitter_data;
                 let events = &mut menu_ctx.events;
 
                 // Update gui info
@@ -110,6 +111,14 @@ impl MenuWidget for GeneralMenu {
                         events.create_emitter = Some(data.new_emitter_tag.to_string());
                         data.new_emitter_tag = "".to_string();
                     }
+
+                    let emitter = &emitters[data.selected_emitter_idx];
+
+                    if !emitter.is_light && ui.button("Remove emitter").clicked() {
+                        let id = emitter.id().to_string();
+                        events.delete_emitter = Some(id);
+                        data.selected_emitter_idx = 0;
+                    }
                 });
 
                 ui.add_space(5.0);
@@ -156,14 +165,6 @@ impl MenuWidget for GeneralMenu {
                                 TonemapType::Lottes,
                             );
                         });
-
-                    let emitter = &emitters[data.selected_emitter_idx];
-
-                    if !emitter.is_light && ui.button("Remove emitter").clicked() {
-                        let id = emitter.id().to_string();
-                        events.delete_emitter = Some(id);
-                        data.selected_emitter_idx = 0;
-                    }
                 });
 
                 ui.add_space(5.0);
@@ -228,7 +229,7 @@ impl GeneralMenu {
     fn emitter_animations_tab(&self, menu_ctx: &mut MenuCtx, ui: &mut Ui) {
         let MenuCtx {
             dyn_widgets,
-            data,
+            emitter_data: data,
             state,
             ..
         } = menu_ctx;
@@ -260,7 +261,7 @@ impl GeneralMenu {
     fn particle_animations_tab(&self, menu_ctx: &mut MenuCtx, ui: &mut Ui) {
         let MenuCtx {
             dyn_widgets,
-            data,
+            emitter_data: data,
             state,
             ..
         } = menu_ctx;
@@ -344,7 +345,7 @@ impl GeneralMenu {
 
     fn emitter_settings_tab(&self, menu_ctx: &mut MenuCtx, ui: &mut Ui) {
         let MenuCtx {
-            data,
+            emitter_data: data,
             state,
             encoder,
             ..
@@ -548,7 +549,7 @@ impl GeneralMenu {
     fn post_fx_tab(&self, menu_ctx: &mut MenuCtx, ui: &mut Ui) {
         let MenuCtx {
             dyn_widgets: widgets,
-            data,
+            emitter_data: data,
             state,
             events,
             ..

@@ -274,10 +274,11 @@ impl GfxState {
 
         EmitterState::render_particles(state, &mut encoder);
         PostProcessState::compute(state, &mut encoder);
-        let events = PostProcessState::render(state, output_view, &mut encoder, app_visitor);
+        let res = GfxState::draw_ui(state, &mut encoder, app_visitor);
+        PostProcessState::render(state, output_view, &mut encoder, &res.primitives);
 
         state.gfx.finish_frame(encoder, output_frame);
 
-        events
+        res.events
     }
 }

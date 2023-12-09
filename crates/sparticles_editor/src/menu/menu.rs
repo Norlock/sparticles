@@ -7,7 +7,7 @@ use sparticles_app::{
 
 pub struct MenuCtx<'a> {
     pub dyn_widgets: &'a mut DynamicWidgets,
-    pub data: &'a mut EditorData,
+    pub emitter_data: &'a mut EditorData,
     pub state: &'a mut SparState,
     pub events: &'a mut SparEvents,
     pub encoder: &'a mut CommandEncoder,

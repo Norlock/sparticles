@@ -82,14 +82,14 @@ impl SparState {
     }
 
     pub fn new(init: &mut impl AppVisitor, window: Window) -> Self {
-        let mut gfx = pollster::block_on(GfxState::new(window));
-
+        let gfx = pollster::block_on(GfxState::new(window));
         let clock = Clock::new();
         let camera = Camera::new(&gfx);
+        let builtin = Model::load_builtin(&gfx);
+
         let mut collection = HashMap::new();
         let mut post_process = PostProcessState::new(&gfx, init);
 
-        let builtin = Model::load_builtin(&gfx);
         collection.insert(builtin.id.to_string(), builtin);
 
         let init_settings = Init::new(init, &gfx, &camera, &collection, &mut post_process);
@@ -114,9 +114,7 @@ impl SparState {
             }
         }
 
-        init.add_widget_builders(&mut gfx);
-
-        Self {
+        let mut state = Self {
             clock,
             camera,
             emitters: init_settings.emitters,
@@ -127,6 +125,50 @@ impl SparState {
             registered_post_fx: init_settings.registry_post_fx,
             collection,
             play: true,
-        }
+        };
+
+        init.add_widget_builders(&mut state);
+
+        state
     }
 }
+
+//#[cfg(test)]
+//mod tests {
+//use std::sync::{Arc, Mutex};
+
+//pub struct Jep {
+//a: String,
+//}
+
+//pub struct Test {
+//a: String,
+//b: Arc<Mutex<Vec<Jep>>>,
+//}
+
+//#[test]
+//fn it_works() {
+//let mut jeppers = vec![];
+//for _i in 0..10 {
+//jeppers.push(Jep {
+//a: "jep".to_owned(),
+//})
+//}
+
+//let mut b = Test {
+//a: "nep".to_owned(),
+//b: Arc::new(Mutex::new(jeppers)),
+//};
+
+//let ref mut a = b.b.lock().unwrap()[0];
+
+//test(&mut b, a);
+
+//let result = 2 + 2;
+//assert_eq!(result, 4);
+//}
+
+//fn test(a: &mut Test, jep: &mut Jep) {
+//assert_ne!(a.a, jep.a);
+//}
+//}
