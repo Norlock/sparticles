@@ -1,4 +1,4 @@
-use crate::traits::{HandleAction, OtherIterMut, Splitting};
+use crate::traits::{BufferContent, HandleAction, OtherIterMut, Splitting};
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use encase::{private::WriteInto, ShaderType, UniformBuffer};
 use serde::{Deserialize, Serialize};
@@ -110,18 +110,19 @@ impl UniformContext {
         device: &wgpu::Device,
         label: &str,
     ) -> Self {
-        let buffer_contents = CommonBuffer::uniform_content(uniform);
+        let buffer_contents = uniform.buffer_content();
         Self::from_content(&buffer_contents, device, label)
     }
 }
 
-pub struct CommonBuffer;
-
-impl CommonBuffer {
-    pub fn uniform_content(uniform: &(impl ShaderType + WriteInto)) -> Vec<u8> {
-        let mut buffer = UniformBuffer::new(Vec::new());
-        buffer.write(&uniform).unwrap();
-        buffer.into_inner()
+impl<T> BufferContent for T
+where
+    T: ShaderType + WriteInto,
+{
+    fn buffer_content(&self) -> Vec<u8> {
+        let mut buffer = encase::UniformBuffer::new(Vec::new());
+        buffer.write(self).unwrap();
+        return buffer.into_inner();
     }
 }
 

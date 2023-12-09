@@ -267,7 +267,6 @@ impl Editor {
                     match item {
                         Ok(dir) => {
                             if let Some(extension) = dir.path().extension() {
-                                println!("{:?}", extension);
                                 if extension.to_os_string() == OsString::from("glb")
                                     || extension.to_os_string() == OsString::from("gltf")
                                 {

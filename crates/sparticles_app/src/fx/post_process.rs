@@ -4,9 +4,7 @@ use crate::model::events::ViewIOEvent;
 use crate::model::{GfxState, SparEvents, SparState};
 use crate::shaders::{ShaderOptions, SDR_TONEMAPPING};
 use crate::traits::*;
-use crate::util::{
-    CommonBuffer, DynamicExport, ExportType, ListAction, Persistence, UniformContext,
-};
+use crate::util::{DynamicExport, ExportType, ListAction, Persistence, UniformContext};
 use egui_wgpu::wgpu;
 use egui_winit::egui::ClippedPrimitive;
 use glam::Vec2;
@@ -67,7 +65,7 @@ impl PostProcessState {
                 }
             }
 
-            let contents = CommonBuffer::uniform_content(&pp.io_uniform);
+            let contents = pp.io_uniform.buffer_content();
             gfx.queue.write_buffer(&pp.io_ctx.buf, 0, &contents);
         }
 

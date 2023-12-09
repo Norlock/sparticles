@@ -5,7 +5,6 @@ use super::FxState;
 use crate::model::Camera;
 use crate::model::GfxState;
 use crate::traits::*;
-use crate::util::CommonBuffer;
 use crate::util::DynamicExport;
 use crate::util::ListAction;
 use crate::util::UniformContext;
@@ -96,7 +95,7 @@ impl PostFx for BlurFx {
     fn update(&mut self, gfx_state: &GfxState, _camera: &mut Camera) {
         if self.update_uniform.take().is_some() {
             let queue = &gfx_state.queue;
-            let buffer_content = CommonBuffer::uniform_content(&self.blur_uniform);
+            let buffer_content = self.blur_uniform.buffer_content();
             queue.write_buffer(&self.blur_ctx.buf, 0, &buffer_content);
         }
     }

@@ -132,3 +132,7 @@ pub type OtherIterMut<'a, T> = std::iter::Chain<IterMut<'a, T>, IterMut<'a, T>>;
 pub trait Splitting<T: std::fmt::Debug> {
     fn split_item_mut(&mut self, idx: usize) -> (&mut T, OtherIterMut<T>);
 }
+
+pub trait BufferContent {
+    fn buffer_content(&self) -> Vec<u8>;
+}

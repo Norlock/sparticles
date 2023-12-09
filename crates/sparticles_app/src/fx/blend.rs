@@ -1,5 +1,5 @@
 use super::{FxIOUniform, FxOptions, FxState};
-use crate::{model::GfxState, shaders::ShaderOptions, util::UniformContext};
+use crate::{model::GfxState, shaders::ShaderOptions, traits::BufferContent, util::UniformContext};
 use egui_wgpu::wgpu;
 use encase::ShaderType;
 use serde::{Deserialize, Serialize};

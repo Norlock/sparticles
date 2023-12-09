@@ -1,6 +1,5 @@
 use super::FxState;
-use crate::model::GfxState;
-use crate::util::CommonBuffer;
+use crate::{model::GfxState, traits::BufferContent};
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use encase::ShaderType;
 use serde::{Deserialize, Serialize};
@@ -190,10 +189,6 @@ impl FxIOUniform {
         }
     }
 
-    pub fn create_content(&self) -> Vec<u8> {
-        CommonBuffer::uniform_content(self)
-    }
-
     pub fn zero(fx_state: &FxState) -> Self {
         let tex_size = &fx_state.tex_size;
         let size_x = tex_size.x as u32;
@@ -229,9 +224,8 @@ impl FxIOUniform {
         };
 
         let queue = &options.gfx.queue;
-        let contents = CommonBuffer::uniform_content(self);
 
-        queue.write_buffer(buf, 0, &contents);
+        queue.write_buffer(buf, 0, &self.buffer_content());
     }
 }
 
@@ -248,7 +242,7 @@ impl FxIOSwapCtx {
         let mut bgs = Vec::new();
 
         for (i, uniform) in uniforms.iter().enumerate() {
-            let contents = CommonBuffer::uniform_content(uniform);
+            let contents = uniform.buffer_content();
 
             layout_entries.push(wgpu::BindGroupLayoutEntry {
                 binding: i as u32,

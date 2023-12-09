@@ -4,8 +4,8 @@ use super::{FxIOUniform, FxOptions, FxState};
 use crate::{
     model::{Camera, GfxState},
     shaders::{ShaderOptions, SDR_TONEMAPPING},
-    traits::{HandleAction, PostFx, RegisterPostFx},
-    util::{CommonBuffer, DynamicExport, ListAction, UniformContext},
+    traits::{BufferContent, HandleAction, PostFx, RegisterPostFx},
+    util::{DynamicExport, ListAction, UniformContext},
 };
 use egui_wgpu::wgpu;
 use encase::ShaderType;
@@ -109,7 +109,7 @@ impl PostFx for ColorFx {
         match self.update_event.take() {
             Some(UpdateAction::UpdateBuffer) => {
                 let queue = &gfx_state.queue;
-                let color_content = CommonBuffer::uniform_content(&self.color_uniform);
+                let color_content = self.color_uniform.buffer_content();
                 queue.write_buffer(&self.color_buffer, 0, &color_content);
             }
             None => {}

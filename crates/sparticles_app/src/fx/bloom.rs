@@ -13,7 +13,6 @@ use crate::fx::ColorFxUniform;
 use crate::model::Camera;
 use crate::model::GfxState;
 use crate::traits::*;
-use crate::util::CommonBuffer;
 use crate::util::DynamicExport;
 use crate::util::ListAction;
 use crate::util::UniformContext;
@@ -141,10 +140,10 @@ impl PostFx for BloomFx {
                 let queue = &gfx_state.queue;
 
                 if let Some(up) = self.upscale_passes.get_mut(i) {
-                    let io_content = CommonBuffer::uniform_content(&up.blend_uniform);
+                    let io_content = up.blend_uniform.buffer_content();
                     queue.write_buffer(&up.blend_ctx.buf, 0, &io_content);
                 } else {
-                    let io_content = CommonBuffer::uniform_content(&self.blend_uniform);
+                    let io_content = self.blend_uniform.buffer_content();
                     queue.write_buffer(&self.blend_ctx.buf, 0, &io_content);
                 }
             }

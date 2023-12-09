@@ -17,19 +17,19 @@ impl MenuWidget for ImportMenu {
             .default_height(800.)
             .title_bar(false)
             .show(menu_ctx.ctx, |ui| {
-                ui.label("Select import");
+                data.create_title(ui, "Import menu");
 
                 //let data = &mut menu_ctx.data;
                 //let SparState {
                 //collection, camera, ..
                 //} = menu_ctx.state;
 
-                egui::ComboBox::from_id_source("select-emitter").show_index(
-                    ui,
-                    &mut data.selected_emitter_idx,
-                    data.model_files.len(),
-                    |i| data.model_files[i].file_name().unwrap().to_str().unwrap(),
-                );
+                for file in data.model_files.iter() {
+                    ui.group(|ui| {
+                        ui.label(file.file_name().unwrap().to_str().unwrap());
+                        ui.checkbox(&mut false, "is imported");
+                    });
+                }
             });
     }
 }
