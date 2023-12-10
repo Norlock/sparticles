@@ -1,23 +1,31 @@
+use std::sync::Arc;
+
 use super::state::SparState;
 use super::EmitterState;
 use super::SparEvents;
 use crate::fx::PostProcessState;
 use crate::init::AppVisitor;
+use async_std::sync::RwLock;
+use async_std::task;
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::CommandEncoder;
 use egui_wgpu::Renderer;
+use egui_winit::egui::epaint::ImageDelta;
 use egui_winit::egui::ClippedPrimitive;
 use egui_winit::egui::Context;
 use egui_winit::egui::FontData;
 use egui_winit::egui::FontDefinitions;
 use egui_winit::egui::FontFamily;
+use egui_winit::egui::PlatformOutput;
 use egui_winit::egui::RawInput;
+use egui_winit::egui::TextureId;
 use egui_winit::winit;
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::EventResponse;
 use wgpu_profiler::GpuProfiler;
 use wgpu_profiler::GpuProfilerSettings;
+use wgpu_profiler::GpuTimerScopeResult;
 use wgpu_profiler::ProfilerCommandRecorder;
 use winit::dpi::PhysicalSize;
 use winit::window;
@@ -35,6 +43,9 @@ pub struct GfxState {
     pub surface: wgpu::Surface,
 }
 
+unsafe impl Send for GfxState {}
+unsafe impl Sync for GfxState {}
+
 pub struct DrawGuiResult {
     pub primitives: Vec<ClippedPrimitive>,
     pub events: SparEvents,
@@ -47,6 +58,20 @@ impl GfxState {
 
     pub fn end_scope(&mut self, pass: &mut impl ProfilerCommandRecorder) {
         self.profiler.end_scope(pass).unwrap();
+    }
+
+    pub fn render_frame<'a>(
+        &'a mut self,
+        r_pass: &mut wgpu::RenderPass<'a>,
+        primitives: &'a [ClippedPrimitive],
+    ) {
+        self.profiler
+            .begin_scope("Render GUI", r_pass, &self.device);
+
+        self.renderer
+            .render(r_pass, primitives, &self.screen_descriptor);
+
+        self.profiler.end_scope(r_pass).unwrap();
     }
 
     pub fn finish_frame(
@@ -178,16 +203,23 @@ impl GfxState {
         }
     }
 
-    pub fn window_id(&self) -> window::WindowId {
-        self.window.id()
+    pub async fn window_id(gfx: &Arc<RwLock<GfxState>>) -> window::WindowId {
+        gfx.read().await.window.id()
     }
 
-    pub fn handle_event(&mut self, event: &WindowEvent<'_>) -> EventResponse {
-        self.winit.on_window_event(&self.ctx, event)
+    pub fn handle_event(gfx: &Arc<RwLock<GfxState>>, event: &WindowEvent<'_>) -> EventResponse {
+        let gfx = &mut task::block_on(gfx.write());
+        let ctx = gfx.ctx.clone();
+        gfx.winit.on_window_event(&ctx, event)
     }
 
     pub fn request_redraw(&self) {
         self.window.request_redraw();
+    }
+
+    pub fn process_frame(&mut self) -> Option<Vec<GpuTimerScopeResult>> {
+        self.profiler
+            .process_finished_frame(self.queue.get_timestamp_period())
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
@@ -203,81 +235,114 @@ impl GfxState {
         }
     }
 
-    pub fn draw_ui(
+    fn egui_input(&mut self) -> RawInput {
+        self.winit.take_egui_input(&self.window)
+    }
+
+    fn egui_handle_output(&mut self, platform_output: PlatformOutput) {
+        self.winit
+            .handle_platform_output(&self.window, &self.ctx, platform_output);
+    }
+
+    fn egui_update_texture(&mut self, tex_id: TextureId, img_delta: ImageDelta) {
+        self.renderer
+            .update_texture(&self.device, &self.queue, tex_id, &img_delta);
+    }
+
+    fn egui_update_buffers(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        primitives: &[ClippedPrimitive],
+    ) {
+        self.renderer.update_buffers(
+            &self.device,
+            &self.queue,
+            encoder,
+            primitives,
+            &self.screen_descriptor,
+        );
+    }
+
+    pub async fn draw_ui(
         state: &mut SparState,
         encoder: &mut wgpu::CommandEncoder,
         app_visitor: &mut impl AppVisitor,
     ) -> DrawGuiResult {
-        let input = state.gfx.winit.take_egui_input(&state.gfx.window);
+        {
+            let gfx = &mut state.gfx.write().await;
+            let input = gfx.egui_input();
 
-        state.gfx.ctx.begin_frame(input);
+            gfx.ctx.begin_frame(input);
+        }
 
         let events = app_visitor.draw_ui(state, encoder);
-        let gfx = &mut state.gfx;
 
-        let full_output = gfx.ctx.end_frame();
+        {
+            let gfx = &mut state.gfx.write().await;
+            let full_output = gfx.ctx.end_frame();
 
-        let primitives = gfx
-            .ctx
-            .tessellate(full_output.shapes, gfx.winit.pixels_per_point());
+            let primitives = gfx
+                .ctx
+                .tessellate(full_output.shapes, gfx.winit.pixels_per_point());
 
-        gfx.winit
-            .handle_platform_output(&gfx.window, &gfx.ctx, full_output.platform_output);
+            gfx.egui_handle_output(full_output.platform_output);
 
-        for (tex_id, img_delta) in full_output.textures_delta.set {
-            gfx.renderer
-                .update_texture(&gfx.device, &gfx.queue, tex_id, &img_delta);
+            for (tex_id, img_delta) in full_output.textures_delta.set {
+                gfx.egui_update_texture(tex_id, img_delta);
+            }
+
+            for tex_id in full_output.textures_delta.free {
+                gfx.renderer.free_texture(&tex_id);
+            }
+
+            gfx.egui_update_buffers(encoder, &primitives);
+
+            DrawGuiResult { events, primitives }
         }
-
-        for tex_id in full_output.textures_delta.free {
-            gfx.renderer.free_texture(&tex_id);
-        }
-
-        gfx.renderer.update_buffers(
-            &gfx.device,
-            &gfx.queue,
-            encoder,
-            &primitives,
-            &gfx.screen_descriptor,
-        );
-
-        DrawGuiResult { events, primitives }
     }
 
-    pub fn render(state: &mut SparState, app_visitor: &mut impl AppVisitor) -> SparEvents {
-        let output_frame = match state.gfx.surface.get_current_texture() {
-            Ok(frame) => frame,
-            Err(wgpu::SurfaceError::Outdated) => {
-                return SparEvents::default();
-            }
-            Err(e) => {
-                eprintln!("Dropped frame with error: {}", e);
-                return SparEvents::default();
-            }
-        };
+    pub async fn render(state: &mut SparState, app_visitor: &mut impl AppVisitor) -> SparEvents {
+        let mut encoder: CommandEncoder;
+        let output_view: wgpu::TextureView;
+        let output_frame: wgpu::SurfaceTexture;
 
-        let mut encoder =
-            state
-                .gfx
+        {
+            let gfx = state.gfx.read().await;
+            output_frame = match gfx.surface.get_current_texture() {
+                Ok(frame) => frame,
+                Err(wgpu::SurfaceError::Outdated) => {
+                    return SparEvents::default();
+                }
+                Err(e) => {
+                    eprintln!("Dropped frame with error: {}", e);
+                    return SparEvents::default();
+                }
+            };
+
+            encoder = gfx
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("encoder"),
                 });
 
-        let output_view = output_frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        if state.play {
-            EmitterState::compute_particles(state, &mut encoder);
+            output_view = output_frame
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor::default());
         }
 
-        EmitterState::render_particles(state, &mut encoder);
-        PostProcessState::compute(state, &mut encoder);
-        let res = GfxState::draw_ui(state, &mut encoder, app_visitor);
-        PostProcessState::render(state, output_view, &mut encoder, &res.primitives);
+        if state.play {
+            EmitterState::compute_particles(state, &mut encoder).await;
+        }
 
-        state.gfx.finish_frame(encoder, output_frame);
+        EmitterState::render_particles(state, &mut encoder).await;
+        PostProcessState::compute(state, &mut encoder).await;
+        let res = GfxState::draw_ui(state, &mut encoder, app_visitor).await;
+        PostProcessState::render(state, output_view, &mut encoder, &res.primitives).await;
+
+        state.clock.measure_cpu_time();
+
+        let gfx = &mut state.gfx.write().await;
+        gfx.finish_frame(encoder, output_frame);
 
         res.events
     }

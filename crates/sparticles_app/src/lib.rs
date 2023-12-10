@@ -1,3 +1,4 @@
+use async_std::task;
 use egui_wgpu;
 use egui_winit;
 use egui_winit::winit;
@@ -40,31 +41,32 @@ pub fn start(mut app_visitor: impl AppVisitor + 'static) {
         .build(&event_loop)
         .unwrap();
 
-    let mut state = SparState::new(&mut app_visitor, window);
+    let mut state = task::block_on(SparState::new(&mut app_visitor, window));
     let mut shift_pressed = false;
     let mut events = SparEvents::default();
 
     event_loop.run(move |event, _, control_flow| {
-        let gfx = &mut state.gfx;
-        let do_exec = |window_id: WindowId| window_id == gfx.window_id();
+        let gfx_window_id = task::block_on(GfxState::window_id(&state.gfx));
+        let do_exec = |window_id: WindowId| window_id == gfx_window_id;
 
         match event {
             RedrawRequested(window_id) if do_exec(window_id) => {
-                state.update(&events);
-                events = GfxState::render(&mut state, &mut app_visitor);
+                task::block_on(state.update(&events));
+                events = task::block_on(GfxState::render(&mut state, &mut app_visitor));
             }
             MainEventsCleared => {
+                let gfx = task::block_on(state.gfx.read());
                 gfx.request_redraw();
             }
             WindowEvent { event, window_id } if do_exec(window_id) => {
-                let response = gfx.handle_event(&event);
+                let response = GfxState::handle_event(&state.gfx, &event);
 
                 match event {
                     winit::event::WindowEvent::Resized(size) => {
-                        state.resize(size);
+                        task::block_on(state.resize(size));
                     }
                     winit::event::WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        state.resize(*new_inner_size);
+                        task::block_on(state.resize(*new_inner_size));
                     }
                     winit::event::WindowEvent::CloseRequested => {
                         *control_flow = ControlFlow::Exit;

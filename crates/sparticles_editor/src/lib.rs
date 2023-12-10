@@ -1,4 +1,5 @@
 pub use crate::pa_widgets::EditorWidgets;
+use async_std::task;
 use menu::{
     general::{GeneralMenu, Tab},
     import::ImportMenu,
@@ -27,7 +28,6 @@ use std::{
     any::TypeId,
     collections::HashMap,
     ffi::OsString,
-    fs::DirEntry,
     path::{Path, PathBuf},
 };
 
@@ -66,8 +66,9 @@ pub struct EditorData {
     selected_menu_idx: usize,
 
     fps_text: String,
+    frame_time_text: String,
     cpu_time_text: String,
-    elapsed_text: String,
+    total_elapsed_text: String,
     particle_count_text: String,
     texture_paths: Vec<PathBuf>,
     icon_textures: HashMap<String, TextureId>,
@@ -136,7 +137,7 @@ impl Editor {
         events: &mut SparEvents,
         encoder: &mut CommandEncoder,
     ) {
-        let ctx = &state.egui_ctx().clone();
+        let ctx = &state.egui_ctx();
 
         Window::new("Menu")
             .collapsible(false)
@@ -218,7 +219,7 @@ impl Editor {
     }
 
     pub fn new(state: &mut SparState, model_dir: PathBuf) -> Self {
-        let gfx = &mut state.gfx;
+        let gfx = &mut task::block_on(state.gfx.write());
         let texture_paths = Persistence::import_textures().unwrap();
         let icon_textures = Self::create_icons(gfx);
         let mut pa_widgets: HashMap<TypeId, PAWidgetPtr> = HashMap::new();
@@ -286,9 +287,10 @@ impl Editor {
         }
 
         let data = EditorData {
+            frame_time_text: "".to_string(),
             cpu_time_text: "".to_string(),
             fps_text: "".to_string(),
-            elapsed_text: "".to_string(),
+            total_elapsed_text: "".to_string(),
             particle_count_text: "".to_string(),
             selected_tab: Tab::EmitterSettings,
             texture_paths,
@@ -299,7 +301,7 @@ impl Editor {
             selected_new_post_fx: 0,
             selected_texture: 0,
             icon_textures,
-            new_emitter_tag: String::from(""),
+            new_emitter_tag: "".to_string(),
             profiling_results: Vec::new(),
             //display_event: None,
             //performance_event: None,

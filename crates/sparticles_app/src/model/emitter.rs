@@ -3,9 +3,11 @@ use crate::loader::{Model, BUILTIN_ID, CIRCLE_MAT_ID, CIRCLE_MESH_ID};
 use crate::model::state::FastFetch;
 use crate::traits::{FromRGB, HandleAngles};
 use crate::util::ID;
+use async_std::sync::{Mutex, RwLock};
 use glam::{f32::Vec3, f32::Vec4};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 const PARTICLE_BUFFER_SIZE: u64 = 26 * 4;
 
@@ -222,7 +224,11 @@ impl EmitterUniform {
         self.particle_count() * PARTICLE_BUFFER_SIZE
     }
 
-    pub fn create_buffer_content(&self, collection: &HashMap<String, Model>) -> Vec<f32> {
+    pub async fn create_buffer_content(
+        &self,
+        collection: &Arc<RwLock<HashMap<String, Model>>>,
+    ) -> Vec<f32> {
+        let collection = &collection.read().await;
         let mesh = collection.get_mesh(&self.mesh);
         let particle_model = mesh.model.to_cols_array();
 

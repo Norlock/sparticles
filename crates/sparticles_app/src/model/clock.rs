@@ -4,25 +4,23 @@ pub struct Clock {
     instant: Instant,
     last_update: Duration,
     current_delta: Duration,
+    cpu_time: Duration,
     frame: usize,
 }
 
 impl Default for Clock {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Clock {
-    pub fn new() -> Self {
         Self {
             instant: Instant::now(),
             last_update: Duration::ZERO,
             current_delta: Duration::ZERO,
+            cpu_time: Duration::ZERO,
             frame: 0,
         }
     }
+}
 
+impl Clock {
     pub fn update(&mut self, play: bool) {
         let now = self.instant.elapsed();
         self.current_delta = now - self.last_update;
@@ -31,6 +29,11 @@ impl Clock {
         if play {
             self.frame += 1;
         }
+    }
+
+    pub fn measure_cpu_time(&mut self) {
+        self.cpu_time = self.instant.elapsed() - self.last_update;
+        // TODO fix
     }
 
     pub fn delta(&self) -> Duration {
@@ -65,12 +68,19 @@ impl Clock {
         format!("FPS: {:.0}", 1. / self.delta_sec())
     }
 
-    pub fn elapsed_text(&self) -> String {
+    pub fn total_elapsed_text(&self) -> String {
         format!("Time running: {:.2}", self.elapsed_sec())
     }
 
+    pub fn cpu_time_text(&self) -> String {
+        format!(
+            "CPU time micro sec: {:.2}",
+            self.cpu_time.as_secs_f32() * 1_000_000.
+        )
+    }
+
     pub fn frame_time_text(&self) -> String {
-        let cpu_time = self.delta_sec();
-        format!("Frame time ms: {:.0}", cpu_time * 1000.)
+        let frame_time = self.delta_sec();
+        format!("Frame time ms: {:.0}", frame_time * 1000.)
     }
 }

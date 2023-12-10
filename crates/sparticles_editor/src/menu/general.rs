@@ -1,4 +1,5 @@
 use crate::{DynamicWidgets, Editor, EditorData, IntoRichText};
+use async_std::task;
 use sparticles_app::{
     fx::{FxOptions, PostProcessState},
     gui::egui::{
@@ -53,24 +54,24 @@ impl MenuWidget for GeneralMenu {
 
                 // Update gui info
                 if clock.frame() % 20 == 0 && *play {
+                    let gfx = &mut task::block_on(gfx.write());
                     let count: u64 = emitters.iter().map(|s| s.particle_count()).sum();
 
-                    data.cpu_time_text = clock.frame_time_text();
+                    data.frame_time_text = clock.frame_time_text();
                     data.fps_text = clock.fps_text();
-                    data.elapsed_text = clock.elapsed_text();
+                    data.total_elapsed_text = clock.total_elapsed_text();
+                    data.cpu_time_text = clock.cpu_time_text();
                     data.particle_count_text = format!("Particle count: {}", count);
 
-                    let prof = &mut gfx.profiler;
-                    let queue = &gfx.queue;
-
-                    if let Some(res) = prof.process_finished_frame(queue.get_timestamp_period()) {
+                    if let Some(res) = gfx.process_frame() {
                         data.profiling_results = res;
                     }
                 }
 
                 Editor::create_label(ui, &data.fps_text);
+                Editor::create_label(ui, &data.frame_time_text);
                 Editor::create_label(ui, &data.cpu_time_text);
-                Editor::create_label(ui, &data.elapsed_text);
+                Editor::create_label(ui, &data.total_elapsed_text);
                 Editor::create_label(ui, &data.particle_count_text);
                 ui.separator();
 
@@ -288,8 +289,9 @@ impl GeneralMenu {
             );
 
             if ui.button("Add animation").clicked() {
+                let gfx = &task::block_on(state.gfx.read());
                 emitter.push_particle_animation(
-                    registry_par_anims[*sel_animation].create_default(&state.gfx, emitter),
+                    registry_par_anims[*sel_animation].create_default(gfx, emitter),
                 );
             }
         });
@@ -473,13 +475,14 @@ impl GeneralMenu {
         );
 
         if combo_texture.changed() {
-            emitter.update_diffuse(&state.gfx, &mut data.texture_paths[data.selected_texture]);
+            let gfx = &task::block_on(state.gfx.read());
+            emitter.update_diffuse(gfx, &mut data.texture_paths[data.selected_texture]);
         };
 
-        self.update_emitter(*data, *state, *encoder);
+        task::block_on(self.update_emitter(*data, *state, *encoder));
     }
 
-    fn update_emitter(
+    async fn update_emitter(
         &self,
         data: &mut EditorData,
         state: &mut SparState,
@@ -501,6 +504,9 @@ impl GeneralMenu {
         em.uniform.update_settings(settings);
 
         if settings.recreate {
+            //let gfx = &task::block_on(state.gfx.read());
+            //let collection = &mut task::block_on(collection.write());
+
             if em.is_light {
                 *em = EmitterState::recreate_emitter(
                     RecreateEmitterOptions {
@@ -511,7 +517,8 @@ impl GeneralMenu {
                         emitter_type: EmitterType::Lights,
                     },
                     encoder,
-                );
+                )
+                .await;
 
                 for other in others {
                     *other = EmitterState::recreate_emitter(
@@ -525,7 +532,8 @@ impl GeneralMenu {
                             },
                         },
                         encoder,
-                    );
+                    )
+                    .await;
                 }
             } else {
                 let lights = others.next().unwrap();
@@ -541,7 +549,8 @@ impl GeneralMenu {
                         },
                     },
                     encoder,
-                );
+                )
+                .await;
             }
         }
     }
@@ -586,6 +595,8 @@ impl GeneralMenu {
             );
 
             if ui.button("Add post fx").clicked() {
+                let gfx = &task::block_on(state.gfx.read());
+
                 effects.push(registered_post_fx[*sel_post_fx].create_default(&FxOptions {
                     fx_state: &post_process.fx_state,
                     gfx,

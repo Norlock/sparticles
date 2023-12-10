@@ -6,7 +6,10 @@ use crate::shaders::{ShaderOptions, SDR_PBR, SDR_TONEMAPPING};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
 use crate::util::{ListAction, Persistence, ID};
+use async_std::sync::{Mutex, RwLock};
+use async_std::task;
 use egui_wgpu::wgpu::{self, ShaderModule};
+use std::sync::Arc;
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
@@ -42,17 +45,17 @@ pub enum EmitterType<'a> {
 
 pub struct CreateEmitterOptions<'a> {
     pub uniform: EmitterUniform,
-    pub gfx: &'a GfxState,
+    pub gfx: &'a Arc<RwLock<GfxState>>,
     pub camera: &'a Camera,
-    pub collection: &'a mut HashMap<ID, Model>,
+    pub collection: &'a Arc<RwLock<HashMap<ID, Model>>>,
     pub emitter_type: EmitterType<'a>,
 }
 
 pub struct RecreateEmitterOptions<'a> {
     pub old_self: &'a mut EmitterState,
-    pub gfx: &'a GfxState,
+    pub gfx: &'a Arc<RwLock<GfxState>>,
     pub camera: &'a Camera,
-    pub collection: &'a mut HashMap<ID, Model>,
+    pub collection: &'a Arc<RwLock<HashMap<ID, Model>>>,
     pub emitter_type: EmitterType<'a>,
 }
 
@@ -61,7 +64,7 @@ impl<'a> EmitterState {
         &self.uniform.id
     }
 
-    pub fn update(state: &mut SparState, events: &SparEvents) {
+    pub async fn update(state: &mut SparState, events: &SparEvents) {
         let SparState {
             clock,
             emitters,
@@ -84,7 +87,7 @@ impl<'a> EmitterState {
                 gfx,
             };
 
-            emitters.push(Self::new(options));
+            emitters.push(Self::new(options).await);
         }
 
         let mut update_mesh = false;
@@ -106,9 +109,10 @@ impl<'a> EmitterState {
                 anim.animate(&mut emitter.uniform, clock);
             }
 
-            let buffer_content_raw = emitter.uniform.create_buffer_content(collection);
+            let buffer_content_raw = emitter.uniform.create_buffer_content(collection).await;
             let buffer_content = bytemuck::cast_slice(&buffer_content_raw);
 
+            let gfx = &gfx.read().await;
             gfx.queue
                 .write_buffer(&emitter.emitter_buffer, 0, buffer_content);
 
@@ -120,13 +124,19 @@ impl<'a> EmitterState {
         }
 
         if update_mesh {
+            let mut collection = collection.write().await;
+            let gfx = gfx.read().await;
+
             if let Some(model) = collection.get_mut(BUILTIN_ID) {
-                Mesh::update_2d_meshes(&mut model.meshes, &mut gfx.queue, &camera);
+                Mesh::update_2d_meshes(&mut model.meshes, &gfx.queue, &camera);
             }
         }
     }
 
-    pub fn compute_particles(state: &'a mut SparState, encoder: &'a mut wgpu::CommandEncoder) {
+    pub async fn compute_particles(
+        state: &'a mut SparState,
+        encoder: &'a mut wgpu::CommandEncoder,
+    ) {
         let SparState {
             clock,
             emitters,
@@ -134,6 +144,7 @@ impl<'a> EmitterState {
             ..
         } = state;
 
+        let gfx = &mut gfx.write().await;
         let nr = clock.get_bindgroup_nr();
 
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -164,8 +175,9 @@ impl<'a> EmitterState {
         gfx.end_scope(&mut c_pass);
     }
 
-    pub fn render_particles(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
+    pub async fn render_particles(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
         let pp = &state.post_process;
+        let collection = &state.collection.read().await;
 
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
@@ -202,18 +214,17 @@ impl<'a> EmitterState {
         let clock = &state.clock;
         let emitters = &state.emitters;
         let camera = &state.camera;
-        let gfx_state = &mut state.gfx;
-        let collection = &mut state.collection;
 
         let nr = clock.get_alt_bindgroup_nr();
 
-        gfx_state.begin_scope("Render", &mut r_pass);
+        let gfx = &mut state.gfx.write().await;
+        gfx.begin_scope("Render", &mut r_pass);
 
         for em in emitters.iter() {
             let mesh = collection.get_mesh(&em.uniform.mesh);
             let mat = collection.get_mat(&em.uniform.material);
 
-            gfx_state.begin_scope(&format!("Emitter: {}", em.id()), &mut r_pass);
+            gfx.begin_scope(&format!("Emitter: {}", em.id()), &mut r_pass);
             r_pass.set_pipeline(&em.render_pipeline);
             r_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
             r_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
@@ -227,27 +238,26 @@ impl<'a> EmitterState {
             }
 
             r_pass.draw_indexed(mesh.indices_range(), 0, 0..em.particle_count() as u32);
-            gfx_state.end_scope(&mut r_pass);
+            gfx.end_scope(&mut r_pass);
         }
 
-        gfx_state.end_scope(&mut r_pass);
+        gfx.end_scope(&mut r_pass);
     }
 
-    pub fn recreate_emitter(
-        options: RecreateEmitterOptions,
+    pub async fn recreate_emitter(
+        options: RecreateEmitterOptions<'_>,
         encoder: &mut wgpu::CommandEncoder,
     ) -> Self {
         let old_self = options.old_self;
 
         let mut new_self = Self::new(CreateEmitterOptions {
             uniform: old_self.uniform.clone(),
-            gfx: options.gfx,
+            gfx: &options.gfx,
             camera: options.camera,
             collection: options.collection,
             emitter_type: options.emitter_type,
-        });
-
-        let gfx_state = options.gfx;
+        })
+        .await;
 
         for i in 0..2 {
             let old_buf = &old_self.particle_buffers[i];
@@ -256,8 +266,9 @@ impl<'a> EmitterState {
             encoder.copy_buffer_to_buffer(old_buf, 0, new_buf, 0, buf_size);
         }
 
+        let gfx = &options.gfx.read().await;
         for i in 0..old_self.particle_animations.len() {
-            let animation = old_self.particle_animations[i].recreate(gfx_state, &new_self);
+            let animation = old_self.particle_animations[i].recreate(gfx, &new_self);
             new_self.push_particle_animation(animation);
         }
 
@@ -313,39 +324,44 @@ impl<'a> EmitterState {
         Persistence::write_to_file(to_export, ExportType::EmitterStates);
     }
 
-    pub fn new(mut options: CreateEmitterOptions) -> Self {
-        let gfx = options.gfx;
+    pub async fn new(options: CreateEmitterOptions<'_>) -> Self {
         let camera = options.camera;
         let uniform = options.uniform;
+        let gfx = options.gfx;
         let collection = options.collection;
 
-        let device = &gfx.device;
+        {
+            let mut collection = collection.write().await;
 
-        let mesh_key = &uniform.mesh.collection_id;
-        let mat_key = &uniform.material.collection_id;
+            let mesh_key = &uniform.mesh.collection_id;
+            let mat_key = &uniform.material.collection_id;
 
-        if !collection.contains_key(mesh_key) {
-            println!("import mesh: {:?}", mesh_key);
-            collection.insert(
-                mesh_key.to_string(),
-                Model::load_gltf(&gfx, mesh_key).expect("Can't load model"),
-            );
+            if !collection.contains_key(mesh_key) {
+                collection.insert(
+                    mesh_key.to_string(),
+                    Model::load_gltf(gfx, mesh_key)
+                        .await
+                        .expect("Can't load model"),
+                );
+            }
+
+            if !collection.contains_key(mesh_key) {
+                collection.insert(
+                    mat_key.to_string(),
+                    Model::load_gltf(gfx, mat_key)
+                        .await
+                        .expect("Can't load model"),
+                );
+            }
         }
 
-        if !collection.contains_key(mesh_key) {
-            println!("import mat: {:?}", mat_key);
-            collection.insert(
-                mat_key.to_string(),
-                Model::load_gltf(&gfx, mat_key).expect("Can't load model"),
-            );
-        }
-
-        let emitter_buf_content = uniform.create_buffer_content(collection);
+        let emitter_buf_content = uniform.create_buffer_content(collection).await;
 
         let mut particle_buffers = Vec::<wgpu::Buffer>::new();
         let mut bind_groups = Vec::<wgpu::BindGroup>::new();
 
         for i in 0..2 {
+            let device = &gfx.read().await.device;
             particle_buffers.push(device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(&format!("Particle Buffer {}", i)),
                 mapped_at_creation: false,
@@ -370,6 +386,9 @@ impl<'a> EmitterState {
         };
 
         // Compute ---------
+        let gfx = gfx.read().await;
+        let device = &gfx.device;
+
         let bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 // Particles
@@ -464,6 +483,7 @@ impl<'a> EmitterState {
         let pipeline_layout;
         let is_light;
 
+        let collection = collection.read().await;
         let material = collection.get_mat(&uniform.material);
         let mesh = collection.get_mesh(&uniform.mesh);
 

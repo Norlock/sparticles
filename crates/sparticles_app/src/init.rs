@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
+use async_std::sync::RwLock;
 use egui_wgpu::wgpu;
 use egui_winit::winit::event::KeyboardInput;
 
@@ -89,11 +91,11 @@ pub struct Init {
 }
 
 impl Init {
-    fn code_emitters(
+    async fn code_emitters(
         lights_uniform: EmitterUniform,
         emitter_uniforms: Vec<EmitterUniform>,
-        gfx: &GfxState,
-        collection: &mut HashMap<ID, Model>,
+        gfx: &Arc<RwLock<GfxState>>,
+        collection: &Arc<RwLock<HashMap<ID, Model>>>,
         camera: &Camera,
     ) -> Vec<EmitterState> {
         let mut emitters: Vec<EmitterState> = Vec::new();
@@ -106,7 +108,8 @@ impl Init {
             collection,
             gfx,
             emitter_type: EmitterType::Lights,
-        });
+        })
+        .await;
 
         for emitter_uniform in emitter_uniforms {
             let is_unique = emitters
@@ -116,15 +119,18 @@ impl Init {
             assert!(!emitter_uniform.id.is_empty(), "Id can not be empty");
             assert!(is_unique, "Emitters require an unique ID");
 
-            emitters.push(EmitterState::new(CreateEmitterOptions {
-                uniform: emitter_uniform,
-                camera,
-                collection,
-                gfx,
-                emitter_type: EmitterType::Normal {
-                    lights_layout: &lights.bg_layout,
-                },
-            }));
+            emitters.push(
+                EmitterState::new(CreateEmitterOptions {
+                    uniform: emitter_uniform,
+                    camera,
+                    collection,
+                    gfx,
+                    emitter_type: EmitterType::Normal {
+                        lights_layout: &lights.bg_layout,
+                    },
+                })
+                .await,
+            );
         }
 
         emitters.insert(0, lights);
@@ -132,11 +138,11 @@ impl Init {
         emitters
     }
 
-    pub fn new(
+    pub async fn new(
         app_visitor: &impl AppVisitor,
-        gfx: &GfxState,
+        gfx: &Arc<RwLock<GfxState>>,
         camera: &Camera,
-        collection: &mut HashMap<ID, Model>,
+        collection: &Arc<RwLock<HashMap<ID, Model>>>,
         pp: &mut PostProcessState,
     ) -> Init {
         let mut registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>> = vec![];
@@ -159,7 +165,10 @@ impl Init {
 
         match app_visitor.data_source() {
             DataSource::Code { lights, emitters } => {
-                let mut emitters = Self::code_emitters(lights, emitters, gfx, collection, camera);
+                let mut emitters =
+                    Self::code_emitters(lights, emitters, gfx, collection, camera).await;
+
+                let gfx = &gfx.read().await;
 
                 for emitter in emitters.iter_mut() {
                     app_visitor.add_particle_anim(emitter, gfx);
@@ -175,7 +184,7 @@ impl Init {
             }
             DataSource::Demo => {
                 let lights = EmitterUniform::new("lights".to_string());
-                let emitters = Self::code_emitters(lights, vec![], gfx, collection, camera);
+                let emitters = Self::code_emitters(lights, vec![], gfx, collection, camera).await;
 
                 Self {
                     emitters,
@@ -187,7 +196,7 @@ impl Init {
             DataSource::Json { path } => match Persistence::import_emitter_states(path) {
                 Ok(exported_emitters) => {
                     match Persistence::import_post_fx() {
-                        Ok(val) => pp.import_fx(gfx, &registry_post_fx, val),
+                        Ok(val) => pp.import_fx(gfx, &registry_post_fx, val).await,
                         Err(err) => println!("{}", err.msg),
                     }
 
@@ -200,6 +209,7 @@ impl Init {
                         registry_em_anims,
                         registry_post_fx,
                     )
+                    .await
                 }
                 Err(err) => {
                     panic!("{}", err.msg);
@@ -208,11 +218,11 @@ impl Init {
         }
     }
 
-    fn json_emitters(
+    async fn json_emitters(
         mut emitters_export: Vec<ExportEmitter>,
-        gfx: &GfxState,
+        gfx: &Arc<RwLock<GfxState>>,
         camera: &Camera,
-        collection: &mut HashMap<ID, Model>,
+        collection: &Arc<RwLock<HashMap<ID, Model>>>,
         registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
         registry_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
         registry_post_fx: Vec<Box<dyn RegisterPostFx>>,
@@ -232,25 +242,30 @@ impl Init {
             collection,
             gfx,
             emitter_type: EmitterType::Lights,
-        });
+        })
+        .await;
 
         // Import animations
-        for export_animation in lights_export.particle_animations {
-            for reg in registry_par_anims.iter() {
-                if export_animation.tag == reg.tag() {
-                    let anim = reg.import(gfx, &lights, export_animation.data);
-                    lights.push_particle_animation(anim);
-                    break;
+        {
+            let gfx_lock = &gfx.read().await;
+
+            for export_animation in lights_export.particle_animations {
+                for reg in registry_par_anims.iter() {
+                    if export_animation.tag == reg.tag() {
+                        let anim = reg.import(&gfx_lock, &lights, export_animation.data);
+                        lights.push_particle_animation(anim);
+                        break;
+                    }
                 }
             }
-        }
 
-        for export_animation in lights_export.emitter_animations {
-            for reg in registry_em_anims.iter() {
-                if export_animation.tag == reg.tag() {
-                    let anim = reg.import(export_animation.data);
-                    lights.push_emitter_animation(anim);
-                    break;
+            for export_animation in lights_export.emitter_animations {
+                for reg in registry_em_anims.iter() {
+                    if export_animation.tag == reg.tag() {
+                        let anim = reg.import(export_animation.data);
+                        lights.push_emitter_animation(anim);
+                        break;
+                    }
                 }
             }
         }
@@ -264,12 +279,14 @@ impl Init {
                 emitter_type: EmitterType::Normal {
                     lights_layout: &lights.bg_layout,
                 },
-            });
+            })
+            .await;
 
             for export_animation in emitter_export.particle_animations {
                 for reg in registry_par_anims.iter() {
                     if export_animation.tag == reg.tag() {
-                        let anim = reg.import(gfx, &emitter, export_animation.data);
+                        let gfx_lock = &gfx.read().await;
+                        let anim = reg.import(gfx_lock, &emitter, export_animation.data);
                         emitter.push_particle_animation(anim);
                         break;
                     }

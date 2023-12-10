@@ -5,10 +5,12 @@ use crate::model::{GfxState, SparEvents, SparState};
 use crate::shaders::{ShaderOptions, SDR_TONEMAPPING};
 use crate::traits::*;
 use crate::util::{DynamicExport, ExportType, ListAction, Persistence, UniformContext};
+use async_std::sync::RwLock;
 use egui_wgpu::wgpu;
 use egui_winit::egui::ClippedPrimitive;
 use glam::Vec2;
 use std::num::NonZeroU32;
+use std::sync::Arc;
 
 pub struct PostProcessState {
     pub effects: Vec<Box<dyn PostFx>>,
@@ -38,13 +40,15 @@ impl PostProcessState {
         }
     }
 
-    pub fn update(state: &mut SparState, events: &SparEvents) {
+    pub async fn update(state: &mut SparState, events: &SparEvents) {
         let SparState {
             post_process: pp,
             gfx,
             camera,
             ..
         } = state;
+
+        let gfx = &gfx.read().await;
 
         if let Some(event) = &events.io_view {
             let io_uniform = &mut pp.io_uniform;
@@ -72,7 +76,7 @@ impl PostProcessState {
         let effects = &mut pp.effects;
 
         for fx in effects.iter_mut() {
-            fx.update(&state.gfx, camera);
+            fx.update(gfx, camera);
         }
 
         ListAction::update_list(effects);
@@ -90,8 +94,8 @@ impl PostProcessState {
         &self.fx_state.depth_view
     }
 
-    pub fn compute(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
-        let gfx_state = &mut state.gfx;
+    pub async fn compute(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
+        let gfx = &mut state.gfx.write().await;
         let pp = &mut state.post_process;
         let fx_state = &mut pp.fx_state;
 
@@ -100,22 +104,22 @@ impl PostProcessState {
             timestamp_writes: None,
         });
 
-        gfx_state.begin_scope("Post fx compute", &mut c_pass);
+        gfx.begin_scope("Post fx compute", &mut c_pass);
 
         for fx in pp.effects.iter().filter(|fx| fx.enabled()) {
-            fx.compute(&fx_state, gfx_state, &mut c_pass);
+            fx.compute(&fx_state, gfx, &mut c_pass);
         }
 
-        gfx_state.end_scope(&mut c_pass);
+        gfx.end_scope(&mut c_pass);
     }
 
-    pub fn render(
+    pub async fn render(
         state: &mut SparState,
         output_view: wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
         primitives: &[ClippedPrimitive],
     ) {
-        let gfx = &mut state.gfx;
+        let gfx = &mut state.gfx.write().await;
 
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Post process render"),
@@ -132,33 +136,29 @@ impl PostProcessState {
             occlusion_query_set: None,
         });
 
-        gfx.begin_scope("Post fx render", &mut r_pass);
         let pp = &mut state.post_process;
 
+        gfx.begin_scope("Post fx render", &mut r_pass);
         r_pass.set_pipeline(&pp.render_pipeline);
         r_pass.set_bind_group(0, &pp.fx_state.r_bg, &[]);
         r_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
         r_pass.draw(0..3, 0..1);
         gfx.end_scope(&mut r_pass);
 
-        let profiler = &mut gfx.profiler;
-        profiler.begin_scope("Render GUI", &mut r_pass, &gfx.device);
-        gfx.renderer
-            .render(&mut r_pass, primitives, &gfx.screen_descriptor);
-        profiler.end_scope(&mut r_pass).unwrap();
+        gfx.render_frame(&mut r_pass, primitives);
     }
 
-    pub fn new(gfx_state: &GfxState, app_settings: &impl AppVisitor) -> Self {
-        let device = &gfx_state.device;
-        let config = &gfx_state.surface_config;
+    pub fn new(gfx: &GfxState, app_settings: &impl AppVisitor) -> Self {
+        let device = &gfx.device;
+        let config = &gfx.surface_config;
 
-        let finalize_shader = gfx_state.create_shader_builtin(ShaderOptions {
+        let finalize_shader = gfx.create_shader_builtin(ShaderOptions {
             if_directives: &[],
             files: &[SDR_TONEMAPPING, "fx/finalize.wgsl"],
             label: "Finalize Post FX",
         });
 
-        let fx_state = FxState::new(gfx_state);
+        let fx_state = FxState::new(gfx);
 
         let io_uniform = FxIOUniform::zero(&fx_state);
         let io_ctx = UniformContext::from_uniform(&io_uniform, device, "IO");
@@ -200,7 +200,7 @@ impl PostProcessState {
         app_settings.add_post_fx(
             &FxOptions {
                 fx_state: &fx_state,
-                gfx: gfx_state,
+                gfx,
             },
             &mut effects,
         );
@@ -216,14 +216,16 @@ impl PostProcessState {
         }
     }
 
-    pub fn import_fx(
+    pub async fn import_fx(
         &mut self,
-        gfx_state: &GfxState,
+        gfx: &Arc<RwLock<GfxState>>,
         registry_fx: &Vec<Box<dyn RegisterPostFx>>,
         to_export: Vec<DynamicExport>,
     ) {
+        let gfx = &gfx.read().await;
+
         let options = FxOptions {
-            gfx: gfx_state,
+            gfx,
             fx_state: &self.fx_state,
         };
 

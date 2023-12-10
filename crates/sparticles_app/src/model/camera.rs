@@ -151,10 +151,12 @@ impl Camera {
         }
     }
 
-    pub fn update(state: &mut SparState, events: &SparEvents) {
+    pub async fn update(state: &mut SparState, events: &SparEvents) {
         let SparState {
             gfx, camera, clock, ..
         } = state;
+
+        let gfx = &gfx.read().await;
 
         if events.reset_camera {
             camera.pitch = 0.;

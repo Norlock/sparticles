@@ -2,8 +2,11 @@ use crate::model::material::MaterialCtx;
 use crate::model::{GfxState, Material, Mesh, ModelVertex};
 use crate::texture::TexType;
 use crate::util::ID;
+use async_std::sync::{Mutex, RwLock};
+use async_std::task;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub const CIRCLE_MESH_ID: &'static str = "circle-mesh";
 pub const CIRCLE_MAT_ID: &'static str = "circle-mat";
@@ -63,7 +66,7 @@ impl Model {
         }
     }
 
-    pub fn load_gltf(gfx_state: &GfxState, filename: &str) -> anyhow::Result<Self> {
+    pub async fn load_gltf(gfx: &Arc<RwLock<GfxState>>, filename: &str) -> anyhow::Result<Self> {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("src/assets/models")
             .join(filename);
@@ -71,7 +74,7 @@ impl Model {
         let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
         let gltf = gltf::Gltf::from_reader(reader)?;
-        let device = &gfx_state.device;
+        //let device = &gfx_state.device;
 
         // Load buffers
         let mut buffer_data: Vec<Vec<u8>> = Vec::new();
@@ -128,6 +131,7 @@ impl Model {
                 gltf::texture::WrappingMode::MirroredRepeat => wgpu::AddressMode::MirrorRepeat,
             };
 
+            let device = &mut task::block_on(gfx.write()).device;
             device.create_sampler(&wgpu::SamplerDescriptor {
                 label: sampler_data.name(),
                 min_filter,
@@ -146,19 +150,19 @@ impl Model {
                     let end = start + view.length();
                     let buf_idx = view.buffer().index();
 
-                    gfx_state.tex_from_bytes(&buffer_data[buf_idx][start..end], s_rgb)
+                    // TODO lock inside fn
+                    let gfx = &task::block_on(gfx.read());
+                    gfx.tex_from_bytes(&buffer_data[buf_idx][start..end], s_rgb)
                 }
                 gltf::image::Source::Uri { uri, mime_type: _ } => {
-                    pollster::block_on(load_texture(uri, gfx_state)).expect("Can't load diffuse")
+                    // TODO lock inside fn
+                    let gfx = &task::block_on(gfx.read());
+                    task::block_on(load_texture(uri, gfx)).expect("Can't load diffuse")
                 }
             }
         };
 
         let mut materials: HashMap<ID, Material> = HashMap::new();
-
-        //for tex in gltf.accessors() {
-        ////println!("tex {:?}", tex.name());
-        //}
 
         for (i, material) in gltf.materials().enumerate() {
             let albedo_tex: wgpu::Texture;
@@ -181,8 +185,9 @@ impl Model {
                 albedo_s = fetch_sampler(tex.sampler());
                 println!("Contains albedo tex");
             } else {
-                albedo_tex = gfx_state.create_builtin_tex(TexType::White);
-                albedo_s = gfx_state.create_sampler();
+                let gfx = &gfx.read().await;
+                albedo_tex = gfx.create_builtin_tex(TexType::White);
+                albedo_s = gfx.create_sampler();
             }
 
             if let Some(tex_data) = pbr.metallic_roughness_texture() {
@@ -194,11 +199,12 @@ impl Model {
                 let metallic_factor = pbr.metallic_factor();
                 let roughness_factor = pbr.roughness_factor();
 
-                metallic_roughness_tex = gfx_state.create_builtin_tex(TexType::Custom {
+                let gfx = &gfx.read().await;
+                metallic_roughness_tex = gfx.create_builtin_tex(TexType::Custom {
                     srgb: true,
                     value: glam::Vec4::new(metallic_factor, roughness_factor, 0., 0.),
                 });
-                metallic_roughness_s = gfx_state.create_sampler();
+                metallic_roughness_s = gfx.create_sampler();
             }
 
             if let Some(tex_data) = material.normal_texture() {
@@ -207,8 +213,9 @@ impl Model {
                 normal_s = fetch_sampler(tex.sampler());
                 println!("Contains normal_tex");
             } else {
-                normal_tex = gfx_state.create_builtin_tex(TexType::Normal);
-                normal_s = gfx_state.create_sampler();
+                let gfx = &gfx.read().await;
+                normal_tex = gfx.create_builtin_tex(TexType::Normal);
+                normal_s = gfx.create_sampler();
             }
 
             if let Some(tex_data) = material.emissive_texture() {
@@ -222,12 +229,13 @@ impl Model {
                 }
                 println!("contains emissive_tex");
             } else {
+                let gfx = &gfx.read().await;
                 let vec3: glam::Vec3 = material.emissive_factor().into();
-                emissive_tex = gfx_state.create_builtin_tex(TexType::Custom {
+                emissive_tex = gfx.create_builtin_tex(TexType::Custom {
                     srgb: true,
                     value: vec3.extend(0.),
                 });
-                emissive_s = gfx_state.create_sampler();
+                emissive_s = gfx.create_sampler();
             }
 
             if let Some(tex_data) = material.occlusion_texture() {
@@ -236,8 +244,9 @@ impl Model {
                 ao_s = fetch_sampler(tex.sampler());
                 println!("contains occlusion_texture");
             } else {
-                ao_tex = gfx_state.create_builtin_tex(TexType::White);
-                ao_s = gfx_state.create_sampler();
+                let gfx = &gfx.read().await;
+                ao_tex = gfx.create_builtin_tex(TexType::White);
+                ao_s = gfx.create_sampler();
             }
 
             let id = material
@@ -247,6 +256,7 @@ impl Model {
 
             println!("Importing material: {:?}", &id);
 
+            let gfx = &gfx.read().await;
             materials.insert(
                 id,
                 Material::new(
@@ -263,7 +273,7 @@ impl Model {
                         ao_s,
                         cull_mode,
                     },
-                    gfx_state,
+                    gfx,
                 ),
             );
         }
@@ -332,6 +342,8 @@ impl Model {
                         }
                     }
 
+                    let device = &task::block_on(gfx.read()).device;
+
                     let vertex_buffer =
                         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                             label: Some(&format!("{:?} Vertex Buffer", filename)),
@@ -345,6 +357,11 @@ impl Model {
                             contents: bytemuck::cast_slice(&indices),
                             usage: wgpu::BufferUsages::INDEX,
                         });
+
+                    drop(device);
+
+                    // TODO check if dropped
+                    let a = device.limits();
 
                     let id = mesh
                         .name()

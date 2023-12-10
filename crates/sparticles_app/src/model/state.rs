@@ -3,11 +3,14 @@ use super::{
 };
 use crate::fx::PostProcessState;
 use crate::init::{AppVisitor, Init};
-use crate::loader::{Model, BUILTIN_ID};
+use crate::loader::Model;
 use crate::traits::*;
 use crate::util::ID;
+use async_std::sync::{Mutex, RwLock};
+use async_std::task;
 use egui_winit::winit::{dpi::PhysicalSize, event::KeyboardInput, window::Window};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Sparticles state
 pub struct SparState {
@@ -15,8 +18,8 @@ pub struct SparState {
     pub clock: Clock,
     pub emitters: Vec<EmitterState>,
     pub post_process: PostProcessState,
-    pub gfx: GfxState,
-    pub collection: HashMap<ID, Model>,
+    pub gfx: Arc<RwLock<GfxState>>,
+    pub collection: Arc<RwLock<HashMap<ID, Model>>>,
     pub play: bool,
     pub registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
     pub registry_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
@@ -53,22 +56,23 @@ impl FastFetch for HashMap<ID, Model> {
 }
 
 impl SparState {
-    pub fn update(&mut self, events: &SparEvents) {
+    pub async fn update(&mut self, events: &SparEvents) {
         self.clock.update(self.play);
 
         if events.toggle_play {
             self.play = !self.play;
         }
 
-        Camera::update(self, events);
-        PostProcessState::update(self, events);
-        EmitterState::update(self, events);
+        Camera::update(self, events).await;
+        PostProcessState::update(self, events).await;
+        EmitterState::update(self, events).await;
     }
 
-    pub fn resize(&mut self, size: PhysicalSize<u32>) {
-        self.gfx.resize(size);
-        self.post_process.resize(&self.gfx);
-        self.camera.resize(&self.gfx);
+    pub async fn resize(&mut self, size: PhysicalSize<u32>) {
+        let mut gfx = self.gfx.write().await;
+        gfx.resize(size);
+        self.post_process.resize(&gfx);
+        self.camera.resize(&gfx);
     }
 
     pub fn process_events(&mut self, input: &KeyboardInput) {
@@ -77,13 +81,15 @@ impl SparState {
         }
     }
 
-    pub fn egui_ctx(&self) -> &egui_winit::egui::Context {
-        &self.gfx.ctx
+    pub fn egui_ctx(&self) -> egui_winit::egui::Context {
+        let gfx = task::block_on(self.gfx.read());
+        gfx.ctx.clone()
     }
 
-    pub fn new(init: &mut impl AppVisitor, window: Window) -> Self {
-        let gfx = pollster::block_on(GfxState::new(window));
-        let clock = Clock::new();
+    pub async fn new(init: &mut impl AppVisitor, window: Window) -> Self {
+        let gfx = GfxState::new(window).await;
+        let clock = Clock::default();
+
         let camera = Camera::new(&gfx);
         let builtin = Model::load_builtin(&gfx);
 
@@ -92,7 +98,10 @@ impl SparState {
 
         collection.insert(builtin.id.to_string(), builtin);
 
-        let init_settings = Init::new(init, &gfx, &camera, &mut collection, &mut post_process);
+        let gfx = Arc::new(RwLock::new(gfx));
+        let collection = Arc::new(RwLock::new(collection));
+
+        let init_settings = Init::new(init, &gfx, &camera, &collection, &mut post_process).await;
 
         let mut state = Self {
             clock,

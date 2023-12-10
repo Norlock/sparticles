@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 sparticles_app = { path = "../sparticles_app" }
+async-std.workspace = true
 
 [lib]
 name = "sparticles_editor"
