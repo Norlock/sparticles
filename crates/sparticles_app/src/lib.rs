@@ -1,6 +1,4 @@
 use async_std::task;
-use egui_wgpu;
-use egui_winit;
 use egui_winit::winit;
 use init::AppVisitor;
 use model::{GfxState, SparEvents, SparState};

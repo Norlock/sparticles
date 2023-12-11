@@ -3,7 +3,7 @@ use crate::loader::{Model, BUILTIN_ID, CIRCLE_MAT_ID, CIRCLE_MESH_ID};
 use crate::model::state::FastFetch;
 use crate::traits::{FromRGB, HandleAngles};
 use crate::util::ID;
-use async_std::sync::{Mutex, RwLock};
+use async_std::sync::RwLock;
 use glam::{f32::Vec3, f32::Vec4};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

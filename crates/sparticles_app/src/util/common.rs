@@ -1,6 +1,6 @@
 use crate::traits::{BufferContent, HandleAction, OtherIterMut, Splitting};
 use egui_wgpu::wgpu::{self, util::DeviceExt};
-use encase::{private::WriteInto, ShaderType, UniformBuffer};
+use encase::{private::WriteInto, ShaderType};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Display, Formatter, Result},
@@ -79,7 +79,7 @@ impl UniformContext {
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             label: Some(label),
-            contents: &buffer_content,
+            contents: buffer_content,
         });
 
         entries.push(wgpu::BindGroupEntry {
@@ -122,7 +122,7 @@ where
     fn buffer_content(&self) -> Vec<u8> {
         let mut buffer = encase::UniformBuffer::new(Vec::new());
         buffer.write(self).unwrap();
-        return buffer.into_inner();
+        buffer.into_inner()
     }
 }
 

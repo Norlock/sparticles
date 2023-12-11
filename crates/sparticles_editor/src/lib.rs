@@ -1,9 +1,9 @@
 pub use crate::pa_widgets::EditorWidgets;
 use async_std::task;
 use menu::{
+    declarations::MenuCtx,
     general::{GeneralMenu, Tab},
     import::ImportMenu,
-    menu::MenuCtx,
     MenuWidget,
 };
 use sparticles_app::{
@@ -27,7 +27,6 @@ use sparticles_app::{
 use std::{
     any::TypeId,
     collections::HashMap,
-    ffi::OsString,
     path::{Path, PathBuf},
 };
 
@@ -149,7 +148,7 @@ impl Editor {
                 inner_margin: 2f32.into(),
                 ..Default::default()
             })
-            .show(&ctx, |ui| {
+            .show(ctx, |ui| {
                 let data = &mut self.data;
 
                 ComboBox::from_id_source("select-menu")
@@ -268,8 +267,8 @@ impl Editor {
                     match item {
                         Ok(dir) => {
                             if let Some(extension) = dir.path().extension() {
-                                if extension.to_os_string() == OsString::from("glb")
-                                    || extension.to_os_string() == OsString::from("gltf")
+                                if extension.to_os_string() == *"glb"
+                                    || extension.to_os_string() == *"gltf"
                                 {
                                     model_files.push(dir.path());
                                 }
@@ -309,10 +308,7 @@ impl Editor {
             model_files,
         };
 
-        let mut menus: Vec<Box<dyn MenuWidget>> = Vec::new();
-
-        menus.push(Box::new(ImportMenu));
-        menus.push(Box::new(GeneralMenu));
+        let menus: Vec<Box<dyn MenuWidget>> = vec![Box::new(ImportMenu), Box::new(GeneralMenu)];
 
         let dyn_widgets = DynamicWidgets {
             pa_widgets,

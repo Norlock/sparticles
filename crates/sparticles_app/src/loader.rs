@@ -2,15 +2,14 @@ use crate::model::material::MaterialCtx;
 use crate::model::{GfxState, Material, Mesh, ModelVertex};
 use crate::texture::{TexType, TextureHandler};
 use crate::util::ID;
-use async_std::sync::{Mutex, RwLock};
-use async_std::task;
+use async_std::sync::RwLock;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub const CIRCLE_MESH_ID: &'static str = "circle-mesh";
-pub const CIRCLE_MAT_ID: &'static str = "circle-mat";
-pub const BUILTIN_ID: &'static str = "builtin";
+pub const CIRCLE_MESH_ID: &str = "circle-mesh";
+pub const CIRCLE_MAT_ID: &str = "circle-mat";
+pub const BUILTIN_ID: &str = "builtin";
 
 pub struct Model {
     pub id: ID,
@@ -152,7 +151,7 @@ impl Model {
         async fn fetch_texture(
             img: gltf::image::Image<'_>,
             s_rgb: bool,
-            buffer_data: &mut Vec<Vec<u8>>,
+            buffer_data: &mut [Vec<u8>],
             gfx: &Arc<RwLock<GfxState>>,
         ) -> wgpu::Texture {
             match img.source() {

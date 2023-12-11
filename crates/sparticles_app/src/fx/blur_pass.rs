@@ -37,13 +37,13 @@ impl BlurPass {
         c_pass.set_pipeline(&self.blur_pipeline_x);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bgs[0], &[]);
-        c_pass.set_bind_group(2, &blur_bg, &[]);
+        c_pass.set_bind_group(2, blur_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
         c_pass.set_pipeline(&self.blur_pipeline_y);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bgs[1], &[]);
-        c_pass.set_bind_group(2, &blur_bg, &[]);
+        c_pass.set_bind_group(2, blur_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
         gfx_state.end_scope(c_pass);
@@ -61,7 +61,7 @@ impl BlurPass {
         c_pass.set_pipeline(&self.split_pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bgs[0], &[]);
-        c_pass.set_bind_group(2, &blur_bg, &[]);
+        c_pass.set_bind_group(2, blur_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
 
         gfx_state.end_scope(c_pass);

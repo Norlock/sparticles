@@ -16,7 +16,7 @@ use sparticles_app::{
     wgpu,
 };
 
-use super::{menu::MenuCtx, MenuWidget};
+use super::{declarations::MenuCtx, MenuWidget};
 
 #[derive(PartialEq)]
 pub enum Tab {
@@ -78,7 +78,7 @@ impl MenuWidget for GeneralMenu {
                 egui::CollapsingHeader::new("Performance")
                     .id_source("total")
                     .show(ui, |ui| {
-                        let total = self.display_performance(ui, &mut data.profiling_results);
+                        let total = Self::display_performance(ui, &data.profiling_results);
                         Editor::create_label(
                             ui,
                             format!("{} - {:.3}μs", "Total GPU time", total * 1_000_000.),
@@ -103,7 +103,7 @@ impl MenuWidget for GeneralMenu {
                     );
 
                     let is_enabled = 3 <= data.new_emitter_tag.len()
-                        && emitters.iter().all(|em| em.id() != &data.new_emitter_tag);
+                        && emitters.iter().all(|em| em.id() != data.new_emitter_tag);
 
                     if ui
                         .add_enabled(is_enabled, egui::Button::new("Add emitter"))
@@ -204,7 +204,7 @@ impl MenuWidget for GeneralMenu {
 }
 
 impl GeneralMenu {
-    fn display_performance(&self, ui: &mut Ui, results: &[GpuTimerScopeResult]) -> f64 {
+    fn display_performance(ui: &mut Ui, results: &[GpuTimerScopeResult]) -> f64 {
         let mut total_time = 0.;
 
         for scope in results.iter() {
@@ -219,7 +219,7 @@ impl GeneralMenu {
                     ui.add_space(5.);
                     egui::CollapsingHeader::new("-- details --")
                         .id_source(&scope.label)
-                        .show(ui, |ui| self.display_performance(ui, &scope.nested_scopes));
+                        .show(ui, |ui| Self::display_performance(ui, &scope.nested_scopes));
                 });
             }
         }
@@ -238,7 +238,7 @@ impl GeneralMenu {
         let emitter = &mut state.emitters[data.selected_emitter_idx];
         let registered_em_anims = &state.registry_em_anims;
 
-        self.ui_emitter_animations(*dyn_widgets, *data, emitter, ui);
+        self.ui_emitter_animations(dyn_widgets, data, emitter, ui);
 
         ui.separator();
 
@@ -274,7 +274,7 @@ impl GeneralMenu {
         } = state;
 
         let emitter = &mut emitters[data.selected_emitter_idx];
-        self.ui_particle_animations(*dyn_widgets, *data, emitter, ui);
+        self.ui_particle_animations(dyn_widgets, data, emitter, ui);
 
         ui.separator();
 
@@ -359,7 +359,8 @@ impl GeneralMenu {
             .emitter_settings
             .get_or_insert_with(|| emitter.uniform.create_settings());
 
-        if emitter.id() != &emitter_settings.id {
+        if emitter.id() != emitter_settings.id {
+            println!("heuh");
             emitter_settings = data
                 .emitter_settings
                 .insert(emitter.uniform.create_settings());
@@ -479,7 +480,7 @@ impl GeneralMenu {
             emitter.update_diffuse(gfx, &mut data.texture_paths[data.selected_texture]);
         };
 
-        task::block_on(self.update_emitter(*data, *state, *encoder));
+        task::block_on(self.update_emitter(data, state, encoder));
     }
 
     async fn update_emitter(
@@ -567,7 +568,6 @@ impl GeneralMenu {
         let SparState {
             post_process,
             registered_post_fx,
-            gfx,
             ..
         } = state;
 
@@ -576,7 +576,7 @@ impl GeneralMenu {
             let type_id = (*fx.as_any()).type_id();
 
             if let Some(widget) = widgets.fx_widgets.get_mut(&type_id) {
-                ui.group(|ui| widget(*data, fx, ui));
+                ui.group(|ui| widget(data, fx, ui));
             } else {
                 println!("widget not found");
             }

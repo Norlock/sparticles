@@ -19,8 +19,8 @@ fn finalize_shader(shader_str: String, if_directives: &[&str]) -> String {
     for line_raw in shader_str.lines() {
         let line = line_raw.trim();
 
-        if line.starts_with("#if") {
-            let key = line[3..].trim();
+        if let Some(stripped) = line.strip_prefix("#if") {
+            let key = stripped.trim();
             append_line = if_directives.contains(&key);
         } else if line.starts_with("#else") {
             append_line = !append_line;
@@ -28,7 +28,7 @@ fn finalize_shader(shader_str: String, if_directives: &[&str]) -> String {
             append_line = true;
         } else if append_line {
             result.push_str(line);
-            result.push_str("\n");
+            result.push('\n');
         }
     }
 
@@ -49,7 +49,7 @@ impl GfxState {
         let all_files = [&["declarations.wgsl"], options.files].concat();
 
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push(format!("src/shaders/dummy.txt"));
+        path.push("src/shaders/dummy.txt");
 
         for filename in all_files {
             let file_path = path.with_file_name(filename);

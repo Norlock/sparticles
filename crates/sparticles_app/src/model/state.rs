@@ -6,7 +6,7 @@ use crate::init::{AppVisitor, Init};
 use crate::loader::Model;
 use crate::traits::*;
 use crate::util::ID;
-use async_std::sync::{Mutex, RwLock};
+use async_std::sync::RwLock;
 use async_std::task;
 use egui_winit::winit::{dpi::PhysicalSize, event::KeyboardInput, window::Window};
 use std::collections::HashMap;
@@ -34,24 +34,18 @@ pub trait FastFetch {
 impl FastFetch for HashMap<ID, Model> {
     fn get_mesh(&self, mesh_ref: &MeshRef) -> &Mesh {
         self.get(&mesh_ref.collection_id)
-            .expect(&format!(
-                "Collection doesn't exist: {:?}",
-                &mesh_ref.collection_id
-            ))
+            .unwrap_or_else(|| panic!("Collection doesn't exist: {:?}", &mesh_ref.collection_id))
             .meshes
             .get(&mesh_ref.mesh_id)
-            .expect(&format!("Mesh doesn't exist: {:?}", &mesh_ref.mesh_id))
+            .unwrap_or_else(|| panic!("Mesh doesn't exist: {:?}", &mesh_ref.mesh_id))
     }
 
     fn get_mat(&self, mat_ref: &MaterialRef) -> &Material {
         self.get(&mat_ref.collection_id)
-            .expect(&format!(
-                "Collection doesn't exist: {:?}",
-                &mat_ref.collection_id
-            ))
+            .unwrap_or_else(|| panic!("Collection doesn't exist: {:?}", &mat_ref.collection_id))
             .materials
             .get(&mat_ref.material_id)
-            .expect(&format!("Mesh doesn't exist: {:?}", &mat_ref.material_id))
+            .unwrap_or_else(|| panic!("Mesh doesn't exist: {:?}", &mat_ref.material_id))
     }
 }
 
@@ -76,9 +70,7 @@ impl SparState {
     }
 
     pub fn process_events(&mut self, input: &KeyboardInput) {
-        if self.camera.process_input(&input) {
-            return;
-        }
+        self.camera.process_input(input);
     }
 
     pub fn egui_ctx(&self) -> egui_winit::egui::Context {

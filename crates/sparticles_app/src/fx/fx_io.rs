@@ -147,7 +147,7 @@ impl FxIOUniform {
         )
     }
 
-    pub fn reverse_list(list: &Vec<Self>) -> Vec<Self> {
+    pub fn reverse_list(list: &[Self]) -> Vec<Self> {
         let mut result = Vec::new();
 
         for last in list.iter().rev() {

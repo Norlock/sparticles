@@ -5,7 +5,7 @@ use crate::{
     util::ListAction,
 };
 use egui_wgpu::wgpu;
-use egui_winit::{egui::Ui, winit::event::KeyboardInput};
+use egui_winit::winit::event::KeyboardInput;
 use std::{any::Any, num::NonZeroU64, slice::IterMut};
 
 pub trait FromRGB {

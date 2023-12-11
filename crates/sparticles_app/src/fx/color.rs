@@ -45,7 +45,7 @@ impl RegisterPostFx for RegisterColorFx {
     fn create_default(&self, options: &FxOptions) -> Box<dyn PostFx> {
         let settings = ColorFxSettings {
             color_uniform: ColorFxUniform::default_rgb(),
-            io_uniform: FxIOUniform::zero(&options.fx_state),
+            io_uniform: FxIOUniform::zero(options.fx_state),
         };
 
         Box::new(ColorFx::new(options, settings))
@@ -106,13 +106,10 @@ impl PostFx for ColorFx {
     }
 
     fn update(&mut self, gfx_state: &GfxState, _: &mut Camera) {
-        match self.update_event.take() {
-            Some(UpdateAction::UpdateBuffer) => {
-                let queue = &gfx_state.queue;
-                let color_content = self.color_uniform.buffer_content();
-                queue.write_buffer(&self.color_buffer, 0, &color_content);
-            }
-            None => {}
+        if let Some(UpdateAction::UpdateBuffer) = self.update_event.take() {
+            let queue = &gfx_state.queue;
+            let color_content = self.color_uniform.buffer_content();
+            queue.write_buffer(&self.color_buffer, 0, &color_content);
         }
     }
 

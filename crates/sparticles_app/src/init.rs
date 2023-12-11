@@ -30,7 +30,7 @@ pub enum DataSource {
         path: PathBuf,
     },
     Code {
-        lights: EmitterUniform,
+        lights: Box<EmitterUniform>,
         emitters: Vec<EmitterUniform>,
     },
     /// Will generate some default values
@@ -145,28 +145,34 @@ impl Init {
         collection: &Arc<RwLock<HashMap<ID, Model>>>,
         pp: &mut PostProcessState,
     ) -> Init {
-        let mut registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>> = vec![];
-        registry_par_anims.push(Box::new(RegisterColorAnimation));
-        registry_par_anims.push(Box::new(RegisterForceAnimation));
-        registry_par_anims.push(Box::new(RegisterGravityAnimation));
-        registry_par_anims.push(Box::new(RegisterStrayAnimation));
+        let mut registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>> = vec![
+            Box::new(RegisterColorAnimation),
+            Box::new(RegisterForceAnimation),
+            Box::new(RegisterGravityAnimation),
+            Box::new(RegisterStrayAnimation),
+        ];
+
         app_visitor.register_particle_animations(&mut registry_par_anims);
 
-        let mut registry_em_anims: Vec<Box<dyn RegisterEmitterAnimation>> = vec![];
-        registry_em_anims.push(Box::new(RegisterSwayAnimation));
-        registry_em_anims.push(Box::new(RegisterDiffusionAnimation));
+        let mut registry_em_anims: Vec<Box<dyn RegisterEmitterAnimation>> = vec![
+            Box::new(RegisterSwayAnimation),
+            Box::new(RegisterDiffusionAnimation),
+        ];
+
         app_visitor.register_emitter_animations(&mut registry_em_anims);
 
-        let mut registry_post_fx: Vec<Box<dyn RegisterPostFx>> = vec![];
-        registry_post_fx.push(Box::new(RegisterBloomFx));
-        registry_post_fx.push(Box::new(RegisterColorFx));
-        registry_post_fx.push(Box::new(RegisterBlurFx));
+        let mut registry_post_fx: Vec<Box<dyn RegisterPostFx>> = vec![
+            Box::new(RegisterBloomFx),
+            Box::new(RegisterColorFx),
+            Box::new(RegisterBlurFx),
+        ];
+
         app_visitor.register_post_fx(&mut registry_post_fx);
 
         match app_visitor.data_source() {
             DataSource::Code { lights, emitters } => {
                 let mut emitters =
-                    Self::code_emitters(lights, emitters, gfx, collection, camera).await;
+                    Self::code_emitters(*lights, emitters, gfx, collection, camera).await;
 
                 let gfx = &gfx.read().await;
 
@@ -252,7 +258,7 @@ impl Init {
             for export_animation in lights_export.particle_animations {
                 for reg in registry_par_anims.iter() {
                     if export_animation.tag == reg.tag() {
-                        let anim = reg.import(&gfx_lock, &lights, export_animation.data);
+                        let anim = reg.import(gfx_lock, &lights, export_animation.data);
                         lights.push_particle_animation(anim);
                         break;
                     }

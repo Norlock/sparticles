@@ -67,7 +67,7 @@ impl AppVisitor for GameState {
         };
 
         DataSource::Code {
-            lights,
+            lights: Box::new(lights),
             emitters: vec![emitter],
         }
     }
@@ -95,11 +95,11 @@ impl AppVisitor for GameState {
         shift_pressed: bool,
     ) {
         let editor = self.editor.as_mut().unwrap();
-        editor.process_input(events, &input, shift_pressed);
+        editor.process_input(events, input, shift_pressed);
     }
 
     fn add_emitter_anim(&self, emitter: &mut EmitterState) {
-        if &emitter.id() == &LIGHT_ID {
+        if emitter.id() == LIGHT_ID {
             let sway_animation = SwayAnimation::new(
                 LifeCycle {
                     from_sec: 0.,

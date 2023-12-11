@@ -1,15 +1,11 @@
-use async_std::{
-    sync::{Mutex, RwLock},
-    task,
-};
+use super::{declarations::MenuCtx, MenuWidget};
+use async_std::{sync::RwLock, task};
 use sparticles_app::{
     gui::egui::{self},
     loader::Model,
     model::GfxState,
 };
-use std::{collections::HashMap, sync::Arc, time::Duration};
-
-use super::{menu::MenuCtx, MenuWidget};
+use std::{collections::HashMap, sync::Arc};
 
 pub struct ImportMenu;
 

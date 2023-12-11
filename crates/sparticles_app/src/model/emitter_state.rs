@@ -6,15 +6,14 @@ use crate::shaders::{ShaderOptions, SDR_PBR, SDR_TONEMAPPING};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
 use crate::util::persistence::{ExportEmitter, ExportType};
 use crate::util::{ListAction, Persistence, ID};
-use async_std::sync::{Mutex, RwLock};
-use async_std::task;
+use async_std::sync::RwLock;
 use egui_wgpu::wgpu::{self, ShaderModule};
+use std::path::Path;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
     num::NonZeroU64,
-    path::PathBuf,
 };
 use wgpu::util::DeviceExt;
 
@@ -128,7 +127,7 @@ impl<'a> EmitterState {
             let gfx = gfx.read().await;
 
             if let Some(model) = collection.get_mut(BUILTIN_ID) {
-                Mesh::update_2d_meshes(&mut model.meshes, &gfx.queue, &camera);
+                Mesh::update_2d_meshes(&mut model.meshes, &gfx.queue, camera);
             }
         }
     }
@@ -229,7 +228,7 @@ impl<'a> EmitterState {
             r_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
             r_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
-            r_pass.set_bind_group(0, &camera.bg(), &[]);
+            r_pass.set_bind_group(0, camera.bg(), &[]);
             r_pass.set_bind_group(1, &mat.bg, &[]);
             r_pass.set_bind_group(2, &em.bgs[nr], &[]);
 
@@ -252,7 +251,7 @@ impl<'a> EmitterState {
 
         let mut new_self = Self::new(CreateEmitterOptions {
             uniform: old_self.uniform.clone(),
-            gfx: &options.gfx,
+            gfx: options.gfx,
             camera: options.camera,
             collection: options.collection,
             emitter_type: options.emitter_type,
@@ -288,7 +287,7 @@ impl<'a> EmitterState {
         self.emitter_animations.push(animation);
     }
 
-    pub fn update_diffuse(&mut self, _gfx_state: &GfxState, _path: &mut PathBuf) {
+    pub fn update_diffuse(&mut self, _gfx_state: &GfxState, _path: &mut Path) {
         // TODO think about diffuse textures change without a model
 
         //self.uniform.texture_image = path.to_path_buf();
@@ -552,14 +551,14 @@ impl<'a> EmitterState {
     ) -> wgpu::RenderPipeline {
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
-            layout: Some(&layout),
+            layout: Some(layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: shader,
                 entry_point: "vs_main",
                 buffers: &[ModelVertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
+                module: shader,
                 entry_point: &mesh.fs_entry_point,
                 targets: &[
                     Some(wgpu::ColorTargetState {
@@ -575,7 +574,7 @@ impl<'a> EmitterState {
                 ],
             }),
             primitive: wgpu::PrimitiveState {
-                cull_mode: material.ctx.cull_mode.clone(),
+                cull_mode: material.ctx.cull_mode,
                 ..Default::default()
             },
             depth_stencil: Some(wgpu::DepthStencilState {

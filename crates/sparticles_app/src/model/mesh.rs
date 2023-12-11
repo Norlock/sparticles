@@ -39,9 +39,8 @@ impl Mesh {
 
         let mut vertices = Vec::new();
 
-        for i in 0..4 {
-            let v_pos = VERTEX_POSITIONS[i];
-            let mut uv = v_pos * 0.5 + 0.5;
+        for v_pos in &VERTEX_POSITIONS {
+            let mut uv = *v_pos * 0.5 + 0.5;
             uv.y = 1. - uv.y;
 
             vertices.push(ModelVertex {

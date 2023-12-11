@@ -135,19 +135,16 @@ impl PostFx for BloomFx {
     fn update(&mut self, gfx_state: &GfxState, camera: &mut Camera) {
         camera.bloom_treshold = glam::Vec3::splat(self.bloom_treshold);
 
-        match self.update_event.take() {
-            Some(UIAction::UpdateBuffer(i)) => {
-                let queue = &gfx_state.queue;
+        if let Some(UIAction::UpdateBuffer(i)) = self.update_event.take() {
+            let queue = &gfx_state.queue;
 
-                if let Some(up) = self.upscale_passes.get_mut(i) {
-                    let io_content = up.blend_uniform.buffer_content();
-                    queue.write_buffer(&up.blend_ctx.buf, 0, &io_content);
-                } else {
-                    let io_content = self.blend_uniform.buffer_content();
-                    queue.write_buffer(&self.blend_ctx.buf, 0, &io_content);
-                }
+            if let Some(up) = self.upscale_passes.get_mut(i) {
+                let io_content = up.blend_uniform.buffer_content();
+                queue.write_buffer(&up.blend_ctx.buf, 0, &io_content);
+            } else {
+                let io_content = self.blend_uniform.buffer_content();
+                queue.write_buffer(&self.blend_ctx.buf, 0, &io_content);
             }
-            None => {}
         };
 
         self.color.update(gfx_state, camera);

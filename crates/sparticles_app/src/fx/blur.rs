@@ -112,11 +112,8 @@ impl PostFx for BlurFx {
     ) {
         let bp = &self.blur_pass;
 
-        match self.blur_type {
-            BlurType::Gaussian => {
-                bp.compute_gaussian(fx_state, gfx_state, &self.blur_ctx.bg, c_pass);
-            }
-            _ => {}
+        if self.blur_type == BlurType::Gaussian {
+            bp.compute_gaussian(fx_state, gfx_state, &self.blur_ctx.bg, c_pass);
         }
     }
 }

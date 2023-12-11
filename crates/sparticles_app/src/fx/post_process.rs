@@ -107,7 +107,7 @@ impl PostProcessState {
         gfx.begin_scope("Post fx compute", &mut c_pass);
 
         for fx in pp.effects.iter().filter(|fx| fx.enabled()) {
-            fx.compute(&fx_state, gfx, &mut c_pass);
+            fx.compute(fx_state, gfx, &mut c_pass);
         }
 
         gfx.end_scope(&mut c_pass);
