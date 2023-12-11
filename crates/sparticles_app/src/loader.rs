@@ -1,6 +1,6 @@
 use crate::model::material::MaterialCtx;
 use crate::model::{GfxState, Material, Mesh, ModelVertex};
-use crate::texture::TexType;
+use crate::texture::{TexType, TextureHandler};
 use crate::util::ID;
 use async_std::sync::{Mutex, RwLock};
 use async_std::task;
@@ -29,11 +29,14 @@ async fn load_binary(filename: &str) -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-async fn load_texture(filename: &str, gfx_state: &GfxState) -> anyhow::Result<wgpu::Texture> {
+async fn load_texture(
+    filename: &str,
+    gfx: &Arc<RwLock<GfxState>>,
+) -> anyhow::Result<wgpu::Texture> {
     println!("file: {:?}", filename);
     let data = load_binary(filename).await?;
 
-    Ok(gfx_state.tex_from_bytes(&data, true))
+    Ok(TextureHandler::tex_from_bytes(gfx, &data, true).await)
 }
 
 impl Model {
@@ -74,7 +77,6 @@ impl Model {
         let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
         let gltf = gltf::Gltf::from_reader(reader)?;
-        //let device = &gfx_state.device;
 
         // Load buffers
         let mut buffer_data: Vec<Vec<u8>> = Vec::new();
@@ -135,6 +137,7 @@ impl Model {
             };
 
             let device = &gfx.write().await.device;
+
             device.create_sampler(&wgpu::SamplerDescriptor {
                 label: sampler_data.name(),
                 min_filter,
@@ -146,24 +149,26 @@ impl Model {
             })
         }
 
-        let fetch_texture = |img: gltf::image::Image<'_>, s_rgb: bool| -> wgpu::Texture {
+        async fn fetch_texture(
+            img: gltf::image::Image<'_>,
+            s_rgb: bool,
+            buffer_data: &mut Vec<Vec<u8>>,
+            gfx: &Arc<RwLock<GfxState>>,
+        ) -> wgpu::Texture {
             match img.source() {
                 gltf::image::Source::View { view, mime_type: _ } => {
                     let start = view.offset();
                     let end = start + view.length();
                     let buf_idx = view.buffer().index();
 
-                    // TODO lock inside fn
-                    let gfx = &task::block_on(gfx.read());
-                    gfx.tex_from_bytes(&buffer_data[buf_idx][start..end], s_rgb)
+                    TextureHandler::tex_from_bytes(gfx, &buffer_data[buf_idx][start..end], s_rgb)
+                        .await
                 }
                 gltf::image::Source::Uri { uri, mime_type: _ } => {
-                    // TODO lock inside fn
-                    let gfx = &task::block_on(gfx.read());
-                    task::block_on(load_texture(uri, gfx)).expect("Can't load diffuse")
+                    load_texture(uri, gfx).await.expect("Can't load diffuse")
                 }
             }
-        };
+        }
 
         let mut materials: HashMap<ID, Material> = HashMap::new();
 
@@ -184,7 +189,7 @@ impl Model {
 
             if let Some(tex_data) = pbr.base_color_texture() {
                 let tex = tex_data.texture();
-                albedo_tex = fetch_texture(tex.source(), true);
+                albedo_tex = fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
                 albedo_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("Contains albedo tex");
             } else {
@@ -195,7 +200,8 @@ impl Model {
 
             if let Some(tex_data) = pbr.metallic_roughness_texture() {
                 let tex = tex_data.texture();
-                metallic_roughness_tex = fetch_texture(tex.source(), true);
+                metallic_roughness_tex =
+                    fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
                 metallic_roughness_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("Contains metallic_roughness_tex");
             } else {
@@ -212,7 +218,7 @@ impl Model {
 
             if let Some(tex_data) = material.normal_texture() {
                 let tex = tex_data.texture();
-                normal_tex = fetch_texture(tex.source(), false);
+                normal_tex = fetch_texture(tex.source(), false, &mut buffer_data, gfx).await;
                 normal_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("Contains normal_tex");
             } else {
@@ -223,7 +229,7 @@ impl Model {
 
             if let Some(tex_data) = material.emissive_texture() {
                 let tex = tex_data.texture();
-                emissive_tex = fetch_texture(tex.source(), true);
+                emissive_tex = fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
                 emissive_s = fetch_sampler(tex.sampler(), gfx).await;
 
                 if let Some(strenght) = material.emissive_strength() {
@@ -243,7 +249,7 @@ impl Model {
 
             if let Some(tex_data) = material.occlusion_texture() {
                 let tex = tex_data.texture();
-                ao_tex = fetch_texture(tex.source(), true);
+                ao_tex = fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
                 ao_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("contains occlusion_texture");
             } else {

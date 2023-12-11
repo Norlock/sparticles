@@ -1,9 +1,10 @@
 use crate::{fx::PostProcessState, model::gfx_state::GfxState, traits::CreateFxView};
+use async_std::sync::RwLock;
 use egui_wgpu::wgpu::{self, util::align_to};
 use glam::Vec4;
 use image::GenericImageView;
 use rand::{rngs::ThreadRng, Rng};
-use std::fs;
+use std::{fs, sync::Arc};
 
 pub struct DiffuseCtx {
     pub sampler: wgpu::Sampler,
@@ -163,57 +164,9 @@ impl GfxState {
             })
     }
 
-    pub fn tex_from_bytes(&self, bytes: &[u8], std_rgb: bool) -> wgpu::Texture {
-        let device = &self.device;
-        let diffuse_image = image::load_from_memory(bytes).unwrap();
-        let diffuse_rgba = diffuse_image.to_rgba8();
-        let dimensions = diffuse_image.dimensions();
-
-        let texture_size = wgpu::Extent3d {
-            width: dimensions.0,
-            height: dimensions.1,
-            depth_or_array_layers: 1,
-        };
-
-        let format = if std_rgb {
-            wgpu::TextureFormat::Rgba8UnormSrgb
-        } else {
-            wgpu::TextureFormat::Rgba8Unorm
-        };
-
-        let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            label: Some("diffuse_texture"),
-            view_formats: &[],
-        });
-
-        self.queue.write_texture(
-            diffuse_texture.as_image_copy(),
-            &diffuse_rgba,
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * dimensions.0),
-                rows_per_image: Some(dimensions.1),
-            },
-            texture_size,
-        );
-
-        diffuse_texture
-    }
-
     pub fn create_sampler(&self) -> wgpu::Sampler {
         self.device
             .create_sampler(&wgpu::SamplerDescriptor::default())
-    }
-
-    pub fn tex_from_string(&self, path: &str, std_rgb: bool) -> wgpu::Texture {
-        let bytes = fs::read(path).expect("Can't read texture image");
-        self.tex_from_bytes(&bytes, std_rgb)
     }
 
     pub fn create_builtin_tex(&self, tex_type: TexType) -> wgpu::Texture {
@@ -314,5 +267,67 @@ impl GfxState {
 impl CreateFxView for wgpu::Texture {
     fn default_view(&self) -> wgpu::TextureView {
         self.create_view(&wgpu::TextureViewDescriptor::default())
+    }
+}
+
+pub struct TextureHandler;
+
+impl TextureHandler {
+    pub async fn tex_from_string(
+        gfx_arc: &Arc<RwLock<GfxState>>,
+        path: &str,
+        std_rgb: bool,
+    ) -> wgpu::Texture {
+        let bytes = fs::read(path).expect("Can't read texture image");
+        Self::tex_from_bytes(gfx_arc, &bytes, std_rgb).await
+    }
+
+    pub async fn tex_from_bytes(
+        gfx_arc: &Arc<RwLock<GfxState>>,
+        bytes: &[u8],
+        std_rgb: bool,
+    ) -> wgpu::Texture {
+        let diffuse_image = image::load_from_memory(bytes).unwrap();
+        let diffuse_rgba = diffuse_image.to_rgba8();
+        let dimensions = diffuse_image.dimensions();
+
+        let texture_size = wgpu::Extent3d {
+            width: dimensions.0,
+            height: dimensions.1,
+            depth_or_array_layers: 1,
+        };
+
+        let format = if std_rgb {
+            wgpu::TextureFormat::Rgba8UnormSrgb
+        } else {
+            wgpu::TextureFormat::Rgba8Unorm
+        };
+
+        let gfx = gfx_arc.read().await;
+        let device = &gfx.device;
+
+        let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            label: Some("diffuse_texture"),
+            view_formats: &[],
+        });
+
+        gfx.queue.write_texture(
+            diffuse_texture.as_image_copy(),
+            &diffuse_rgba,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * dimensions.0),
+                rows_per_image: Some(dimensions.1),
+            },
+            texture_size,
+        );
+
+        diffuse_texture
     }
 }

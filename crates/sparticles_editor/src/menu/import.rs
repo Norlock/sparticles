@@ -48,7 +48,6 @@ impl MenuWidget for ImportMenu {
             });
 
         if let Some(filename) = import_file {
-            println!("komt hier");
             let gfx_clone = gfx.clone();
             let coll_clone = collection.clone();
 
