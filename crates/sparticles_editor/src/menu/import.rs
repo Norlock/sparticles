@@ -62,14 +62,11 @@ async fn load_import(
     collection: Arc<RwLock<HashMap<String, Model>>>,
     filename: String,
 ) {
-    println!("komt hiertje");
-    let collection = &mut collection.write().await;
-    println!("komt hier ook");
+    let model = Model::load_gltf(&gfx, &filename)
+        .await
+        .expect("Can't load model");
 
-    collection.insert(
-        filename.to_string(),
-        Model::load_gltf(&gfx, &filename)
-            .await
-            .expect("Can't load model"),
-    );
+    let collection = &mut collection.write().await;
+
+    collection.insert(filename.to_string(), model);
 }

@@ -94,9 +94,12 @@ impl Model {
             }
         }
 
-        let default_sampler = wgpu::SamplerDescriptor::default();
+        async fn fetch_sampler(
+            sampler_data: gltf::texture::Sampler<'_>,
+            gfx: &Arc<RwLock<GfxState>>,
+        ) -> wgpu::Sampler {
+            let default_sampler = wgpu::SamplerDescriptor::default();
 
-        let fetch_sampler = |sampler_data: gltf::texture::Sampler<'_>| -> wgpu::Sampler {
             let (min_filter, mipmap_filter) = match &sampler_data.min_filter() {
                 Some(gltf::texture::MinFilter::Linear) => {
                     (wgpu::FilterMode::Linear, default_sampler.mipmap_filter)
@@ -131,7 +134,7 @@ impl Model {
                 gltf::texture::WrappingMode::MirroredRepeat => wgpu::AddressMode::MirrorRepeat,
             };
 
-            let device = &mut task::block_on(gfx.write()).device;
+            let device = &gfx.write().await.device;
             device.create_sampler(&wgpu::SamplerDescriptor {
                 label: sampler_data.name(),
                 min_filter,
@@ -141,7 +144,7 @@ impl Model {
                 address_mode_v: get_wrapping_mode(sampler_data.wrap_t()),
                 ..Default::default()
             })
-        };
+        }
 
         let fetch_texture = |img: gltf::image::Image<'_>, s_rgb: bool| -> wgpu::Texture {
             match img.source() {
@@ -182,7 +185,7 @@ impl Model {
             if let Some(tex_data) = pbr.base_color_texture() {
                 let tex = tex_data.texture();
                 albedo_tex = fetch_texture(tex.source(), true);
-                albedo_s = fetch_sampler(tex.sampler());
+                albedo_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("Contains albedo tex");
             } else {
                 let gfx = &gfx.read().await;
@@ -193,7 +196,7 @@ impl Model {
             if let Some(tex_data) = pbr.metallic_roughness_texture() {
                 let tex = tex_data.texture();
                 metallic_roughness_tex = fetch_texture(tex.source(), true);
-                metallic_roughness_s = fetch_sampler(tex.sampler());
+                metallic_roughness_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("Contains metallic_roughness_tex");
             } else {
                 let metallic_factor = pbr.metallic_factor();
@@ -210,7 +213,7 @@ impl Model {
             if let Some(tex_data) = material.normal_texture() {
                 let tex = tex_data.texture();
                 normal_tex = fetch_texture(tex.source(), false);
-                normal_s = fetch_sampler(tex.sampler());
+                normal_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("Contains normal_tex");
             } else {
                 let gfx = &gfx.read().await;
@@ -221,7 +224,7 @@ impl Model {
             if let Some(tex_data) = material.emissive_texture() {
                 let tex = tex_data.texture();
                 emissive_tex = fetch_texture(tex.source(), true);
-                emissive_s = fetch_sampler(tex.sampler());
+                emissive_s = fetch_sampler(tex.sampler(), gfx).await;
 
                 if let Some(strenght) = material.emissive_strength() {
                     println!("Strength: {}", strenght);
@@ -241,7 +244,7 @@ impl Model {
             if let Some(tex_data) = material.occlusion_texture() {
                 let tex = tex_data.texture();
                 ao_tex = fetch_texture(tex.source(), true);
-                ao_s = fetch_sampler(tex.sampler());
+                ao_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("contains occlusion_texture");
             } else {
                 let gfx = &gfx.read().await;
@@ -342,7 +345,7 @@ impl Model {
                         }
                     }
 
-                    let device = &task::block_on(gfx.read()).device;
+                    let device = &gfx.read().await.device;
 
                     let vertex_buffer =
                         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -357,11 +360,6 @@ impl Model {
                             contents: bytemuck::cast_slice(&indices),
                             usage: wgpu::BufferUsages::INDEX,
                         });
-
-                    drop(device);
-
-                    // TODO check if dropped
-                    let a = device.limits();
 
                     let id = mesh
                         .name()
