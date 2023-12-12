@@ -69,10 +69,8 @@ pub struct EditorData {
     cpu_time_text: String,
     total_elapsed_text: String,
     particle_count_text: String,
-    texture_paths: Vec<PathBuf>,
     icon_textures: HashMap<String, TextureId>,
     selected_tab: Tab,
-    selected_texture: usize,
     selected_new_par_anim: usize,
     selected_new_em_anim: usize,
     selected_new_post_fx: usize,
@@ -87,7 +85,7 @@ const CHEVRON_UP_ID: &str = "chevron-up";
 const CHEVRON_DOWN_ID: &str = "chevron-down";
 const TRASH_ID: &str = "trash";
 const MENU_ID: &str = "menu";
-const WINDOW_MARGIN: f32 = 10.;
+pub const WINDOW_MARGIN: f32 = 10.;
 
 impl WidgetBuilder for Editor {
     fn id(&self) -> &'static str {
@@ -219,7 +217,7 @@ impl Editor {
 
     pub fn new(state: &mut SparState, model_dir: PathBuf) -> Self {
         let gfx = &mut task::block_on(state.gfx.write());
-        let texture_paths = Persistence::import_textures().unwrap();
+        //let texture_paths = Persistence::import_textures().unwrap();
         let icon_textures = Self::create_icons(gfx);
         let mut pa_widgets: HashMap<TypeId, PAWidgetPtr> = HashMap::new();
         let mut em_widgets: HashMap<TypeId, EMWidgetPtr> = HashMap::new();
@@ -292,13 +290,11 @@ impl Editor {
             total_elapsed_text: "".to_string(),
             particle_count_text: "".to_string(),
             selected_tab: Tab::EmitterSettings,
-            texture_paths,
             selected_menu_idx: 0,
             selected_emitter_idx: 0,
             selected_new_par_anim: 0,
             selected_new_em_anim: 0,
             selected_new_post_fx: 0,
-            selected_texture: 0,
             icon_textures,
             new_emitter_tag: "".to_string(),
             profiling_results: Vec::new(),

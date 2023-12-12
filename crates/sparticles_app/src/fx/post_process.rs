@@ -1,6 +1,7 @@
 use super::{FxIOUniform, FxOptions};
 use crate::init::AppVisitor;
 use crate::model::events::ViewIOEvent;
+use crate::model::gfx_state::Profiler;
 use crate::model::{GfxState, SparEvents, SparState};
 use crate::shaders::{ShaderOptions, SDR_TONEMAPPING};
 use crate::traits::*;
@@ -95,7 +96,7 @@ impl PostProcessState {
     }
 
     pub async fn compute(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
-        let gfx = &mut state.gfx.write().await;
+        let gfx = &state.gfx;
         let pp = &mut state.post_process;
         let fx_state = &mut pp.fx_state;
 
@@ -104,13 +105,13 @@ impl PostProcessState {
             timestamp_writes: None,
         });
 
-        gfx.begin_scope("Post fx compute", &mut c_pass);
+        Profiler::begin_scope(gfx, "Post fx compute", &mut c_pass).await;
 
         for fx in pp.effects.iter().filter(|fx| fx.enabled()) {
             fx.compute(fx_state, gfx, &mut c_pass);
         }
 
-        gfx.end_scope(&mut c_pass);
+        Profiler::end_scope(gfx, &mut c_pass).await;
     }
 
     pub async fn render(
@@ -119,7 +120,7 @@ impl PostProcessState {
         encoder: &mut wgpu::CommandEncoder,
         primitives: &[ClippedPrimitive],
     ) {
-        let gfx = &mut state.gfx.write().await;
+        let gfx = &state.gfx;
 
         let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Post process render"),
@@ -138,14 +139,14 @@ impl PostProcessState {
 
         let pp = &mut state.post_process;
 
-        gfx.begin_scope("Post fx render", &mut r_pass);
+        Profiler::begin_scope(gfx, "Post fx render", &mut r_pass).await;
         r_pass.set_pipeline(&pp.render_pipeline);
         r_pass.set_bind_group(0, &pp.fx_state.r_bg, &[]);
         r_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
         r_pass.draw(0..3, 0..1);
-        gfx.end_scope(&mut r_pass);
+        Profiler::end_scope(gfx, &mut r_pass).await;
 
-        gfx.render_frame(&mut r_pass, primitives);
+        GfxState::render_frame(gfx, r_pass, primitives).await;
     }
 
     pub fn new(gfx: &GfxState, app_settings: &impl AppVisitor) -> Self {

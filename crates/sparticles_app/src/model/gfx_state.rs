@@ -51,27 +51,54 @@ pub struct DrawGuiResult {
     pub events: SparEvents,
 }
 
+pub struct Profiler;
+
+impl Profiler {
+    pub async fn begin_scope(
+        gfx: &Arc<RwLock<GfxState>>,
+        label: &str,
+        pass: &mut impl ProfilerCommandRecorder,
+    ) {
+        let gfx = &mut gfx.write().await;
+        gfx.begin_scope(label, pass);
+    }
+
+    pub async fn end_scope(gfx: &Arc<RwLock<GfxState>>, pass: &mut impl ProfilerCommandRecorder) {
+        let gfx = &mut gfx.write().await;
+        gfx.end_scope(pass);
+    }
+}
+
 impl GfxState {
-    pub fn begin_scope(&mut self, label: &str, pass: &mut impl ProfilerCommandRecorder) {
+    fn begin_scope(&mut self, label: &str, pass: &mut impl ProfilerCommandRecorder) {
         self.profiler.begin_scope(label, pass, &self.device);
     }
 
-    pub fn end_scope(&mut self, pass: &mut impl ProfilerCommandRecorder) {
+    fn end_scope(&mut self, pass: &mut impl ProfilerCommandRecorder) {
         self.profiler.end_scope(pass).unwrap();
     }
 
-    pub fn render_frame<'a>(
+    pub fn gfx_render_frame<'a>(
         &'a mut self,
-        r_pass: &mut wgpu::RenderPass<'a>,
+        mut r_pass: wgpu::RenderPass<'a>,
         primitives: &'a [ClippedPrimitive],
     ) {
         self.profiler
-            .begin_scope("Render GUI", r_pass, &self.device);
+            .begin_scope("Render GUI", &mut r_pass, &self.device);
 
         self.renderer
-            .render(r_pass, primitives, &self.screen_descriptor);
+            .render(&mut r_pass, primitives, &self.screen_descriptor);
 
-        self.profiler.end_scope(r_pass).unwrap();
+        self.profiler.end_scope(&mut r_pass).unwrap();
+    }
+
+    pub async fn render_frame<'a, 'b>(
+        gfx: &'a Arc<RwLock<GfxState>>,
+        r_pass: wgpu::RenderPass<'a>,
+        primitives: &'a [ClippedPrimitive],
+    ) {
+        let gfx = &mut gfx.write().await;
+        gfx.gfx_render_frame(r_pass, primitives);
     }
 
     pub fn finish_frame(

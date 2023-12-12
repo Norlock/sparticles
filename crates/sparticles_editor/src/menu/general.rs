@@ -5,7 +5,7 @@ use sparticles_app::{
     gui::egui::{
         self,
         color_picker::{color_edit_button_rgba, Alpha},
-        Rgba, Ui,
+        Color32, Rgba, RichText, Ui,
     },
     model::{
         camera::TonemapType, emitter_state::RecreateEmitterOptions, events::ViewIOEvent,
@@ -194,7 +194,7 @@ impl MenuWidget for GeneralMenu {
                 ui.separator();
 
                 match data.selected_tab {
-                    Tab::EmitterSettings => self.emitter_settings_tab(menu_ctx, ui),
+                    Tab::EmitterSettings => task::block_on(self.emitter_settings_tab(menu_ctx, ui)),
                     Tab::PostFxSettings => self.post_fx_tab(menu_ctx, ui),
                     Tab::ParticleAnimations => self.particle_animations_tab(menu_ctx, ui),
                     Tab::EmitterAnimations => self.emitter_animations_tab(menu_ctx, ui),
@@ -345,7 +345,7 @@ impl GeneralMenu {
             });
     }
 
-    fn emitter_settings_tab(&self, menu_ctx: &mut MenuCtx, ui: &mut Ui) {
+    async fn emitter_settings_tab(&self, menu_ctx: &mut MenuCtx<'_>, ui: &mut Ui) {
         let MenuCtx {
             emitter_data: data,
             state,
@@ -360,7 +360,6 @@ impl GeneralMenu {
             .get_or_insert_with(|| emitter.uniform.create_settings());
 
         if emitter.id() != emitter_settings.id {
-            println!("heuh");
             emitter_settings = data
                 .emitter_settings
                 .insert(emitter.uniform.create_settings());
@@ -468,19 +467,67 @@ impl GeneralMenu {
             .text("Particle size max"),
         );
 
-        let combo_texture = egui::ComboBox::from_label("Select texture").show_index(
-            ui,
-            &mut data.selected_texture,
-            data.texture_paths.len(),
-            |i| data.texture_paths[i].rich_text(),
-        );
+        let mesh = &mut emitter_settings.mesh;
+        let collection = state.collection.read().await;
 
-        if combo_texture.changed() {
-            let gfx = &task::block_on(state.gfx.read());
-            emitter.update_diffuse(gfx, &mut data.texture_paths[data.selected_texture]);
-        };
+        ui.separator();
+        ui.heading("Collection for Imports");
 
-        task::block_on(self.update_emitter(data, state, encoder));
+        egui::ScrollArea::vertical()
+            .id_source("coll_key")
+            .auto_shrink([true; 2])
+            .vscroll(true)
+            .max_height(150.)
+            .show(ui, |ui| {
+                ui.vertical_centered_justified(|ui| {
+                    for (key, _) in collection.iter() {
+                        let text = if mesh.collection_id == *key {
+                            RichText::new(key).color(Color32::GREEN).strong()
+                        } else {
+                            RichText::new(key)
+                        };
+
+                        if ui.button(text).clicked() {
+                            mesh.collection_id = key.clone();
+
+                            let mesh_model = collection.get(&mesh.collection_id).unwrap();
+                            mesh.mesh_id = mesh_model.meshes.keys().next().unwrap().to_string();
+                        }
+                    }
+                });
+            });
+
+        let mesh_model = collection.get(&mesh.collection_id).unwrap();
+
+        ui.separator();
+        ui.heading("Collection for Mesh");
+
+        egui::ScrollArea::vertical()
+            .id_source("mesh_key")
+            .auto_shrink([true; 2])
+            .vscroll(true)
+            .max_height(300.)
+            .show(ui, |ui| {
+                ui.vertical_centered_justified(|ui| {
+                    for (key, _) in mesh_model.meshes.iter() {
+                        let text = if mesh.mesh_id == *key {
+                            RichText::new(key).color(Color32::GREEN).strong()
+                        } else {
+                            RichText::new(key)
+                        };
+
+                        if ui.button(text).clicked() {
+                            mesh.mesh_id = key.clone();
+                        }
+                    }
+                });
+            });
+
+        ui.add_space(10.);
+
+        drop(collection);
+
+        self.update_emitter(data, state, encoder).await;
     }
 
     async fn update_emitter(
@@ -489,7 +536,6 @@ impl GeneralMenu {
         state: &mut SparState,
         encoder: &mut wgpu::CommandEncoder,
     ) {
-        // TODO move to APP and make events for recreating emitter!
         let SparState {
             camera,
             emitters,

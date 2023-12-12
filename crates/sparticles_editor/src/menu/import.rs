@@ -29,17 +29,18 @@ impl MenuWidget for ImportMenu {
                 data.create_title(ui, "Import menu");
 
                 for file in data.model_files.iter() {
-                    ui.group(|ui| {
-                        let filename = file.file_name().unwrap().to_str().unwrap();
+                    let filename = file.file_name().unwrap().to_str().unwrap();
+                    let checked = &mut coll.contains_key(filename);
 
-                        ui.label(filename);
-                        if ui
-                            .checkbox(&mut coll.contains_key(filename), "is imported")
-                            .clicked()
-                        {
-                            import_file = Some(filename.to_string());
-                        }
-                    });
+                    ui.separator();
+
+                    ui.label(filename);
+
+                    if ui.checkbox(checked, "Is imported").clicked() {
+                        import_file = Some(filename.to_string());
+                    }
+
+                    ui.separator();
                 }
             });
 

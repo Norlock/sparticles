@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::blur_pass::BlurPass;
 use super::blur_pass::BlurPassSettings;
 use super::FxOptions;
@@ -8,6 +10,7 @@ use crate::traits::*;
 use crate::util::DynamicExport;
 use crate::util::ListAction;
 use crate::util::UniformContext;
+use async_std::sync::RwLock;
 use egui_wgpu::wgpu;
 use encase::ShaderType;
 use serde::Deserialize;
@@ -107,13 +110,13 @@ impl PostFx for BlurFx {
     fn compute<'a>(
         &'a self,
         fx_state: &'a FxState,
-        gfx_state: &mut GfxState,
+        gfx: &Arc<RwLock<GfxState>>,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
         let bp = &self.blur_pass;
 
         if self.blur_type == BlurType::Gaussian {
-            bp.compute_gaussian(fx_state, gfx_state, &self.blur_ctx.bg, c_pass);
+            bp.compute_gaussian(fx_state, gfx, &self.blur_ctx.bg, c_pass);
         }
     }
 }

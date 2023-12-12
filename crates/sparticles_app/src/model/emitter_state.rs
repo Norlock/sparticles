@@ -1,3 +1,4 @@
+use super::gfx_state::Profiler;
 use super::state::FastFetch;
 use super::{Camera, EmitterUniform, GfxState, Material, Mesh, ModelVertex, SparEvents, SparState};
 use crate::fx::PostProcessState;
@@ -143,7 +144,6 @@ impl<'a> EmitterState {
             ..
         } = state;
 
-        let gfx = &mut gfx.write().await;
         let nr = clock.get_bindgroup_nr();
 
         let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -151,16 +151,17 @@ impl<'a> EmitterState {
             timestamp_writes: None,
         });
 
-        gfx.begin_scope("Compute", &mut c_pass);
+        Profiler::begin_scope(gfx, "Compute", &mut c_pass).await;
 
         for emitter in emitters.iter() {
-            gfx.begin_scope(&format!("Compute emitter: {}", emitter.id()), &mut c_pass);
+            let scope_str = &format!("Compute emitter: {}", emitter.id());
+            Profiler::begin_scope(gfx, scope_str, &mut c_pass).await;
             c_pass.set_pipeline(&emitter.pipeline);
             c_pass.set_bind_group(0, &emitter.bgs[nr], &[]);
             c_pass.dispatch_workgroups(emitter.dispatch_x_count, 1, 1);
-            gfx.end_scope(&mut c_pass);
+            Profiler::end_scope(gfx, &mut c_pass).await;
 
-            gfx.begin_scope("Compute particle animations", &mut c_pass);
+            Profiler::begin_scope(gfx, "Compute particle animations", &mut c_pass).await;
             for anim in emitter
                 .particle_animations
                 .iter()
@@ -168,10 +169,10 @@ impl<'a> EmitterState {
             {
                 anim.compute(emitter, clock, &mut c_pass);
             }
-            gfx.end_scope(&mut c_pass);
+            Profiler::end_scope(gfx, &mut c_pass).await;
         }
 
-        gfx.end_scope(&mut c_pass);
+        Profiler::end_scope(gfx, &mut c_pass).await;
     }
 
     pub async fn render_particles(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
@@ -213,17 +214,19 @@ impl<'a> EmitterState {
         let clock = &state.clock;
         let emitters = &state.emitters;
         let camera = &state.camera;
+        let gfx = &state.gfx;
 
         let nr = clock.get_alt_bindgroup_nr();
 
-        let gfx = &mut state.gfx.write().await;
-        gfx.begin_scope("Render", &mut r_pass);
+        Profiler::begin_scope(gfx, "Render", &mut r_pass).await;
 
         for em in emitters.iter() {
             let mesh = collection.get_mesh(&em.uniform.mesh);
             let mat = collection.get_mat(&em.uniform.material);
 
-            gfx.begin_scope(&format!("Emitter: {}", em.id()), &mut r_pass);
+            let scope_str = format!("Emitter: {}", em.id());
+            Profiler::begin_scope(gfx, &scope_str, &mut r_pass).await;
+
             r_pass.set_pipeline(&em.render_pipeline);
             r_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
             r_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
@@ -237,10 +240,11 @@ impl<'a> EmitterState {
             }
 
             r_pass.draw_indexed(mesh.indices_range(), 0, 0..em.particle_count() as u32);
-            gfx.end_scope(&mut r_pass);
+
+            Profiler::end_scope(gfx, &mut r_pass).await;
         }
 
-        gfx.end_scope(&mut r_pass);
+        Profiler::end_scope(gfx, &mut r_pass).await;
     }
 
     pub async fn recreate_emitter(

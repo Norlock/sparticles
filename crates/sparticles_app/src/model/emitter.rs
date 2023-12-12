@@ -82,6 +82,9 @@ pub struct EmitterSettings {
     pub particle_lifetime_sec: f32,
     pub recreate: bool,
 
+    pub mesh: MeshRef,
+    pub material: MaterialRef,
+
     pub box_position: Vec3,
     pub box_dimensions: Vec3,
     pub box_rotation_deg: Vec3,
@@ -169,6 +172,10 @@ impl EmitterUniform {
         self.particle_color = settings.particle_color;
         self.hdr_mul = settings.hdr_mul;
 
+        // TODO iets beter dan string kopieren
+        self.mesh = settings.mesh.clone();
+        self.material = settings.material.clone();
+
         if settings.recreate {
             self.spawn_count = settings.spawn_count;
             self.spawn_delay_sec = settings.spawn_delay_sec;
@@ -193,6 +200,8 @@ impl EmitterUniform {
             particle_speed_max: self.particle_speed.1,
             particle_size_min: self.particle_size.0,
             particle_size_max: self.particle_size.1,
+            mesh: self.mesh.clone(),
+            material: self.material.clone(),
 
             recreate: false,
         }

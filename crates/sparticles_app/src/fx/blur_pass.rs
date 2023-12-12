@@ -1,9 +1,14 @@
+use std::sync::Arc;
+
 use super::FxIOSwapCtx;
 use super::FxIOUniform;
 use super::FxOptions;
 use super::FxState;
+use crate::model::gfx_state::Profiler;
 use crate::model::GfxState;
 use crate::shaders::ShaderOptions;
+use async_std::sync::RwLock;
+use async_std::task;
 use egui_wgpu::wgpu;
 
 pub struct BlurPass {
@@ -26,11 +31,11 @@ impl BlurPass {
     pub fn compute_gaussian<'a>(
         &'a self,
         fx_state: &'a FxState,
-        gfx_state: &mut GfxState,
+        gfx: &Arc<RwLock<GfxState>>,
         blur_bg: &'a wgpu::BindGroup,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        gfx_state.begin_scope("Gaussian", c_pass);
+        task::block_on(Profiler::begin_scope(gfx, "Gaussian", c_pass));
 
         let (count_x, count_y) = fx_state.count_out(&self.io_ctx.uniforms[0]);
 
@@ -46,17 +51,17 @@ impl BlurPass {
         c_pass.set_bind_group(2, blur_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        gfx_state.end_scope(c_pass);
+        task::block_on(Profiler::end_scope(gfx, c_pass));
     }
 
     pub fn split<'a>(
         &'a self,
         fx_state: &'a FxState,
-        gfx_state: &mut GfxState,
+        gfx: &Arc<RwLock<GfxState>>,
         blur_bg: &'a wgpu::BindGroup,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        gfx_state.begin_scope("Split", c_pass);
+        task::block_on(Profiler::begin_scope(gfx, "Split", c_pass));
 
         c_pass.set_pipeline(&self.split_pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
@@ -64,7 +69,7 @@ impl BlurPass {
         c_pass.set_bind_group(2, blur_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
 
-        gfx_state.end_scope(c_pass);
+        task::block_on(Profiler::end_scope(gfx, c_pass));
     }
 
     pub fn resize(&mut self, options: &FxOptions) {

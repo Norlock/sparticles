@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::sync::Arc;
 
 use super::BlendPass;
 use super::ColorFx;
@@ -10,12 +11,15 @@ use crate::fx::blend::BlendSettings;
 use crate::fx::blend::BlendUniform;
 use crate::fx::ColorFxSettings;
 use crate::fx::ColorFxUniform;
+use crate::model::gfx_state::Profiler;
 use crate::model::Camera;
 use crate::model::GfxState;
 use crate::traits::*;
 use crate::util::DynamicExport;
 use crate::util::ListAction;
 use crate::util::UniformContext;
+use async_std::sync::RwLock;
+use async_std::task;
 use egui_wgpu::wgpu;
 use serde::Deserialize;
 use serde::Serialize;
@@ -110,26 +114,26 @@ impl PostFx for BloomFx {
     fn compute<'a>(
         &'a self,
         fx_state: &'a FxState,
-        gfx_state: &mut GfxState,
+        gfx: &Arc<RwLock<GfxState>>,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        gfx_state.begin_scope("Bloom Fx", c_pass);
+        task::block_on(Profiler::begin_scope(gfx, "Bloom Fx", c_pass));
 
         for down in self.downscale_passes.iter() {
-            down.downscale.compute(fx_state, gfx_state, c_pass);
+            down.downscale.compute(fx_state, gfx, c_pass);
         }
 
         for up in self.upscale_passes.iter() {
             up.blend
-                .lerp_upscale(fx_state, gfx_state, &up.blend_ctx.bg, c_pass);
+                .lerp_upscale(fx_state, gfx, &up.blend_ctx.bg, c_pass);
         }
 
-        self.color.compute_tonemap(fx_state, gfx_state, c_pass);
+        self.color.compute_tonemap(fx_state, gfx, c_pass);
 
         self.blend
-            .lerp_upscale(fx_state, gfx_state, &self.blend_ctx.bg, c_pass);
+            .lerp_upscale(fx_state, gfx, &self.blend_ctx.bg, c_pass);
 
-        gfx_state.end_scope(c_pass);
+        task::block_on(Profiler::end_scope(gfx, c_pass));
     }
 
     fn update(&mut self, gfx_state: &GfxState, camera: &mut Camera) {

@@ -1,5 +1,12 @@
+use std::sync::Arc;
+
 use super::{FxIOUniform, FxOptions, FxState};
-use crate::{model::GfxState, shaders::ShaderOptions, util::UniformContext};
+use crate::{
+    model::{gfx_state::Profiler, GfxState},
+    shaders::ShaderOptions,
+    util::UniformContext,
+};
+use async_std::{sync::RwLock, task};
 use egui_wgpu::wgpu;
 use encase::ShaderType;
 use serde::{Deserialize, Serialize};
@@ -28,23 +35,26 @@ impl BlendPass {
     pub fn add_blend<'a>(
         &'a self,
         fx_state: &'a FxState,
+        gfx: &Arc<RwLock<GfxState>>,
         blend_bg: &'a wgpu::BindGroup,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
+        task::block_on(Profiler::begin_scope(gfx, "Add blend", c_pass));
         c_pass.set_pipeline(&self.add_pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, blend_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
+        task::block_on(Profiler::end_scope(gfx, c_pass));
     }
 
     /// Does a average based on multiple points, and mix IO
     pub fn lerp_upscale<'a>(
         &'a self,
         fx_state: &'a FxState,
-        gfx_state: &mut GfxState,
+        gfx: &Arc<RwLock<GfxState>>,
         blend_bg: &'a wgpu::BindGroup,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
@@ -52,15 +62,16 @@ impl BlendPass {
         let io_uniform = &self.io_uniform;
 
         if io_uniform.in_downscale == 1 && io_uniform.out_downscale == 1 {
-            gfx_state.begin_scope("Lerp blend", c_pass);
+            task::block_on(Profiler::begin_scope(gfx, "Lerp blend", c_pass));
         } else {
-            gfx_state.begin_scope(
+            task::block_on(Profiler::begin_scope(
+                gfx,
                 &format!(
                     "Upscale from {} to {}",
                     io_uniform.in_downscale, io_uniform.out_downscale
                 ),
                 c_pass,
-            );
+            ));
         }
         c_pass.set_pipeline(&self.lerp_upscale_pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
@@ -68,23 +79,26 @@ impl BlendPass {
         c_pass.set_bind_group(2, blend_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        gfx_state.end_scope(c_pass);
+        task::block_on(Profiler::end_scope(gfx, c_pass));
     }
 
     /// Does a mix of IO
     pub fn lerp_simple_blend<'a>(
         &'a self,
         fx_state: &'a FxState,
+        gfx: &Arc<RwLock<GfxState>>,
         blend_bg: &'a wgpu::BindGroup,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
+        task::block_on(Profiler::begin_scope(gfx, "Lerp blend", c_pass));
         c_pass.set_pipeline(&self.lerp_simple_pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, blend_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
+        task::block_on(Profiler::end_scope(gfx, c_pass));
     }
 
     pub fn resize(&mut self, options: &FxOptions) {

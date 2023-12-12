@@ -1,5 +1,12 @@
+use std::sync::Arc;
+
 use super::{FxIOUniform, FxOptions, FxState};
-use crate::{model::GfxState, shaders::ShaderOptions, util::UniformContext};
+use crate::{
+    model::{gfx_state::Profiler, GfxState},
+    shaders::ShaderOptions,
+    util::UniformContext,
+};
+use async_std::{sync::RwLock, task};
 use egui_wgpu::wgpu;
 
 pub struct Downscale {
@@ -16,25 +23,26 @@ impl Downscale {
     pub fn compute<'a>(
         &'a self,
         fx_state: &'a FxState,
-        gfx_state: &mut GfxState,
+        gfx: &Arc<RwLock<GfxState>>,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
-        gfx_state.begin_scope(
+        task::block_on(Profiler::begin_scope(
+            gfx,
             &format!(
                 "Downscale from {} to {}",
                 self.io_uniform.in_downscale, self.io_uniform.out_downscale
             ),
             c_pass,
-        );
+        ));
 
         c_pass.set_pipeline(&self.pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        gfx_state.end_scope(c_pass);
+        task::block_on(Profiler::end_scope(gfx, c_pass));
     }
 
     pub fn resize(&mut self, options: &FxOptions) {

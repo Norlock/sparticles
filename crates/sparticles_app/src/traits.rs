@@ -4,9 +4,10 @@ use crate::{
     util::persistence::DynamicExport,
     util::ListAction,
 };
+use async_std::sync::RwLock;
 use egui_wgpu::wgpu;
 use egui_winit::winit::event::KeyboardInput;
-use std::{any::Any, num::NonZeroU64, slice::IterMut};
+use std::{any::Any, num::NonZeroU64, slice::IterMut, sync::Arc};
 
 pub trait FromRGB {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self;
@@ -94,7 +95,7 @@ pub trait PostFx: HandleAction {
     fn compute<'a>(
         &'a self,
         fx_state: &'a FxState,
-        gfx_state: &mut GfxState,
+        gfx_state: &Arc<RwLock<GfxState>>,
         c_pass: &mut wgpu::ComputePass<'a>,
     );
 

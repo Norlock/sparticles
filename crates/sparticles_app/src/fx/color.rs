@@ -1,12 +1,13 @@
-use std::any::Any;
+use std::{any::Any, sync::Arc};
 
 use super::{FxIOUniform, FxOptions, FxState};
 use crate::{
-    model::{Camera, GfxState},
+    model::{gfx_state::Profiler, Camera, GfxState},
     shaders::{ShaderOptions, SDR_TONEMAPPING},
     traits::{BufferContent, HandleAction, PostFx, RegisterPostFx},
     util::{DynamicExport, ListAction, UniformContext},
 };
+use async_std::{sync::RwLock, task};
 use egui_wgpu::wgpu;
 use encase::ShaderType;
 use serde::{Deserialize, Serialize};
@@ -91,18 +92,18 @@ impl PostFx for ColorFx {
     fn compute<'a>(
         &'a self,
         fx_state: &'a FxState,
-        gfx_state: &mut GfxState,
+        gfx: &Arc<RwLock<GfxState>>,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
-        gfx_state
-            .profiler
-            .begin_scope("Color Fx", c_pass, &gfx_state.device);
+        task::block_on(Profiler::begin_scope(gfx, "Color Fx", c_pass));
+
         c_pass.set_pipeline(&self.general_pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
         c_pass.set_bind_group(1, &self.io_ctx.bg, &[]);
         c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(fx_state.count_x, fx_state.count_y, 1);
-        gfx_state.profiler.end_scope(c_pass).unwrap();
+
+        task::block_on(Profiler::end_scope(gfx, c_pass));
     }
 
     fn update(&mut self, gfx_state: &GfxState, _: &mut Camera) {
@@ -144,12 +145,12 @@ impl ColorFx {
     pub fn compute_tonemap<'a>(
         &'a self,
         fx_state: &'a FxState,
-        gfx_state: &mut GfxState,
+        gfx: &Arc<RwLock<GfxState>>,
         c_pass: &mut wgpu::ComputePass<'a>,
     ) {
         let (count_x, count_y) = fx_state.count_out(&self.io_uniform);
 
-        gfx_state.begin_scope("Tonemapping", c_pass);
+        task::block_on(Profiler::begin_scope(gfx, "Tonemapping", c_pass));
 
         c_pass.set_pipeline(&self.tonemap_pipeline);
         c_pass.set_bind_group(0, &fx_state.bg, &[]);
@@ -157,7 +158,7 @@ impl ColorFx {
         c_pass.set_bind_group(2, &self.color_bg, &[]);
         c_pass.dispatch_workgroups(count_x, count_y, 1);
 
-        gfx_state.end_scope(c_pass);
+        task::block_on(Profiler::end_scope(gfx, c_pass));
     }
 
     pub fn new(options: &FxOptions, settings: ColorFxSettings) -> Self {
