@@ -5,8 +5,6 @@ struct ColorAnimation {
     to_col: vec4<f32>,
     from_sec: f32,
     until_sec: f32,
-    padding_1: f32,
-    padding_2: f32,
 }
 
 @group(0) @binding(1) var<storage, read_write> particles: array<Particle>;

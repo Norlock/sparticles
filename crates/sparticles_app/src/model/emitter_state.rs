@@ -59,7 +59,7 @@ pub struct RecreateEmitterOptions<'a> {
     pub emitter_type: EmitterType<'a>,
 }
 
-impl<'a> EmitterState {
+impl EmitterState {
     pub fn id(&self) -> &str {
         &self.uniform.id
     }
@@ -133,10 +133,7 @@ impl<'a> EmitterState {
         }
     }
 
-    pub async fn compute_particles(
-        state: &'a mut SparState,
-        encoder: &'a mut wgpu::CommandEncoder,
-    ) {
+    pub async fn compute_particles(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
         let SparState {
             clock,
             emitters,
@@ -291,15 +288,6 @@ impl<'a> EmitterState {
         self.emitter_animations.push(animation);
     }
 
-    pub fn update_diffuse(&mut self, _gfx_state: &GfxState, _path: &mut Path) {
-        // TODO think about diffuse textures change without a model
-
-        //self.uniform.texture_image = path.to_path_buf();
-        //let tex =
-        //gfx_state.diffuse_from_string(path.to_str().expect("Failed to convert pathbuf to str"));
-        //self.diffuse_ctx = gfx_state.create_diffuse_context(&tex);
-    }
-
     pub fn particle_count(&self) -> u64 {
         self.uniform.particle_count()
     }
@@ -348,7 +336,7 @@ impl<'a> EmitterState {
                 );
             }
 
-            if !collection.contains_key(mesh_key) {
+            if !collection.contains_key(mat_key) {
                 collection.insert(
                     mat_key.to_string(),
                     Model::load_gltf(gfx, mat_key)
@@ -529,7 +517,7 @@ impl<'a> EmitterState {
         let render_pipeline =
             Self::create_pipeline(&shader, &pipeline_layout, mesh, material, device);
 
-        EmitterState {
+        Self {
             uniform,
             pipeline,
             render_pipeline,

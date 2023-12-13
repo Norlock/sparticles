@@ -468,26 +468,24 @@ impl GeneralMenu {
         );
 
         let mesh = &mut emitter_settings.mesh;
+        let mat = &mut emitter_settings.material;
         let collection = state.collection.read().await;
 
         ui.separator();
-        ui.heading("Collection for Imports");
+        ui.heading("Select Mesh Collection");
 
         egui::ScrollArea::vertical()
-            .id_source("coll_key")
+            .id_source("mesh_coll")
             .auto_shrink([true; 2])
             .vscroll(true)
             .max_height(150.)
             .show(ui, |ui| {
                 ui.vertical_centered_justified(|ui| {
                     for (key, _) in collection.iter() {
-                        let text = if mesh.collection_id == *key {
-                            RichText::new(key).color(Color32::GREEN).strong()
-                        } else {
-                            RichText::new(key)
-                        };
-
-                        if ui.button(text).clicked() {
+                        if ui
+                            .selectable_label(mesh.collection_id == *key, key)
+                            .clicked()
+                        {
                             mesh.collection_id = key.clone();
 
                             let mesh_model = collection.get(&mesh.collection_id).unwrap();
@@ -500,7 +498,7 @@ impl GeneralMenu {
         let mesh_model = collection.get(&mesh.collection_id).unwrap();
 
         ui.separator();
-        ui.heading("Collection for Mesh");
+        ui.heading("Select Mesh");
 
         egui::ScrollArea::vertical()
             .id_source("mesh_key")
@@ -510,14 +508,50 @@ impl GeneralMenu {
             .show(ui, |ui| {
                 ui.vertical_centered_justified(|ui| {
                     for (key, _) in mesh_model.meshes.iter() {
-                        let text = if mesh.mesh_id == *key {
-                            RichText::new(key).color(Color32::GREEN).strong()
-                        } else {
-                            RichText::new(key)
-                        };
-
-                        if ui.button(text).clicked() {
+                        if ui.selectable_label(mesh.mesh_id == *key, key).clicked() {
                             mesh.mesh_id = key.clone();
+                        }
+                    }
+                });
+            });
+
+        ui.separator();
+        ui.heading("Select Material");
+
+        egui::ScrollArea::vertical()
+            .id_source("mat_coll")
+            .auto_shrink([true; 2])
+            .vscroll(true)
+            .max_height(300.)
+            .show(ui, |ui| {
+                ui.vertical_centered_justified(|ui| {
+                    for (key, _) in collection.iter() {
+                        if ui
+                            .selectable_label(mat.collection_id == *key, key)
+                            .clicked()
+                        {
+                            mat.collection_id = key.clone();
+
+                            let mat_model = collection.get(&mat.collection_id).unwrap();
+                            mat.material_id =
+                                mat_model.materials.keys().next().unwrap().to_string();
+                        }
+                    }
+                });
+            });
+
+        let mat_model = collection.get(&mat.collection_id).unwrap();
+
+        egui::ScrollArea::vertical()
+            .id_source("mat_key")
+            .auto_shrink([true; 2])
+            .vscroll(true)
+            .max_height(300.)
+            .show(ui, |ui| {
+                ui.vertical_centered_justified(|ui| {
+                    for (key, _) in mat_model.materials.iter() {
+                        if ui.selectable_label(mat.material_id == *key, key).clicked() {
+                            mat.material_id = key.clone();
                         }
                     }
                 });
@@ -551,9 +585,6 @@ impl GeneralMenu {
         em.uniform.update_settings(settings);
 
         if settings.recreate {
-            //let gfx = &task::block_on(state.gfx.read());
-            //let collection = &mut task::block_on(collection.write());
-
             if em.is_light {
                 *em = EmitterState::recreate_emitter(
                     RecreateEmitterOptions {

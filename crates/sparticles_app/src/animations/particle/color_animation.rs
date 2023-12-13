@@ -5,11 +5,12 @@ use crate::{
     util::{persistence::DynamicExport, ListAction, UniformContext},
 };
 use egui_wgpu::wgpu;
+use encase::ShaderType;
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 
-#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(ShaderType, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ColorUniform {
     pub from_color: Vec4,
     pub to_color: Vec4,
@@ -35,28 +36,6 @@ impl Default for ColorUniform {
             from_sec: 0.,
             until_sec: 0.5,
         }
-    }
-}
-
-impl ColorUniform {
-    // TODO direct parsen
-    fn create_buffer_content(&self) -> Vec<u8> {
-        let raw = [
-            self.from_color.x,
-            self.from_color.y,
-            self.from_color.z,
-            self.from_color.w,
-            self.to_color.x,
-            self.to_color.y,
-            self.to_color.z,
-            self.to_color.w,
-            self.from_sec,
-            self.until_sec,
-            0., // Padding
-            0., // Padding
-        ];
-
-        bytemuck::cast_slice(&raw).to_vec()
     }
 }
 
@@ -111,7 +90,7 @@ impl HandleAction for ColorAnimation {
 impl ParticleAnimation for ColorAnimation {
     fn update(&mut self, _clock: &Clock, gfx_state: &GfxState) {
         if self.update_uniform {
-            let buf_content = self.uniform.create_buffer_content();
+            let buf_content = self.uniform.buffer_content();
             gfx_state.queue.write_buffer(&self.buffer, 0, &buf_content);
             self.update_uniform = false;
         }
@@ -150,7 +129,7 @@ impl ColorAnimation {
             label: "Color animation",
         });
 
-        let buffer_content = uniform.create_buffer_content();
+        let buffer_content = uniform.buffer_content();
 
         let color_ctx = UniformContext::from_content(&buffer_content, device, "Color animation");
 
