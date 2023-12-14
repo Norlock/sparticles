@@ -9,7 +9,7 @@ use crate::util::persistence::{ExportEmitter, ExportType};
 use crate::util::{ListAction, Persistence, ID};
 use async_std::sync::RwLock;
 use egui_wgpu::wgpu::{self, ShaderModule};
-use std::path::Path;
+use std::fmt::Display;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
@@ -22,7 +22,7 @@ use wgpu::util::DeviceExt;
 pub struct EmitterState {
     pipeline: wgpu::ComputePipeline,
     pipeline_layout: wgpu::PipelineLayout,
-    render_pipeline: wgpu::RenderPipeline,
+    render_pipelines: HashMap<FsEntryPoint, wgpu::RenderPipeline>,
     emitter_buffer: wgpu::Buffer,
     particle_buffers: Vec<wgpu::Buffer>,
 
@@ -41,6 +41,21 @@ pub enum EmitterType<'a> {
     Normal {
         lights_layout: &'a wgpu::BindGroupLayout,
     },
+}
+
+#[derive(Hash, PartialEq, Eq)]
+pub enum FsEntryPoint {
+    Model,
+    Circle,
+}
+
+impl Display for FsEntryPoint {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FsEntryPoint::Model => f.write_str("fs_model"),
+            FsEntryPoint::Circle => f.write_str("fs_circle"),
+        }
+    }
 }
 
 pub struct CreateEmitterOptions<'a> {
@@ -224,7 +239,7 @@ impl EmitterState {
             let scope_str = format!("Emitter: {}", em.id());
             Profiler::begin_scope(gfx, &scope_str, &mut r_pass).await;
 
-            r_pass.set_pipeline(&em.render_pipeline);
+            r_pass.set_pipeline(&em.render_pipelines[&mesh.fs_entry_point]);
             r_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
             r_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
@@ -476,7 +491,6 @@ impl EmitterState {
 
         let collection = collection.read().await;
         let material = collection.get_mat(&uniform.material);
-        let mesh = collection.get_mesh(&uniform.mesh);
 
         match &options.emitter_type {
             EmitterType::Lights => {
@@ -514,13 +528,30 @@ impl EmitterState {
             }
         }
 
-        let render_pipeline =
-            Self::create_pipeline(&shader, &pipeline_layout, mesh, material, device);
+        let model_pipeline = Self::create_pipeline(
+            &shader,
+            &pipeline_layout,
+            material,
+            device,
+            FsEntryPoint::Model.to_string(),
+        );
+
+        let circle_pipeline = Self::create_pipeline(
+            &shader,
+            &pipeline_layout,
+            material,
+            device,
+            FsEntryPoint::Circle.to_string(),
+        );
+
+        let mut render_pipelines = HashMap::new();
+        render_pipelines.insert(FsEntryPoint::Model, model_pipeline);
+        render_pipelines.insert(FsEntryPoint::Circle, circle_pipeline);
 
         Self {
             uniform,
             pipeline,
-            render_pipeline,
+            render_pipelines,
             pipeline_layout,
             bg_layout,
             bgs: bind_groups,
@@ -537,9 +568,9 @@ impl EmitterState {
     fn create_pipeline(
         shader: &ShaderModule,
         layout: &wgpu::PipelineLayout,
-        mesh: &Mesh,
         material: &Material,
         device: &wgpu::Device,
+        fs_entry_point: String,
     ) -> wgpu::RenderPipeline {
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
@@ -551,7 +582,7 @@ impl EmitterState {
             },
             fragment: Some(wgpu::FragmentState {
                 module: shader,
-                entry_point: &mesh.fs_entry_point,
+                entry_point: &fs_entry_point,
                 targets: &[
                     Some(wgpu::ColorTargetState {
                         format: PostProcessState::TEXTURE_FORMAT,

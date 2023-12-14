@@ -105,13 +105,8 @@ impl UniformContext {
         }
     }
 
-    pub fn from_uniform(
-        uniform: &(impl ShaderType + WriteInto),
-        device: &wgpu::Device,
-        label: &str,
-    ) -> Self {
-        let buffer_contents = uniform.buffer_content();
-        Self::from_content(&buffer_contents, device, label)
+    pub fn from_uniform(uniform: &impl BufferContent, device: &wgpu::Device, label: &str) -> Self {
+        Self::from_content(&uniform.buffer_content(), device, label)
     }
 }
 

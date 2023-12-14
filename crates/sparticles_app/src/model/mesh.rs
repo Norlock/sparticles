@@ -1,4 +1,4 @@
-use super::{Camera, GfxState};
+use super::{emitter_state::FsEntryPoint, Camera, GfxState};
 use crate::{loader::CIRCLE_MESH_ID, util::ID};
 use bytemuck::{Pod, Zeroable};
 use egui_wgpu::wgpu::{self, util::DeviceExt};
@@ -11,7 +11,7 @@ pub struct Mesh {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub model: glam::Mat4,
-    pub fs_entry_point: String,
+    pub fs_entry_point: FsEntryPoint,
 }
 
 impl Mesh {
@@ -71,7 +71,7 @@ impl Mesh {
             vertex_buffer,
             index_buffer,
             model: glam::Mat4::default(),
-            fs_entry_point: "fs_circle".to_string(),
+            fs_entry_point: FsEntryPoint::Circle,
         }
     }
 }

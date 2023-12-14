@@ -1,3 +1,4 @@
+use crate::model::emitter_state::FsEntryPoint;
 use crate::model::material::MaterialCtx;
 use crate::model::{GfxState, Material, Mesh, ModelVertex};
 use crate::texture::{TexType, TextureHandler};
@@ -381,7 +382,7 @@ impl Model {
                             vertex_buffer,
                             index_buffer,
                             model,
-                            fs_entry_point: "fs_model".to_string(),
+                            fs_entry_point: FsEntryPoint::Model,
                         },
                     );
                 } else {

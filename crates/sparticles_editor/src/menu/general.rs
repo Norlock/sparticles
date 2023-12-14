@@ -1,11 +1,11 @@
-use crate::{DynamicWidgets, Editor, EditorData, IntoRichText};
+use crate::{DynamicWidgets, Editor, EditorData};
 use async_std::task;
 use sparticles_app::{
     fx::{FxOptions, PostProcessState},
     gui::egui::{
         self,
         color_picker::{color_edit_button_rgba, Alpha},
-        Color32, Rgba, RichText, Ui,
+        Rgba, Ui,
     },
     model::{
         camera::TonemapType, emitter_state::RecreateEmitterOptions, events::ViewIOEvent,

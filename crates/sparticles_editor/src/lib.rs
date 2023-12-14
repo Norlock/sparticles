@@ -21,7 +21,7 @@ use sparticles_app::{
     profiler::GpuTimerScopeResult,
     texture::IconTexture,
     traits::{EmitterAnimation, ParticleAnimation, PostFx, WidgetBuilder},
-    util::{ListAction, Persistence},
+    util::ListAction,
     wgpu::{self, CommandEncoder},
 };
 use std::{

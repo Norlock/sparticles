@@ -1,17 +1,17 @@
-use std::any::Any;
+use std::{any::Any, num::NonZeroU64};
 
 use crate::{
     model::{Clock, EmitterState, GfxState},
     shaders::ShaderOptions,
-    traits::{CalculateBufferSize, HandleAction, ParticleAnimation, RegisterParticleAnimation},
-    util::persistence::DynamicExport,
+    traits::{BufferContent, HandleAction, ParticleAnimation, RegisterParticleAnimation},
     util::ListAction,
+    util::{persistence::DynamicExport, UniformContext},
 };
 use egui_wgpu::wgpu;
+use encase::ShaderType;
 use serde::{Deserialize, Serialize};
-use wgpu::util::DeviceExt;
 
-#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(ShaderType, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct StrayUniform {
     pub stray_radians: f32,
     pub from_sec: f32,
@@ -25,12 +25,6 @@ impl Default for StrayUniform {
             from_sec: 1.,
             until_sec: 3.,
         }
-    }
-}
-
-impl StrayUniform {
-    fn create_buffer_content(&self) -> [f32; 4] {
-        [self.stray_radians, self.from_sec, self.until_sec, 0.]
     }
 }
 
@@ -108,9 +102,8 @@ impl ParticleAnimation for StrayAnimation {
         let queue = &gfx_state.queue;
 
         if self.update_uniform {
-            let buf_content_raw = self.uniform.create_buffer_content();
-            let buf_content = bytemuck::cast_slice(&buf_content_raw);
-            queue.write_buffer(&self.buffer, 0, buf_content);
+            let buf_content = self.uniform.buffer_content();
+            queue.write_buffer(&self.buffer, 0, &buf_content);
             self.update_uniform = false;
         }
     }
@@ -148,43 +141,11 @@ impl StrayAnimation {
             label: "Stray animation",
         });
 
-        let animation_uniform = uniform.create_buffer_content();
-
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Stray buffer"),
-            contents: bytemuck::cast_slice(&animation_uniform),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let animation_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                // Uniform data
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: animation_uniform.cal_buffer_size(),
-                    },
-                    count: None,
-                },
-            ],
-            label: None,
-        });
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &animation_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-            label: Some("Stray animation"),
-        });
+        let stray_ctx = UniformContext::from_uniform(&uniform, device, "Stray uniform");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Stray layout"),
-            bind_group_layouts: &[&emitter.bg_layout, &animation_layout],
+            bind_group_layouts: &[&emitter.bg_layout, &stray_ctx.bg_layout],
             push_constant_ranges: &[],
         });
 
@@ -197,9 +158,9 @@ impl StrayAnimation {
 
         Self {
             pipeline,
-            bind_group,
+            bind_group: stray_ctx.bg,
             uniform,
-            buffer,
+            buffer: stray_ctx.buf,
             update_uniform: false,
             selected_action: ListAction::None,
             enabled: true,

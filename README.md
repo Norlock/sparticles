@@ -22,13 +22,15 @@ https://github.com/Norlock/sparticles/assets/7510943/b0bfde2b-b44d-40fb-b88d-0c0
 - [ ] Create custom materials
 - [ ] Debug params (to print imports for example)
 - [ ] Improve materials (KHR, HDR)
-- [ ] Async emitters
+- [x] Async emitters
+- [ ] Better events system
+- [ ] Update
 
 ## Gui
 - [x] Show all possible diffuse textures in map
 - [x] Preview mode of textures
-- [ ] Load models from GUI.
-- [ ] Seperate GUI views
+- [x] Load models from GUI.
+- [x] Seperate GUI views
 
 ## Post fx
 - [x] Bloom
@@ -36,8 +38,3 @@ https://github.com/Norlock/sparticles/assets/7510943/b0bfde2b-b44d-40fb-b88d-0c0
 - [ ] Motion blur
 - [ ] Particle trails
 - [ ] Displacement map
-
-morgen:
-
-- widgets splitsen!
-- Import models via GUI
