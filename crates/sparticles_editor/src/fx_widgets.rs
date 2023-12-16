@@ -5,7 +5,8 @@ use sparticles_app::{
         color::UpdateAction,
         BloomFx, ColorFx,
     },
-    gui::egui::{Slider, Ui},
+    gui::egui::{self, Slider, Ui},
+    model::TonemapType,
     traits::PostFx,
 };
 
@@ -15,15 +16,13 @@ impl EditorWidgets {
     pub fn bloom_fx(editor: &mut EditorData, post_fx: &mut Box<dyn PostFx>, ui: &mut Ui) {
         let downcast = post_fx.as_any().downcast_mut::<BloomFx>();
 
-        if let Some(post_fx) = downcast {
-            post_fx.selected_action = editor.create_li_header(ui, "Bloom settings");
+        if let Some(bloom) = downcast {
+            bloom.selected_action = editor.create_li_header(ui, "Bloom settings");
             ui.add_space(5.0);
 
-            ui.add(
-                Slider::new(&mut post_fx.bloom_treshold, 0.0..=10.0).text("Brightness treshold"),
-            );
+            ui.add(Slider::new(&mut bloom.bloom_treshold, 0.0..=10.0).text("Brightness treshold"));
 
-            for (i, up) in post_fx.upscale_passes.iter_mut().enumerate() {
+            for (i, up) in bloom.upscale_passes.iter_mut().enumerate() {
                 let io_uniform = up.blend.io();
                 let text = format!(
                     "IO mix from downscale {} to {}",
@@ -34,7 +33,7 @@ impl EditorWidgets {
                     .add(Slider::new(&mut up.blend_uniform.io_mix, 0.0..=1.0).text(&text))
                     .changed()
                 {
-                    post_fx.update_event = Some(UIAction::UpdateBuffer(i));
+                    bloom.update_event = Some(UIAction::UpdateBuffer(i));
                 }
             }
 
@@ -42,28 +41,58 @@ impl EditorWidgets {
 
             if ui
                 .add(
-                    Slider::new(&mut post_fx.blend_uniform.io_mix, 0.0..=1.0)
+                    Slider::new(&mut bloom.blend_uniform.io_mix, 0.0..=1.0)
                         .text("IO mix bloom to frame"),
                 )
                 .changed()
             {
-                post_fx.update_event = Some(UIAction::UpdateBuffer(post_fx.upscale_passes.len()));
+                bloom.update_event = Some(UIAction::UpdateBuffer(bloom.upscale_passes.len()));
             }
 
             editor.create_title(ui, "Color correction");
 
-            Self::gamma_widget(&mut post_fx.color, ui);
+            Self::gamma_widget(&mut bloom.color, ui);
 
-            ui.checkbox(&mut post_fx.enabled, "Enabled");
+            let color_uniform = &mut bloom.color.color_uniform;
+
+            ui.add_space(6.);
+
+            ui.horizontal_top(|ui| {
+                egui::ComboBox::from_label("tonemapping")
+                    .selected_text(TonemapType::from(color_uniform.tonemap))
+                    .show_ui(ui, |ui| {
+                        let mut tonemap_option = |tonemap_type: TonemapType| {
+                            if ui
+                                .selectable_value(
+                                    &mut color_uniform.tonemap,
+                                    tonemap_type.into(),
+                                    tonemap_type,
+                                )
+                                .changed()
+                            {
+                                bloom.color.update_event = Some(UpdateAction::UpdateBuffer);
+                            }
+                        };
+
+                        tonemap_option(TonemapType::AcesNarkowicz);
+                        tonemap_option(TonemapType::AcesHill);
+                        tonemap_option(TonemapType::Uchimura);
+                        tonemap_option(TonemapType::Lottes);
+                    });
+            });
+
+            ui.add_space(6.);
+
+            ui.checkbox(&mut bloom.enabled, "Enabled");
         }
     }
 
-    pub fn gamma_widget(post_fx: &mut ColorFx, ui: &mut Ui) {
+    pub fn gamma_widget(color_fx: &mut ColorFx, ui: &mut Ui) {
         if ui
-            .add(Slider::new(&mut post_fx.color_uniform.gamma, 0.1..=4.0).text("Gamma"))
+            .add(Slider::new(&mut color_fx.color_uniform.gamma, 0.1..=4.0).text("Gamma"))
             .changed()
         {
-            post_fx.update_event = Some(UpdateAction::UpdateBuffer)
+            color_fx.update_event = Some(UpdateAction::UpdateBuffer)
         }
     }
 

@@ -34,6 +34,23 @@ impl From<TonemapType> for WidgetText {
     }
 }
 
+impl From<u32> for TonemapType {
+    fn from(value: u32) -> Self {
+        match value {
+            1 => TonemapType::AcesHill,
+            2 => TonemapType::Uchimura,
+            3 => TonemapType::Lottes,
+            _ => TonemapType::AcesNarkowicz,
+        }
+    }
+}
+
+impl From<TonemapType> for u32 {
+    fn from(value: TonemapType) -> Self {
+        value as u32
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Camera {

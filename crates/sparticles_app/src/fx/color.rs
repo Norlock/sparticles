@@ -64,6 +64,7 @@ pub struct ColorFxUniform {
     pub gamma: f32,
     pub contrast: f32,
     pub brightness: f32,
+    pub tonemap: u32,
 }
 
 impl ColorFxUniform {
@@ -72,6 +73,7 @@ impl ColorFxUniform {
             gamma: 2.2,
             contrast: 2.5,
             brightness: 0.3,
+            tonemap: 0,
         }
     }
 
@@ -80,6 +82,7 @@ impl ColorFxUniform {
             gamma: 1.0,
             contrast: 2.5,
             brightness: 0.3,
+            tonemap: 0,
         }
     }
 }
