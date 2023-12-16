@@ -15,10 +15,11 @@ impl MenuWidget for PostFxMenu {
     }
 
     fn draw_ui(&self, menu_ctx: &mut MenuCtx) {
-        egui::Window::new("General settings")
+        egui::Window::new("Post FX settings")
             .vscroll(true)
             .default_height(800.)
             .title_bar(false)
+            .default_pos([10., 10.])
             .show(menu_ctx.ctx, |ui| {
                 let MenuCtx {
                     dyn_widgets: widgets,
@@ -33,6 +34,8 @@ impl MenuWidget for PostFxMenu {
                     registered_post_fx,
                     ..
                 } = state;
+
+                data.create_title(ui, "Post FX");
 
                 let effects = &mut post_process.effects;
                 for fx in effects.iter_mut() {

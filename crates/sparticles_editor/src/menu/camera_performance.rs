@@ -17,10 +17,11 @@ impl MenuWidget for CameraPerformanceMenu {
     }
 
     fn draw_ui(&self, menu_ctx: &mut MenuCtx) {
-        egui::Window::new("Camera & Performance")
+        egui::Window::new("Camera & Performance settings")
             .vscroll(true)
             .default_height(800.)
             .title_bar(false)
+            .default_pos([10., 10.])
             .show(menu_ctx.ctx, |ui| {
                 let SparState {
                     clock,
@@ -34,7 +35,8 @@ impl MenuWidget for CameraPerformanceMenu {
                 let data = &mut menu_ctx.emitter_data;
                 let events = &mut menu_ctx.events;
 
-                data.create_title(ui, "Emitter menu");
+                data.create_title(ui, "Camera & Performance");
+
                 // Update gui info
                 if clock.frame() % 20 == 0 && *play {
                     let gfx = &mut task::block_on(gfx.write());
@@ -80,7 +82,13 @@ impl MenuWidget for CameraPerformanceMenu {
                     if ui.button("Toggle pause").clicked() {
                         events.toggle_play = true;
                     }
+                });
 
+                ui.separator();
+
+                ui.add_space(5.0);
+
+                ui.horizontal_top(|ui| {
                     egui::ComboBox::from_label("tonemapping")
                         .selected_text(camera.tonemap_type)
                         .show_ui(ui, |ui| {

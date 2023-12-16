@@ -5,6 +5,7 @@ use menu::{
     declarations::MenuCtx,
     emitter::{EmitterMenu, Tab},
     import::ImportMenu,
+    none::NoneMenu,
     post_fx::PostFxMenu,
     MenuWidget,
 };
@@ -117,10 +118,11 @@ impl WidgetBuilder for Editor {
             VirtualKeyCode::T if !shift_pressed => {
                 events.io_view = Some(ViewIOEvent::Add);
             }
-            VirtualKeyCode::Key1 => data.selected_tab = Tab::EmitterSettings,
-            VirtualKeyCode::Key2 => data.selected_tab = Tab::ModelSettings,
-            VirtualKeyCode::Key3 => data.selected_tab = Tab::ParticleAnimations,
-            VirtualKeyCode::Key4 => data.selected_tab = Tab::EmitterAnimations,
+            VirtualKeyCode::Key1 => data.selected_menu_idx = 1,
+            VirtualKeyCode::Key2 => data.selected_menu_idx = 2,
+            VirtualKeyCode::Key3 => data.selected_menu_idx = 3,
+            VirtualKeyCode::Key4 => data.selected_menu_idx = 4,
+            VirtualKeyCode::Key0 => data.selected_menu_idx = 0,
             //VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
             //VirtualKeyCode::P => gui.performance_event.set(DisplayEvent::ToggleCollapse),
             VirtualKeyCode::F => events.toggle_play = true,
@@ -172,14 +174,6 @@ impl Editor {
         };
 
         self.menus[idx].draw_ui(&mut menu_ctx);
-
-        //egui::Area::new("help")
-        //.anchor(Align2::RIGHT_BOTTOM, [-10., -10.])
-        //.show(ctx, |ui| {
-        //if ui.button(RichText::new("?").size(24.)).clicked() {
-        //println!("juustem");
-        //}
-        //});
     }
 
     pub fn create_label(ui: &mut Ui, text: impl Into<String>) {
@@ -309,8 +303,9 @@ impl Editor {
         };
 
         let menus: Vec<Box<dyn MenuWidget>> = vec![
-            Box::new(ImportMenu),
+            Box::new(NoneMenu),
             Box::new(EmitterMenu),
+            Box::new(ImportMenu),
             Box::new(PostFxMenu),
             Box::new(CameraPerformanceMenu),
         ];

@@ -20,10 +20,14 @@ impl MenuWidget for ImportMenu {
         let gfx = &menu_ctx.state.gfx;
         let mut import_file = None;
 
-        egui::Window::new("General settings")
+        egui::Window::new("Import settings")
             .vscroll(true)
             .default_height(800.)
             .title_bar(false)
+            .default_rect(egui::Rect {
+                min: [10., 10.].into(),
+                max: egui::Pos2::default(),
+            })
             .show(menu_ctx.ctx, |ui| {
                 data.create_title(ui, "Import menu");
 

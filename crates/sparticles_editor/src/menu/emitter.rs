@@ -8,11 +8,7 @@ use sparticles_app::{
         scroll_area::ScrollBarVisibility,
         Color32, Rgba, RichText, Ui,
     },
-    model::{
-        camera::TonemapType, emitter_state::RecreateEmitterOptions, EmitterState, EmitterType,
-        SparState,
-    },
-    profiler::GpuTimerScopeResult,
+    model::{emitter_state::RecreateEmitterOptions, EmitterState, EmitterType, SparState},
     traits::Splitting,
     wgpu,
 };
@@ -35,10 +31,11 @@ impl MenuWidget for EmitterMenu {
     }
 
     fn draw_ui(&self, menu_ctx: &mut MenuCtx) {
-        egui::Window::new("General settings")
+        egui::Window::new("Emitter settings")
             .vscroll(true)
             .default_height(800.)
             .title_bar(false)
+            .default_pos([10., 10.])
             .show(menu_ctx.ctx, |ui| {
                 let SparState {
                     emitters,
@@ -99,8 +96,6 @@ impl MenuWidget for EmitterMenu {
                         data.selected_emitter_idx = 0;
                     }
                 });
-
-                //ui.add_space(6.0);
 
                 ui.separator();
 
