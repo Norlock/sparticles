@@ -58,6 +58,7 @@ impl MenuWidget for CameraPerformanceMenu {
                 Editor::create_label(ui, &data.cpu_time_text);
                 Editor::create_label(ui, &data.total_elapsed_text);
                 Editor::create_label(ui, &data.particle_count_text);
+
                 ui.separator();
 
                 egui::CollapsingHeader::new("Performance")

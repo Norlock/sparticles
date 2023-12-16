@@ -5,7 +5,7 @@ use crate::{
     util::ListAction,
 };
 use async_std::sync::RwLock;
-use egui_wgpu::wgpu;
+use egui_wgpu::wgpu::{self, CommandEncoder};
 use egui_winit::winit::event::KeyboardInput;
 use std::{any::Any, num::NonZeroU64, slice::IterMut, sync::Arc};
 
@@ -15,10 +15,6 @@ pub trait FromRGB {
 
 pub trait FromRGBA {
     fn from_rgba(r: u8, g: u8, b: u8, a: u8) -> Self;
-}
-
-pub trait CreateGui {
-    fn create_gui(&self, app_state: &mut SparState);
 }
 
 pub trait ToVecF32 {
@@ -73,14 +69,19 @@ pub trait ParticleAnimation: HandleAction {
 }
 
 pub trait WidgetBuilder {
-    fn id(&self) -> &'static str;
-
     fn process_input(
         &mut self,
         events: &mut SparEvents,
         input: &KeyboardInput,
         shift_pressed: bool,
     ) -> bool;
+
+    fn draw_gui(
+        &mut self,
+        state: &mut SparState,
+        events: &mut SparEvents,
+        encoder: &mut CommandEncoder,
+    );
 }
 
 pub trait EmitterAnimation: HandleAction {

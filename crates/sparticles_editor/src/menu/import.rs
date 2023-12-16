@@ -24,10 +24,7 @@ impl MenuWidget for ImportMenu {
             .vscroll(true)
             .default_height(800.)
             .title_bar(false)
-            .default_rect(egui::Rect {
-                min: [10., 10.].into(),
-                max: egui::Pos2::default(),
-            })
+            .default_pos([10., 10.])
             .show(menu_ctx.ctx, |ui| {
                 data.create_title(ui, "Import menu");
 

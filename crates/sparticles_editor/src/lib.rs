@@ -93,10 +93,6 @@ const MENU_ID: &str = "menu";
 pub const WINDOW_MARGIN: f32 = 10.;
 
 impl WidgetBuilder for Editor {
-    fn id(&self) -> &'static str {
-        "editor"
-    }
-
     fn process_input(
         &mut self,
         events: &mut SparEvents,
@@ -131,10 +127,8 @@ impl WidgetBuilder for Editor {
 
         true
     }
-}
 
-impl Editor {
-    pub fn draw_gui(
+    fn draw_gui(
         &mut self,
         state: &mut SparState,
         events: &mut SparEvents,
@@ -175,7 +169,9 @@ impl Editor {
 
         self.menus[idx].draw_ui(&mut menu_ctx);
     }
+}
 
+impl Editor {
     pub fn create_label(ui: &mut Ui, text: impl Into<String>) {
         ui.label(RichText::new(text).color(Color32::WHITE));
         ui.add_space(5.0);

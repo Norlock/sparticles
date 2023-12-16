@@ -13,3 +13,6 @@ path = "src/main.rs"
 glam = "0.24.2"
 sparticles_app = { path = "../sparticles_app" }
 sparticles_editor = { path = "../sparticles_editor" }
+
+[features]
+editor = []

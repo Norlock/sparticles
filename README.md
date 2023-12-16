@@ -1,6 +1,17 @@
 # Sparticles
 GPU Particle system written in Rust + WGPU + EGUI
 
+## Run the game 
+With editor:
+```shell
+cargo run --release --features editor
+```
+
+Without:
+```shell
+cargo run --release
+```
+
 ## Showcase
 
 https://github.com/Norlock/sparticles/assets/7510943/b0bfde2b-b44d-40fb-b88d-0c0e979627ab

@@ -18,22 +18,26 @@ use sparticles_app::{
 };
 use sparticles_editor::Editor;
 use std::{
+    collections::HashMap,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
 
 struct GameState {
-    editor: Option<Editor>,
+    guis: HashMap<&'static str, Box<dyn WidgetBuilder>>,
 }
 
 impl GameState {
     fn new() -> Self {
-        Self { editor: None }
+        Self {
+            guis: HashMap::new(),
+        }
     }
 }
 
 const LIGHT_ID: &str = "Light";
 const PARTICLE_ID: &str = "Particles";
+const GUI_EDITOR: &str = "editor";
 
 impl AppVisitor for GameState {
     fn data_source(&self) -> DataSource {
@@ -53,15 +57,11 @@ impl AppVisitor for GameState {
         emitter.spawn_delay_sec = 2.0;
 
         emitter.mesh = MeshRef {
-            //collection_id: "drone.glb".to_string(),
-            //mesh_id: "RetopoGroup2".to_string(),
             collection_id: "StarSparrow.glb".to_string(),
             mesh_id: "Mesh.001".to_string(),
         };
 
         emitter.material = MaterialRef {
-            //collection_id: "drone.glb".to_string(),
-            //material_id: "Material.001".to_string(),
             collection_id: "StarSparrow.glb".to_string(),
             material_id: "StarSparrowRed".to_string(),
         };
@@ -78,14 +78,19 @@ impl AppVisitor for GameState {
         encoder: &mut CommandEncoder,
     ) -> sparticles_app::model::SparEvents {
         let mut events = SparEvents::default();
-        let editor = self.editor.as_mut().unwrap();
 
-        editor.draw_gui(state, &mut events, encoder);
+        #[cfg(feature = "editor")]
+        self.guis
+            .get_mut(GUI_EDITOR)
+            .map(|gui| gui.draw_gui(state, &mut events, encoder));
+
         events
     }
 
     fn add_widget_builders(&mut self, state: &mut SparState) {
-        self.editor = Some(Editor::new(state, self.model_dir()));
+        #[cfg(feature = "editor")]
+        self.guis
+            .insert(GUI_EDITOR, Box::new(Editor::new(state, self.model_dir())));
     }
 
     fn process_events(
@@ -94,8 +99,10 @@ impl AppVisitor for GameState {
         input: &KeyboardInput,
         shift_pressed: bool,
     ) {
-        let editor = self.editor.as_mut().unwrap();
-        editor.process_input(events, input, shift_pressed);
+        #[cfg(feature = "editor")]
+        self.guis
+            .get_mut(GUI_EDITOR)
+            .map(|gui| gui.process_input(events, input, shift_pressed));
     }
 
     fn add_emitter_anim(&self, emitter: &mut EmitterState) {

@@ -72,14 +72,14 @@ pub trait AppVisitor {
     /// If you want to add through code use this function otherwise use gui
     fn add_post_fx(&self, options: &FxOptions, effects: &mut Vec<Box<dyn PostFx>>) {}
 
-    /// If you want your animations available in the gui add to registry
+    /// If you want your animations available in the gui add to the registry
     fn register_particle_animations(&self, registry: &mut Vec<Box<dyn RegisterParticleAnimation>>) {
     }
 
-    /// If you want your animations available in the gui add to registry
+    /// If you want your animations available in the gui add to the registry
     fn register_emitter_animations(&self, registry: &mut Vec<Box<dyn RegisterEmitterAnimation>>) {}
 
-    /// If you want your post FX available in the gui add to registry
+    /// If you want your post FX available in the gui add to the registry
     fn register_post_fx(&self, registry: &mut Vec<Box<dyn RegisterPostFx>>) {}
 }
 
