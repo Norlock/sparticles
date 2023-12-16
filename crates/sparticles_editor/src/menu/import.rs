@@ -25,8 +25,9 @@ impl MenuWidget for ImportMenu {
             .default_height(800.)
             .title_bar(false)
             .show(menu_ctx.ctx, |ui| {
-                let coll = task::block_on(collection.write());
                 data.create_title(ui, "Import menu");
+
+                let coll = task::block_on(collection.write());
 
                 for file in data.model_files.iter() {
                     let filename = file.file_name().unwrap().to_str().unwrap();

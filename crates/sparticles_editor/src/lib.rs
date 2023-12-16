@@ -1,9 +1,11 @@
 pub use crate::pa_widgets::EditorWidgets;
 use async_std::task;
 use menu::{
+    camera_performance::CameraPerformanceMenu,
     declarations::MenuCtx,
-    general::{GeneralMenu, Tab},
+    emitter::{EmitterMenu, Tab},
     import::ImportMenu,
+    post_fx::PostFxMenu,
     MenuWidget,
 };
 use sparticles_app::{
@@ -17,7 +19,9 @@ use sparticles_app::{
         egui::{self},
         winit::event::{ElementState, KeyboardInput, VirtualKeyCode},
     },
-    model::{events::ViewIOEvent, EmitterSettings, GfxState, SparEvents, SparState},
+    model::{
+        events::ViewIOEvent, EmitterSettings, EmitterUniform, GfxState, SparEvents, SparState,
+    },
     profiler::GpuTimerScopeResult,
     texture::IconTexture,
     traits::{EmitterAnimation, ParticleAnimation, PostFx, WidgetBuilder},
@@ -114,7 +118,7 @@ impl WidgetBuilder for Editor {
                 events.io_view = Some(ViewIOEvent::Add);
             }
             VirtualKeyCode::Key1 => data.selected_tab = Tab::EmitterSettings,
-            VirtualKeyCode::Key2 => data.selected_tab = Tab::PostFxSettings,
+            VirtualKeyCode::Key2 => data.selected_tab = Tab::ModelSettings,
             VirtualKeyCode::Key3 => data.selected_tab = Tab::ParticleAnimations,
             VirtualKeyCode::Key4 => data.selected_tab = Tab::EmitterAnimations,
             //VirtualKeyCode::C => gui.display_event.set(DisplayEvent::ToggleCollapse),
@@ -169,13 +173,13 @@ impl Editor {
 
         self.menus[idx].draw_ui(&mut menu_ctx);
 
-        egui::Area::new("help")
-            .anchor(Align2::RIGHT_BOTTOM, [-10., -10.])
-            .show(ctx, |ui| {
-                if ui.button(RichText::new("?").size(24.)).clicked() {
-                    println!("juustem");
-                }
-            });
+        //egui::Area::new("help")
+        //.anchor(Align2::RIGHT_BOTTOM, [-10., -10.])
+        //.show(ctx, |ui| {
+        //if ui.button(RichText::new("?").size(24.)).clicked() {
+        //println!("juustem");
+        //}
+        //});
     }
 
     pub fn create_label(ui: &mut Ui, text: impl Into<String>) {
@@ -304,7 +308,12 @@ impl Editor {
             model_files,
         };
 
-        let menus: Vec<Box<dyn MenuWidget>> = vec![Box::new(ImportMenu), Box::new(GeneralMenu)];
+        let menus: Vec<Box<dyn MenuWidget>> = vec![
+            Box::new(ImportMenu),
+            Box::new(EmitterMenu),
+            Box::new(PostFxMenu),
+            Box::new(CameraPerformanceMenu),
+        ];
 
         let dyn_widgets = DynamicWidgets {
             pa_widgets,
@@ -336,6 +345,16 @@ impl EditorData {
     pub fn create_title(&self, ui: &mut Ui, str: &str) {
         ui.label(RichText::new(str).color(Color32::WHITE).size(16.0));
         ui.add_space(5.0);
+    }
+
+    pub fn sync_emitter_settings(&mut self, uniform: &EmitterUniform) {
+        if let Some(emitter_settings) = &mut self.emitter_settings {
+            if uniform.id != emitter_settings.id {
+                *emitter_settings = uniform.create_settings();
+            }
+        } else {
+            self.emitter_settings = Some(uniform.create_settings());
+        }
     }
 
     /// Creates list item header

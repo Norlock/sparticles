@@ -10,7 +10,7 @@ pub mod material;
 pub mod mesh;
 pub mod state;
 
-pub use camera::Camera;
+pub use camera::{Camera, TonemapType};
 pub use clock::Clock;
 pub use emitter::{Boundry, EmitterSettings, EmitterUniform, MaterialRef, MeshRef};
 pub use emitter_state::{CreateEmitterOptions, EmitterState, EmitterType};

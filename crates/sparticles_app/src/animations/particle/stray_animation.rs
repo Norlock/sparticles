@@ -1,5 +1,3 @@
-use std::{any::Any, num::NonZeroU64};
-
 use crate::{
     model::{Clock, EmitterState, GfxState},
     shaders::ShaderOptions,
@@ -10,6 +8,7 @@ use crate::{
 use egui_wgpu::wgpu;
 use encase::ShaderType;
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 
 #[derive(ShaderType, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct StrayUniform {
