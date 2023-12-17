@@ -1,3 +1,6 @@
+/// Documentation:
+/// https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos
+/// https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_009_Meshes.model
 use crate::model::emitter_state::FsEntryPoint;
 use crate::model::material::MaterialCtx;
 use crate::model::{GfxState, Material, Mesh, ModelVertex};
@@ -181,6 +184,8 @@ impl Model {
             let normal_s: wgpu::Sampler;
             let emissive_tex: wgpu::Texture;
             let emissive_s: wgpu::Sampler;
+            let emissive_factor: glam::Vec3;
+            let emissive_strength: f32;
             let ao_tex: wgpu::Texture;
             let ao_s: wgpu::Sampler;
             let cull_mode = Some(wgpu::Face::Back);
@@ -227,24 +232,24 @@ impl Model {
                 normal_s = gfx.create_sampler();
             }
 
+            emissive_factor = material.emissive_factor().into();
+
             if let Some(tex_data) = material.emissive_texture() {
                 let tex = tex_data.texture();
                 emissive_tex = fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
                 emissive_s = fetch_sampler(tex.sampler(), gfx).await;
-
-                if let Some(strenght) = material.emissive_strength() {
-                    println!("Strength: {}", strenght);
-                    // TODO with khr
-                }
                 println!("contains emissive_tex");
             } else {
                 let gfx = &gfx.read().await;
-                let vec3: glam::Vec3 = material.emissive_factor().into();
-                emissive_tex = gfx.create_builtin_tex(TexType::Custom {
-                    srgb: true,
-                    value: vec3.extend(0.),
-                });
+                emissive_tex = gfx.create_builtin_tex(TexType::Black);
                 emissive_s = gfx.create_sampler();
+            }
+
+            if let Some(strength) = material.emissive_strength() {
+                emissive_strength = strength;
+                println!("Strength: {strength}");
+            } else {
+                emissive_strength = 1.;
             }
 
             if let Some(tex_data) = material.occlusion_texture() {
@@ -274,6 +279,8 @@ impl Model {
                         albedo_s,
                         emissive_tex,
                         emissive_s,
+                        emissive_factor,
+                        emissive_strength,
                         metallic_roughness_tex,
                         metallic_roughness_s,
                         normal_tex,
@@ -288,6 +295,12 @@ impl Model {
         }
 
         let mut meshes: HashMap<ID, Mesh> = HashMap::new();
+
+        //for anim in gltf.animations() {
+        //for channel in anim.channels() {
+        //channel.reader(|buffer| Some(&buffer[buffer.index()]));
+        //}
+        //}
 
         for scene in gltf.scenes() {
             for node in scene.nodes() {

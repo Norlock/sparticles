@@ -48,7 +48,7 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
     let metallic = metallic_roughness.r;
     let roughness = metallic_roughness.g;
     let ao = textureSample(ao_tex, ao_s, in.uv).r;
-    let emissive = pow(textureSample(emissive_tex, emissive_s, in.uv).rgb, vec3(2.2));
+    let emissive = mat_globals.emissive_factor * srgb_to_linear(textureSample(emissive_tex, emissive_s, in.uv)).rgb * mat_globals.emissive_strength;
 
     let F0 = mix(vec3(0.04), albedo, metallic);
     let V = normalize(camera.position.xyz - in.world_pos);

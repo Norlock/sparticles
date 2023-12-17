@@ -1,3 +1,5 @@
+use std::num::NonZeroU64;
+
 use super::{gfx_state::GfxState, SparEvents, SparState};
 use egui_wgpu::wgpu;
 use egui_winit::{
@@ -124,7 +126,7 @@ impl Camera {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: NonZeroU64::new(buffer.size()),
                 },
                 count: None,
             }],

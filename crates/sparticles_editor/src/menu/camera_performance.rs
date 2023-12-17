@@ -85,6 +85,8 @@ impl MenuWidget for CameraPerformanceMenu {
                     }
                 });
 
+                ui.add_space(5.0);
+
                 ui.separator();
 
                 ui.add_space(5.0);

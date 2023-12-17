@@ -2,10 +2,14 @@
 @group(2) @binding(0) var<storage, read> particles: array<Particle>;
 @group(2) @binding(2) var<uniform> em: Emitter; 
 
-
 struct FragmentOutput {
     @location(0) color: vec4<f32>,
     @location(1) split: vec4<f32>,
+}
+
+struct MaterialUniform {
+    emissive_strength: f32,
+    emissive_factor: vec3<f32>,
 }
 
 @group(1) @binding(0) var albedo_tex: texture_2d<f32>;
@@ -19,6 +23,7 @@ struct FragmentOutput {
 @group(1) @binding(7) var emissive_s: sampler;
 @group(1) @binding(8) var ao_tex: texture_2d<f32>;
 @group(1) @binding(9) var ao_s: sampler;
+@group(1) @binding(10) var<uniform> mat_globals: MaterialUniform;
 
 fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);

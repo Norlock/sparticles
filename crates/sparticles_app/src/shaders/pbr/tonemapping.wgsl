@@ -35,7 +35,6 @@ fn srgb_to_linear(srgbIn: vec4<f32>) -> vec4<f32> {
     return vec4(pow(srgbIn.xyz, vec3(GAMMA)), srgbIn.w);
 }
 
-
 fn aces_narkowicz(col: vec3<f32>) -> vec3<f32> {
     let a = 2.51f;
     let b = 0.03f;

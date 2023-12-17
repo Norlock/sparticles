@@ -1,12 +1,26 @@
 use super::GfxState;
-use crate::{loader::CIRCLE_MAT_ID, texture::TexType, traits::CreateFxView, util::ID};
-use egui_wgpu::wgpu;
-use std::collections::HashMap;
+use crate::{
+    loader::CIRCLE_MAT_ID,
+    texture::TexType,
+    traits::{BufferContent, CreateFxView},
+    util::ID,
+};
+use egui_wgpu::wgpu::{self, util::DeviceExt};
+use encase::ShaderType;
+use std::{collections::HashMap, num::NonZeroU64};
 
 pub struct Material {
     pub ctx: MaterialCtx,
     pub bg: wgpu::BindGroup,
     pub bg_layout: wgpu::BindGroupLayout,
+    pub uniform: MaterialUniform,
+    pub buf: wgpu::Buffer,
+}
+
+#[derive(ShaderType, Clone, Copy)]
+pub struct MaterialUniform {
+    pub emissive_strength: f32,
+    pub emissive_factor: glam::Vec3,
 }
 
 pub struct MaterialCtx {
@@ -18,6 +32,8 @@ pub struct MaterialCtx {
     pub normal_s: wgpu::Sampler,
     pub emissive_tex: wgpu::Texture,
     pub emissive_s: wgpu::Sampler,
+    pub emissive_strength: f32,
+    pub emissive_factor: glam::Vec3,
     pub ao_tex: wgpu::Texture,
     pub ao_s: wgpu::Sampler,
     pub cull_mode: Option<wgpu::Face>,
@@ -52,6 +68,8 @@ impl Material {
                     normal_s,
                     emissive_tex,
                     emissive_s,
+                    emissive_factor: glam::Vec3::ONE,
+                    emissive_strength: 1.0,
                     ao_tex,
                     ao_s,
                     cull_mode: Some(wgpu::Face::Back),
@@ -87,6 +105,31 @@ impl Material {
                 count: None,
             });
         }
+
+        // Material Uniform
+        let uniform = MaterialUniform {
+            emissive_strength: ctx.emissive_strength,
+            emissive_factor: ctx.emissive_factor,
+        };
+
+        let buffer_content = uniform.buffer_content();
+
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Material uniform"),
+            contents: &buffer_content,
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+
+        entries.push(wgpu::BindGroupLayoutEntry {
+            binding: 10,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: NonZeroU64::new(uniform_buffer.size()),
+            },
+            count: None,
+        });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &entries,
@@ -142,6 +185,10 @@ impl Material {
                     binding: 9,
                     resource: wgpu::BindingResource::Sampler(&ctx.ao_s),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 10,
+                    resource: uniform_buffer.as_entire_binding(),
+                },
             ],
             label: None,
         });
@@ -150,6 +197,8 @@ impl Material {
             ctx,
             bg: bind_group,
             bg_layout: bind_group_layout,
+            uniform,
+            buf: uniform_buffer,
         }
     }
 }
