@@ -71,6 +71,7 @@ impl IconTexture {
 
 impl GfxState {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+    pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
     pub fn aspect(&self) -> f32 {
         self.surface_config.width as f32 / self.surface_config.height as f32
@@ -130,7 +131,7 @@ impl GfxState {
                 sample_count: 1,
                 view_formats: &[],
                 dimension: wgpu::TextureDimension::D2,
-                format: PostProcessState::TEXTURE_FORMAT,
+                format: Self::TEXTURE_FORMAT,
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                     | wgpu::TextureUsages::TEXTURE_BINDING
                     | wgpu::TextureUsages::STORAGE_BINDING,
@@ -147,7 +148,7 @@ impl GfxState {
                 sample_count: 1,
                 view_formats: &[],
                 dimension: wgpu::TextureDimension::D2,
-                format: PostProcessState::TEXTURE_FORMAT,
+                format: Self::TEXTURE_FORMAT,
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                     | wgpu::TextureUsages::TEXTURE_BINDING
                     | wgpu::TextureUsages::STORAGE_BINDING,

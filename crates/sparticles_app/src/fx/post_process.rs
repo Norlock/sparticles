@@ -24,8 +24,6 @@ pub struct PostProcessState {
 }
 
 impl PostProcessState {
-    pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
-
     pub fn resize(&mut self, gfx_state: &GfxState) {
         self.fx_state = FxState::new(gfx_state);
 
@@ -295,7 +293,7 @@ impl FxState {
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::StorageTexture {
                     view_dimension: wgpu::TextureViewDimension::D2,
-                    format: PostProcessState::TEXTURE_FORMAT,
+                    format: GfxState::TEXTURE_FORMAT,
                     access: wgpu::StorageTextureAccess::ReadWrite,
                 },
                 count: NonZeroU32::new(array_count),

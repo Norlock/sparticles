@@ -36,7 +36,7 @@ fn hash33(p3a: vec3<f32>) -> vec3<f32> {
     return -1.0 + 2.0 * fract(vec3((p3.x + p3.y) * p3.z, (p3.x + p3.z) * p3.y, (p3.y + p3.z) * p3.x));
 }
 
-fn perlin_noise(p: vec3<f32>) -> f32 {
+fn perlin_noise_worley(p: vec3<f32>) -> f32 {
     let pi = floor(p);
     let pf = p - pi;
 
@@ -73,7 +73,7 @@ fn create_layers(v_pos: vec2<f32>, normal: f32, idxa: f32, time: f32) -> vec3<f3
 
     for (var i = 0; i < 5; i++) {
         let rotation = pitch_matrix(time * 0.1) * roll_matrix(time * -0.05);
-        var noise = perlin_noise(rotation * vec3<f32>(v_pos.xy * scale, idx + time * 0.04));
+        var noise = perlin_noise_worley(rotation * vec3<f32>(v_pos.xy * scale, idx + time * 0.04));
 
         sum += vec3<f32>(noise) * amp * normal;
         amp *= 0.9;
@@ -81,4 +81,94 @@ fn create_layers(v_pos: vec2<f32>, normal: f32, idxa: f32, time: f32) -> vec3<f3
     }
 
     return sum;
+}
+
+
+fn hash21(p: vec2<f32>) -> f32 {
+    let h = dot(p, vec2(127.1, 311.7));
+
+    return  -1. + 2. * fract(sin(h) * 43758.5453123);
+}
+
+fn hash22(pa: vec2<f32>) -> vec2<f32> {
+    var p = pa * mat2x2<f32>(vec2(127.1, 311.7), vec2(269.5, 183.3));
+    p = -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+    //return sin(p * 6.283 + iTime); // todo time
+    return sin(p * 6.283); // todo time
+}
+
+fn perlin_noise(p: vec2<f32>) -> f32 {
+    var pi = floor(p);
+    var pf = p - pi;
+
+    var w = pf * pf * (3. - 2. * pf);
+
+    var f00 = dot(hash22(pi + vec2(.0, .0)), pf - vec2(.0, .0));
+    var f01 = dot(hash22(pi + vec2(.0, 1.)), pf - vec2(.0, 1.));
+    var f10 = dot(hash22(pi + vec2(1.0, 0.)), pf - vec2(1.0, 0.));
+    var f11 = dot(hash22(pi + vec2(1.0, 1.)), pf - vec2(1.0, 1.));
+
+    var xm1 = mix(f00, f10, w.x);
+    var xm2 = mix(f01, f11, w.x);
+    var ym = mix(xm1, xm2, w.y);
+    return ym;
+}
+
+fn noise_sum(pa: vec2<f32>) -> f32 {
+    var p = pa * 4.;
+    var a = 1.;
+    var r = 0.;
+    var s = 0.;
+
+    for (var i = 0; i < 5; i++) {
+        r += a * perlin_noise(p);
+        s += a;
+        p *= 2.;
+        a *= .5;
+    }
+
+    return r / s;
+}
+
+fn noise_sum_abs(pa: vec2<f32 >) -> f32 {
+    var p = pa * 4.;
+    var a = 1.;
+    var r = 0.;
+    var s = 0.;
+
+    for (var i = 0; i < 5; i++) {
+        r += a * abs(perlin_noise(p));
+        s += a;
+        p *= 2.;
+        a *= .5;
+    }
+
+    return (r / s - .135) / (.06 * 3.);
+}
+
+fn noise_sum_abs_sin(pa: vec2<f32>) -> f32 {
+    var p = pa * 7.0 / 4.0;
+    var f = noise_sum_abs(p);
+    f = sin(f * 1.5 + p.x * 4.0);
+
+    return f * f;
+}
+
+fn noise_one_octave(p: vec2<f32>) -> f32 {
+    var r = 0.0;
+    r += 0.125 * abs(perlin_noise(p * 30.));
+    return r;
+}
+
+fn noise(p: vec2<f32 >) -> f32 {
+
+	//#ifdef marble
+    //return noise_sum_abs_sin(p);
+    //#elif defined turbulence
+    return noise_sum_abs(p);
+    //#elif defined granite
+    //return noise_one_octave(p);
+    //#elif defined cloud
+    //return noise_sum(p);
+    //#endif
 }

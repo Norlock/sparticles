@@ -4,7 +4,7 @@ use std::{borrow::Cow, fs, path::PathBuf};
 
 pub const SDR_PBR: &str = "pbr/pbr.wgsl";
 pub const SDR_TONEMAPPING: &str = "pbr/tonemapping.wgsl";
-pub const DECLARATIONS: &str = "declarations.wgsl";
+pub const SDR_DECLARATIONS: &str = "declarations.wgsl";
 pub const DIR_HAS_LIGHTS: &str = "HAS_LIGHTS";
 
 pub struct ShaderLocation<'a> {
@@ -46,7 +46,7 @@ impl GfxState {
     pub fn create_shader_builtin(&self, options: ShaderOptions) -> wgpu::ShaderModule {
         let device = &self.device;
         let mut shader_str = String::new();
-        let all_files = [&["declarations.wgsl"], options.files].concat();
+        let all_files = [&[SDR_DECLARATIONS], options.files].concat();
 
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("src/shaders/dummy.txt");
@@ -74,6 +74,7 @@ impl GfxState {
         label: &str,
     ) -> wgpu::ShaderModule {
         let device = &self.device;
+
         let mut shader_str = include_str!("declarations.wgsl").to_string();
 
         for mut sdr_location in sdr_locations {

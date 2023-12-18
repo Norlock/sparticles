@@ -1,10 +1,9 @@
-use std::sync::Arc;
-
 use super::state::SparState;
 use super::EmitterState;
 use super::SparEvents;
 use crate::fx::PostProcessState;
 use crate::init::AppVisitor;
+use crate::terrain::TerrainGenerator;
 use async_std::sync::RwLock;
 use async_std::task;
 use egui_wgpu::renderer::ScreenDescriptor;
@@ -23,6 +22,7 @@ use egui_winit::egui::TextureId;
 use egui_winit::winit;
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::EventResponse;
+use std::sync::Arc;
 use wgpu_profiler::GpuProfiler;
 use wgpu_profiler::GpuProfilerSettings;
 use wgpu_profiler::GpuTimerScopeResult;
@@ -328,7 +328,10 @@ impl GfxState {
         }
     }
 
-    pub async fn render(state: &mut SparState, app_visitor: &mut impl AppVisitor) -> SparEvents {
+    pub async fn compute_and_render(
+        state: &mut SparState,
+        app_visitor: &mut impl AppVisitor,
+    ) -> SparEvents {
         let mut encoder: CommandEncoder;
         let output_view: wgpu::TextureView;
         let output_frame: wgpu::SurfaceTexture;
@@ -361,8 +364,9 @@ impl GfxState {
             EmitterState::compute_particles(state, &mut encoder).await;
         }
 
-        EmitterState::render_particles(state, &mut encoder).await;
-        PostProcessState::compute(state, &mut encoder).await;
+        TerrainGenerator::render(state, &mut encoder);
+        //EmitterState::render_particles(state, &mut encoder).await;
+        //PostProcessState::compute(state, &mut encoder).await;
         let res = GfxState::draw_ui(state, &mut encoder, app_visitor).await;
         PostProcessState::render(state, output_view, &mut encoder, &res.primitives).await;
 

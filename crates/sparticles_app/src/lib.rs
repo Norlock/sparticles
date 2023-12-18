@@ -21,6 +21,7 @@ pub mod init;
 pub mod loader;
 pub mod model;
 pub mod shaders;
+pub mod terrain;
 pub mod texture;
 pub mod traits;
 pub mod util;
@@ -50,7 +51,7 @@ pub fn start(mut app_visitor: impl AppVisitor + 'static) {
         match event {
             RedrawRequested(window_id) if do_exec(window_id) => {
                 task::block_on(state.update(&events));
-                events = task::block_on(GfxState::render(&mut state, &mut app_visitor));
+                events = task::block_on(GfxState::compute_and_render(&mut state, &mut app_visitor));
             }
             MainEventsCleared => {
                 let gfx = task::block_on(state.gfx.read());

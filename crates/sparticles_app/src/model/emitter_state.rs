@@ -1,7 +1,6 @@
 use super::gfx_state::Profiler;
 use super::state::FastFetch;
 use super::{Camera, EmitterUniform, GfxState, Material, Mesh, ModelVertex, SparEvents, SparState};
-use crate::fx::PostProcessState;
 use crate::loader::{Model, BUILTIN_ID};
 use crate::shaders::{ShaderOptions, SDR_PBR, SDR_TONEMAPPING};
 use crate::traits::{EmitterAnimation, ParticleAnimation};
@@ -148,7 +147,7 @@ impl EmitterState {
         }
     }
 
-    pub async fn compute_particles(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
+    pub async fn compute_particles(state: &SparState, encoder: &mut wgpu::CommandEncoder) {
         let SparState {
             clock,
             emitters,
@@ -187,7 +186,7 @@ impl EmitterState {
         Profiler::end_scope(gfx, &mut c_pass).await;
     }
 
-    pub async fn render_particles(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
+    pub async fn render_particles(state: &SparState, encoder: &mut wgpu::CommandEncoder) {
         let pp = &state.post_process;
         let collection = &state.collection.read().await;
 
@@ -198,7 +197,7 @@ impl EmitterState {
                     view: pp.frame_view(),
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
                     },
                 }),
@@ -585,12 +584,12 @@ impl EmitterState {
                 entry_point: &fs_entry_point,
                 targets: &[
                     Some(wgpu::ColorTargetState {
-                        format: PostProcessState::TEXTURE_FORMAT,
+                        format: GfxState::TEXTURE_FORMAT,
                         blend: Some(wgpu::BlendState::REPLACE),
                         write_mask: wgpu::ColorWrites::ALL,
                     }),
                     Some(wgpu::ColorTargetState {
-                        format: PostProcessState::TEXTURE_FORMAT,
+                        format: GfxState::TEXTURE_FORMAT,
                         blend: Some(wgpu::BlendState::REPLACE),
                         write_mask: wgpu::ColorWrites::COLOR,
                     }),

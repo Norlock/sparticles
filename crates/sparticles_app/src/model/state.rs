@@ -4,6 +4,7 @@ use super::{
 use crate::fx::PostProcessState;
 use crate::init::{AppVisitor, Init};
 use crate::loader::Model;
+use crate::terrain::TerrainGenerator;
 use crate::traits::*;
 use crate::util::ID;
 use async_std::sync::RwLock;
@@ -24,6 +25,7 @@ pub struct SparState {
     pub registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
     pub registry_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
     pub registered_post_fx: Vec<Box<dyn RegisterPostFx>>,
+    pub terrain_generator: TerrainGenerator,
 }
 
 pub trait FastFetch {
@@ -81,7 +83,6 @@ impl SparState {
     pub async fn new(init: &mut impl AppVisitor, window: Window) -> Self {
         let gfx = GfxState::new(window).await;
         let clock = Clock::default();
-
         let camera = Camera::new(&gfx);
         let builtin = Model::load_builtin(&gfx);
 
@@ -90,6 +91,7 @@ impl SparState {
 
         collection.insert(builtin.id.to_string(), builtin);
 
+        let terrain_generator = TerrainGenerator::new(&gfx, &camera).await;
         let gfx = Arc::new(RwLock::new(gfx));
         let collection = Arc::new(RwLock::new(collection));
 
@@ -106,6 +108,7 @@ impl SparState {
             registered_post_fx: init_settings.registry_post_fx,
             collection,
             play: true,
+            terrain_generator,
         };
 
         init.add_widget_builders(&mut state);
