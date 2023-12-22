@@ -362,9 +362,10 @@ impl GfxState {
 
         if state.play {
             EmitterState::compute_particles(state, &mut encoder).await;
+            TerrainGenerator::update(state).await;
         }
 
-        TerrainGenerator::render(state, &mut encoder);
+        TerrainGenerator::compute(state, &mut encoder);
         //EmitterState::render_particles(state, &mut encoder).await;
         //PostProcessState::compute(state, &mut encoder).await;
         let res = GfxState::draw_ui(state, &mut encoder, app_visitor).await;

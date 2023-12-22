@@ -75,6 +75,11 @@ fn random(input: f32, elapsed_sec: f32) -> f32 {
     return fract(sin(dot(value, vec2<f32>(12.9898, 78.233))) * 43758.5453);
 }
 
+fn random_v2(st: vec2<f32>) -> f32 {
+    return fract(sin(dot(st.xy,
+        vec2(12.9898, 78.233))) * 43758.5453123);
+}
+
 fn gen_abs_range(unique: f32, value: f32, elapsed_sec: f32) -> f32 {
     return abs(random(unique, elapsed_sec)) * value;
 }

@@ -1,5 +1,7 @@
 use std::num::NonZeroU64;
 
+use crate::traits::BufferContent;
+
 use super::{gfx_state::GfxState, SparEvents, SparState};
 use egui_wgpu::wgpu;
 use egui_winit::{
@@ -288,17 +290,14 @@ impl Camera {
         let view_mat = self.view_mat();
         let view_proj = self.view_proj(&view_mat);
 
-        let uniform = CameraUniform {
+        CameraUniform {
             view_proj,
             view: view_mat,
             position: self.position,
             bloom_treshold: self.bloom_treshold,
             tonemap: self.tonemap_type as u32,
-        };
-
-        let mut buffer = UniformBuffer::new(vec![]);
-        buffer.write(&uniform).unwrap();
-        buffer.into_inner()
+        }
+        .buffer_content()
     }
 
     pub fn view_mat(&self) -> Mat4 {

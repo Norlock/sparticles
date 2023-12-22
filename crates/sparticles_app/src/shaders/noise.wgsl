@@ -130,7 +130,7 @@ fn noise_sum(pa: vec2<f32>) -> f32 {
     return r / s;
 }
 
-fn noise_sum_abs(pa: vec2<f32 >) -> f32 {
+fn noise_sum_abs(pa: vec2<f32>) -> f32 {
     var p = pa * 4.;
     var a = 1.;
     var r = 0.;
@@ -160,15 +160,15 @@ fn noise_one_octave(p: vec2<f32>) -> f32 {
     return r;
 }
 
-fn noise(p: vec2<f32 >) -> f32 {
-
+fn noise(pa: vec2<f32>) -> f32 {
+    var p = pa;
 	//#ifdef marble
-    //return noise_sum_abs_sin(p);
+    p.x = noise_sum_abs_sin(p);
     //#elif defined turbulence
-    return noise_sum_abs(p);
+    p.y = noise_sum_abs(p);
     //#elif defined granite
-    //return noise_one_octave(p);
+    p.x = noise_one_octave(p);
     //#elif defined cloud
-    //return noise_sum(p);
+    return noise_sum(p);
     //#endif
 }

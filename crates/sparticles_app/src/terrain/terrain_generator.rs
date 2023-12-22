@@ -1,108 +1,125 @@
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use encase::ShaderType;
-use std::num::NonZeroU64;
 
 use crate::{
     model::{Camera, GfxState, SparState},
     shaders::{ShaderOptions, SDR_TONEMAPPING},
-    traits::BufferContent,
+    traits::{BufferContent, CreateFxView},
 };
 
 #[derive(ShaderType)]
 pub struct TerrainUniform {
     pub noise: f32,
-    pub elapsed: f32,
+    pub group_size: f32,
 }
 
 pub struct TerrainGenerator {
-    pub render_pipeline: wgpu::RenderPipeline,
+    pub compute_pipeline: wgpu::ComputePipeline,
+    pub cube_bgs: Vec<wgpu::BindGroup>,
+    pub uniform_ctxs: Vec<TerrainUniformCtx>,
+}
+
+pub struct TerrainUniformCtx {
     pub buf: wgpu::Buffer,
     pub bg: wgpu::BindGroup,
     pub uniform: TerrainUniform,
+    pub count_x: u32,
+    pub count_y: u32,
 }
 
 const SDR_NOISE: &str = "noise.wgsl";
 const SDR_TERRAIN: &str = "terrain/terrain.wgsl";
 
 impl TerrainGenerator {
-    pub fn render(state: &SparState, encoder: &mut wgpu::CommandEncoder) {
+    pub async fn update(state: &mut SparState) {
+        //let clock = &state.clock;
+        //let gfx = state.gfx.read().await;
+        //let tg = &mut state.terrain_generator;
+
+        //gfx.queue
+        //.write_buffer(&tg.buf, 0, &tg.uniform.buffer_content());
+    }
+
+    pub fn resize(state: &mut SparState) {
+        //
+    }
+
+    pub fn compute(state: &SparState, encoder: &mut wgpu::CommandEncoder) {
         let tg = &state.terrain_generator;
         let pp = &state.post_process;
         let camera = &state.camera;
 
-        let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: pp.frame_view(),
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: pp.depth_view(),
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
-                    store: wgpu::StoreOp::Store,
-                }),
-                stencil_ops: None,
-            }),
+        let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Terrain compute pass"),
             timestamp_writes: None,
-            occlusion_query_set: None,
         });
 
-        r_pass.set_pipeline(&tg.render_pipeline);
-        r_pass.set_bind_group(0, camera.bg(), &[]);
-        r_pass.set_bind_group(1, &tg.bg, &[]);
-        r_pass.draw(0..3, 0..1);
+        let mut i = 0;
+        for uniform_ctx in tg.uniform_ctxs.iter() {
+            c_pass.set_pipeline(&tg.compute_pipeline);
+            c_pass.set_bind_group(0, &tg.cube_bgs[i % 2], &[]);
+            c_pass.set_bind_group(1, &uniform_ctx.bg, &[]);
+            c_pass.dispatch_workgroups(uniform_ctx.count_x, uniform_ctx.count_y, 1);
+
+            i += 1;
+        }
     }
 
-    pub async fn new(gfx: &GfxState, camera: &Camera) -> Self {
+    pub fn create_group_sizes(
+        gfx: &GfxState,
+        bg_layout: &wgpu::BindGroupLayout,
+    ) -> Vec<TerrainUniformCtx> {
         let device = &gfx.device;
+        let (width, height) = gfx.dimensions();
 
-        let terrain_uniform = TerrainUniform {
-            noise: 0.5,
-            elapsed: 1.0,
-        };
+        let mut tex_size = 128.;
+        let mut ctxs = Vec::new();
 
-        let buffer_content = terrain_uniform.buffer_content();
+        while tex_size < width || tex_size < height {
+            let uniform = TerrainUniform {
+                noise: 0.5,
+                group_size: tex_size,
+            };
 
-        let mut layout_entries = Vec::new();
-        let mut entries = Vec::new();
+            let contents = uniform.buffer_content();
 
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            label: Some("Terrain generator"),
-            contents: &buffer_content,
-        });
+            let buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Terrain uniform buffer"),
+                contents: &contents,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+            });
 
-        layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::FRAGMENT,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: NonZeroU64::new(buffer_content.len() as u64),
-            },
-            count: None,
-        });
+            let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Terrain uniform bind group"),
+                layout: &bg_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        size: Some(uniform.size()),
+                        buffer: &buf,
+                        offset: 0,
+                    }),
+                }],
+            });
 
-        entries.push(wgpu::BindGroupEntry {
-            binding: 0,
-            resource: buffer.as_entire_binding(),
-        });
+            let count = (tex_size / 16.) as u32;
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Terrain bind group layout"),
-            entries: &layout_entries,
-        });
+            ctxs.push(TerrainUniformCtx {
+                buf,
+                bg,
+                uniform,
+                count_x: count,
+                count_y: count,
+            });
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Terrain bind group"),
-            layout: &bind_group_layout,
-            entries: &entries,
-        });
+            tex_size *= 2.;
+        }
+
+        ctxs
+    }
+
+    pub async fn new(gfx: &GfxState, _camera: &Camera) -> Self {
+        let device = &gfx.device;
 
         let shader = gfx.create_shader_builtin(ShaderOptions {
             if_directives: &[],
@@ -110,50 +127,109 @@ impl TerrainGenerator {
             label: "Terrain SDR",
         });
 
+        let uniform_bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: Some(TerrainUniform::min_size()),
+                },
+                count: None,
+            }],
+        });
+
+        let uniform_ctxs = Self::create_group_sizes(gfx, &uniform_bg_layout);
+
+        let (width, height) = gfx.dimensions();
+
+        let mut cube_texs = vec![];
+        let mut cube_bgs = vec![];
+        let mut cube_views = vec![];
+
+        let cube_bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Cube bind group layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::StorageTexture {
+                        view_dimension: wgpu::TextureViewDimension::Cube,
+                        format: wgpu::TextureFormat::Rgba8Unorm,
+                        access: wgpu::StorageTextureAccess::WriteOnly,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        view_dimension: wgpu::TextureViewDimension::Cube,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
+        for i in 0..2 {
+            cube_texs.push(device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Terrain cube"),
+                size: wgpu::Extent3d {
+                    width: width as u32,
+                    height: height as u32,
+                    depth_or_array_layers: 0,
+                },
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                view_formats: &[],
+            }));
+
+            cube_views.push(cube_texs[i].default_view());
+        }
+
+        for i in 0..2 {
+            let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Cube bg"),
+                layout: &cube_bg_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&cube_views[i & 2]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&cube_views[(i + 1) % 2]),
+                    },
+                ],
+            });
+
+            cube_bgs.push(bg);
+        }
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Terrain Generator Pipeline Layout"),
-            bind_group_layouts: &[&camera.bg_layout, &bind_group_layout],
+            bind_group_layouts: &[&cube_bg_layout, &uniform_bg_layout],
             push_constant_ranges: &[],
         });
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Terrain Render Pipeline"),
+        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Terrain compute pipeline"),
             layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: GfxState::TEXTURE_FORMAT,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::COLOR,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: GfxState::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: true,
-            },
-            multiview: None,
+            module: &shader,
+            entry_point: "generate_terrain",
         });
 
         Self {
-            render_pipeline,
-            buf: buffer,
-            bg: bind_group,
-            uniform: terrain_uniform,
+            compute_pipeline,
+            cube_bgs,
+            uniform_ctxs,
         }
     }
 }
