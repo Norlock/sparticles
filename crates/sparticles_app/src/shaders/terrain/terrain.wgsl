@@ -3,34 +3,27 @@ struct Terrain {
     group_size: f32,
 }
 
-struct VertexOutput {
-    @builtin(position) pos: vec4<f32>,
-    @location(0) uv: vec2<f32>,
-};
+@group(0) @binding(0) var cube_write: texture_storage_2d<rgba8unorm, write>;
+@group(0) @binding(1) var cube_read: texture_cube<f32>;
+@group(1) @binding(0) var<uniform> terrain: Terrain;
 
-var<private> positions: array<vec2<f32>, 3> = array<vec2<f32>, 3>(
-    vec2<f32>(-1.0, -3.0),
-    vec2<f32>(-1.0, 1.0),
-    vec2<f32>(3.0, 1.0)
-);
+@compute
+@workgroup_size(16, 16)
+fn generate_terrain(@builtin(global_invocation_id) position: vec3<u32>) {
+    let group_size = u32(terrain.group_size);
 
-@group(0) @binding(0) var cube: texture_cube_2d;
-@group(1) @binding(0) var<uniform> terrain_globals: Terrain;
+    //if any(vec2(group_size) <= position.xy) { <-- correct one
+    if any(vec2(terrain.group_size) <= position.xy) {
+        return;
+    }
 
-@vertex
-fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    var out: VertexOutput;
-    out.pos = vec4(positions[vertex_index], 0., 1.);
-    return out;
+    //let color = vec4(stars(vec3<f32>(position)), 1.0);
+
+    textureStore(cube_write, position, vec4(1.0));
 }
 
 // What needs to happen is depending on xyz and camera angle needs to be updated
 
-fn has_star() -> bool {
-    // Get the frustum of the camera
-    // generate noise based on the xyz inside the frustum
-    return true;
-}
 
 // Create a small texture width x height = 128 x 128
 // Generate random noise with values between 0 and 100
@@ -58,7 +51,7 @@ fn stars(pos_in: vec3<f32>) -> vec3<f32> {
     var pos = pos_in.xy;
     let star_size = 4.;
     let depth = 10.;
-    let star = depth / abs(camera.position.z) * star_size; // TODO make a minimal change on size
+    let star = star_size; // TODO make a minimal change on size
 
     if star <= 1. {
         return vec3(0.);
@@ -67,10 +60,10 @@ fn stars(pos_in: vec3<f32>) -> vec3<f32> {
     let empty = 50.;
     let space = star + empty;
 
-    var cam_xy = camera.position.xy;
-    cam_xy.y *= -1.;
+    //var cam_xy = camera.position.xy;
+    //cam_xy.y *= -1.;
 
-    let offset = (cam_xy * 50.) % space;
+    let offset = 1.0;
 
     //let offset = random_v2(pos);
 
@@ -84,10 +77,4 @@ fn stars(pos_in: vec3<f32>) -> vec3<f32> {
     } else {
         return vec3(0.0);
     }
-}
-
-
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4(stars(in.pos.xyz), 1.0);
 }
