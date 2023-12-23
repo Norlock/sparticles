@@ -154,7 +154,7 @@ impl TerrainGenerator {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT,
+                    visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::StorageTexture {
                         view_dimension: wgpu::TextureViewDimension::Cube,
                         format: wgpu::TextureFormat::Rgba8Unorm,
