@@ -140,6 +140,7 @@ impl GfxState {
         let limits = wgpu::Limits {
             max_sampled_textures_per_shader_stage: 32,
             max_storage_textures_per_shader_stage: 32,
+            max_bind_groups: 6,
             ..Default::default()
         };
 
@@ -308,9 +309,8 @@ impl GfxState {
             let gfx = &mut state.gfx.write().await;
             let full_output = gfx.ctx.end_frame();
 
-            let primitives = gfx
-                .ctx
-                .tessellate(full_output.shapes, gfx.winit.pixels_per_point());
+            let ppp = egui_winit::pixels_per_point(&gfx.ctx, &gfx.window);
+            let primitives = gfx.ctx.tessellate(full_output.shapes, ppp);
 
             gfx.egui_handle_output(full_output.platform_output);
 
@@ -362,12 +362,11 @@ impl GfxState {
 
         if state.play {
             EmitterState::compute_particles(state, &mut encoder).await;
-            TerrainGenerator::update(state).await;
             TerrainGenerator::compute(state, &mut encoder);
         }
 
-        //EmitterState::render_particles(state, &mut encoder).await;
-        //PostProcessState::compute(state, &mut encoder).await;
+        EmitterState::render_particles(state, &mut encoder).await;
+        PostProcessState::compute(state, &mut encoder).await;
         let res = GfxState::draw_ui(state, &mut encoder, app_visitor).await;
         PostProcessState::render(state, output_view, &mut encoder, &res.primitives).await;
 

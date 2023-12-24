@@ -3,7 +3,7 @@ struct Terrain {
     group_size: f32,
 }
 
-@group(0) @binding(0) var cube_write: texture_storage_2d<rgba8unorm, write>;
+@group(0) @binding(0) var cube_write: texture_storage_2d_array<rgba8unorm, write>;
 @group(0) @binding(1) var cube_read: texture_cube<f32>;
 @group(1) @binding(0) var<uniform> terrain: Terrain;
 
@@ -12,22 +12,16 @@ struct Terrain {
 fn generate_terrain(@builtin(global_invocation_id) position: vec3<u32>) {
     let group_size = u32(terrain.group_size);
 
-    if any(vec2(group_size) <= position.xy) {
+    if any(vec2(group_size) <= position.xy) || any(vec2(2048u) <= position.xy) {
         return;
     }
 
-    //let color = vec4(stars(vec3<f32>(position)), 1.0);
+    let color = vec4(stars(vec3<f32>(position)), 1.0);
 
-    textureStore(cube_write, position, vec4(1.0));
+    textureStore(cube_write, position.xy, position.z, color);
 }
 
 // What needs to happen is depending on xyz and camera angle needs to be updated
-
-fn has_star() -> bool {
-    // Get the frustum of the camera
-    // generate noise based on the xyz inside the frustum
-    return true;
-}
 
 // Create a small texture width x height = 128 x 128
 // Generate random noise with values between 0 and 100
@@ -48,18 +42,14 @@ fn has_star() -> bool {
 // |---------|---------|
 
 fn stars(pos_in: vec3<f32>) -> vec3<f32> {
-    let group_x = pos_in.x / 128.;
-    let group_y = pos_in.y / 128.;
+    //let group_x = pos_in.x / 128.;
+    //let group_y = pos_in.y / 128.;
 
 
     var pos = pos_in.xy;
     let star_size = 4.;
     let depth = 10.;
     let star = star_size; // TODO make a minimal change on size
-
-    if star <= 1. {
-        return vec3(0.);
-    }
 
     let empty = 50.;
     let space = star + empty;

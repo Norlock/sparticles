@@ -1,4 +1,4 @@
-use crate::{fx::PostProcessState, model::gfx_state::GfxState, traits::CreateFxView};
+use crate::{model::gfx_state::GfxState, traits::CreateFxView};
 use async_std::sync::RwLock;
 use egui_wgpu::wgpu::{self, util::align_to};
 use glam::Vec4;

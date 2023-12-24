@@ -97,6 +97,7 @@ impl Init {
         gfx: &Arc<RwLock<GfxState>>,
         collection: &Arc<RwLock<HashMap<ID, Model>>>,
         camera: &Camera,
+        terrain_bg_layout: &wgpu::BindGroupLayout,
     ) -> Vec<EmitterState> {
         let mut emitters: Vec<EmitterState> = Vec::new();
 
@@ -108,6 +109,7 @@ impl Init {
             collection,
             gfx,
             emitter_type: EmitterType::Lights,
+            terrain_bg_layout,
         })
         .await;
 
@@ -128,6 +130,7 @@ impl Init {
                     emitter_type: EmitterType::Normal {
                         lights_layout: &lights.bg_layout,
                     },
+                    terrain_bg_layout,
                 })
                 .await,
             );
@@ -144,6 +147,7 @@ impl Init {
         camera: &Camera,
         collection: &Arc<RwLock<HashMap<ID, Model>>>,
         pp: &mut PostProcessState,
+        terrain_bg_layout: &wgpu::BindGroupLayout,
     ) -> Init {
         let mut registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>> = vec![
             Box::new(RegisterColorAnimation),
@@ -171,8 +175,15 @@ impl Init {
 
         match app_visitor.data_source() {
             DataSource::Code { lights, emitters } => {
-                let mut emitters =
-                    Self::code_emitters(*lights, emitters, gfx, collection, camera).await;
+                let mut emitters = Self::code_emitters(
+                    *lights,
+                    emitters,
+                    gfx,
+                    collection,
+                    camera,
+                    terrain_bg_layout,
+                )
+                .await;
 
                 let gfx = &gfx.read().await;
 
@@ -190,7 +201,9 @@ impl Init {
             }
             DataSource::Demo => {
                 let lights = EmitterUniform::new("lights".to_string());
-                let emitters = Self::code_emitters(lights, vec![], gfx, collection, camera).await;
+                let emitters =
+                    Self::code_emitters(lights, vec![], gfx, collection, camera, terrain_bg_layout)
+                        .await;
 
                 Self {
                     emitters,
@@ -214,6 +227,7 @@ impl Init {
                         registry_par_anims,
                         registry_em_anims,
                         registry_post_fx,
+                        terrain_bg_layout,
                     )
                     .await
                 }
@@ -232,6 +246,7 @@ impl Init {
         registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
         registry_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
         registry_post_fx: Vec<Box<dyn RegisterPostFx>>,
+        terrain_bg_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         let mut emitters = Vec::new();
 
@@ -248,6 +263,7 @@ impl Init {
             collection,
             gfx,
             emitter_type: EmitterType::Lights,
+            terrain_bg_layout,
         })
         .await;
 
@@ -285,6 +301,7 @@ impl Init {
                 emitter_type: EmitterType::Normal {
                     lights_layout: &lights.bg_layout,
                 },
+                terrain_bg_layout,
             })
             .await;
 

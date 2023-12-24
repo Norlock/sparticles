@@ -63,6 +63,7 @@ pub struct CreateEmitterOptions<'a> {
     pub camera: &'a Camera,
     pub collection: &'a Arc<RwLock<HashMap<ID, Model>>>,
     pub emitter_type: EmitterType<'a>,
+    pub terrain_bg_layout: &'a wgpu::BindGroupLayout,
 }
 
 pub struct RecreateEmitterOptions<'a> {
@@ -71,6 +72,7 @@ pub struct RecreateEmitterOptions<'a> {
     pub camera: &'a Camera,
     pub collection: &'a Arc<RwLock<HashMap<ID, Model>>>,
     pub emitter_type: EmitterType<'a>,
+    pub terrain_bg_layout: &'a wgpu::BindGroupLayout,
 }
 
 impl EmitterState {
@@ -85,6 +87,7 @@ impl EmitterState {
             gfx,
             camera,
             collection,
+            terrain_generator,
             ..
         } = state;
 
@@ -99,6 +102,7 @@ impl EmitterState {
                     lights_layout: &emitters[0].bg_layout,
                 },
                 gfx,
+                terrain_bg_layout: &terrain_generator.cube_bg_layout,
             };
 
             emitters.push(Self::new(options).await);
@@ -197,7 +201,7 @@ impl EmitterState {
                     view: pp.frame_view(),
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                         store: wgpu::StoreOp::Store,
                     },
                 }),
@@ -226,6 +230,7 @@ impl EmitterState {
         let emitters = &state.emitters;
         let camera = &state.camera;
         let gfx = &state.gfx;
+        let tg = &state.terrain_generator;
 
         let nr = clock.get_alt_bindgroup_nr();
 
@@ -248,6 +253,9 @@ impl EmitterState {
 
             if !em.is_light {
                 r_pass.set_bind_group(3, &emitters[0].bgs[nr], &[]);
+                r_pass.set_bind_group(4, &tg.cube_bg(), &[]);
+            } else {
+                r_pass.set_bind_group(3, &tg.cube_bg(), &[]);
             }
 
             r_pass.draw_indexed(mesh.indices_range(), 0, 0..em.particle_count() as u32);
@@ -270,6 +278,7 @@ impl EmitterState {
             camera: options.camera,
             collection: options.collection,
             emitter_type: options.emitter_type,
+            terrain_bg_layout: options.terrain_bg_layout,
         })
         .await;
 
@@ -334,6 +343,7 @@ impl EmitterState {
         let uniform = options.uniform;
         let gfx = options.gfx;
         let collection = options.collection;
+        let terrain_bg_layout = options.terrain_bg_layout;
 
         {
             let mut collection = collection.write().await;
@@ -501,7 +511,12 @@ impl EmitterState {
 
                 pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Light particle render Pipeline Layout"),
-                    bind_group_layouts: &[&camera.bg_layout, &material.bg_layout, &bg_layout],
+                    bind_group_layouts: &[
+                        &camera.bg_layout,
+                        &material.bg_layout,
+                        &bg_layout,
+                        &terrain_bg_layout,
+                    ],
                     push_constant_ranges: &[],
                 });
                 is_light = true;
@@ -520,6 +535,7 @@ impl EmitterState {
                         &material.bg_layout,
                         &bg_layout,
                         lights_layout,
+                        &terrain_bg_layout,
                     ],
                     push_constant_ranges: &[],
                 });

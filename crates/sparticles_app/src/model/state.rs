@@ -62,6 +62,7 @@ impl SparState {
         Camera::update(self, events).await;
         PostProcessState::update(self, events).await;
         EmitterState::update(self, events).await;
+        TerrainGenerator::update(self).await;
     }
 
     pub async fn resize(&mut self, size: PhysicalSize<u32>) {
@@ -87,15 +88,23 @@ impl SparState {
         let builtin = Model::load_builtin(&gfx);
 
         let mut collection = HashMap::new();
-        let mut post_process = PostProcessState::new(&gfx, init);
 
         collection.insert(builtin.id.to_string(), builtin);
 
         let terrain_generator = TerrainGenerator::new(&gfx, &camera).await;
+        let mut post_process = PostProcessState::new(&gfx, init, &terrain_generator.cube_bg_layout);
         let gfx = Arc::new(RwLock::new(gfx));
         let collection = Arc::new(RwLock::new(collection));
 
-        let init_settings = Init::new(init, &gfx, &camera, &collection, &mut post_process).await;
+        let init_settings = Init::new(
+            init,
+            &gfx,
+            &camera,
+            &collection,
+            &mut post_process,
+            &terrain_generator.cube_bg_layout,
+        )
+        .await;
 
         let mut state = Self {
             clock,

@@ -8,16 +8,7 @@ use egui_winit::{
     egui::WidgetText,
     winit::event::{ElementState, KeyboardInput, VirtualKeyCode},
 };
-use encase::UniformBuffer;
 use glam::*;
-
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4 {
-    x_axis: Vec4::new(1.0, 0.0, 0.0, 0.0),
-    y_axis: Vec4::new(0.0, 1.0, 0.0, 0.0),
-    z_axis: Vec4::new(0.0, 0.0, 0.5, 0.5),
-    w_axis: Vec4::new(0.0, 0.0, 0.0, 1.0),
-};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TonemapType {
@@ -309,7 +300,7 @@ impl Camera {
     }
 
     pub fn view_proj(&self, view_mat: &Mat4) -> Mat4 {
-        OPENGL_TO_WGPU_MATRIX * self.proj * (*view_mat)
+        self.proj * (*view_mat)
     }
 }
 
