@@ -201,7 +201,7 @@ impl EmitterState {
                     view: pp.frame_view(),
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
                     },
                 }),
@@ -234,7 +234,7 @@ impl EmitterState {
 
         let nr = clock.get_alt_bindgroup_nr();
 
-        Profiler::begin_scope(gfx, "Render", &mut r_pass).await;
+        Profiler::begin_scope(gfx, "Render particles", &mut r_pass).await;
 
         for em in emitters.iter() {
             let mesh = collection.get_mesh(&em.uniform.mesh);
@@ -600,12 +600,12 @@ impl EmitterState {
                 entry_point: &fs_entry_point,
                 targets: &[
                     Some(wgpu::ColorTargetState {
-                        format: GfxState::TEXTURE_FORMAT,
+                        format: GfxState::HDR_TEX_FORMAT,
                         blend: Some(wgpu::BlendState::REPLACE),
                         write_mask: wgpu::ColorWrites::ALL,
                     }),
                     Some(wgpu::ColorTargetState {
-                        format: GfxState::TEXTURE_FORMAT,
+                        format: GfxState::HDR_TEX_FORMAT,
                         blend: Some(wgpu::BlendState::REPLACE),
                         write_mask: wgpu::ColorWrites::COLOR,
                     }),

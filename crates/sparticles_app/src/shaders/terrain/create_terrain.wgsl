@@ -1,25 +1,25 @@
 struct Terrain {
     noise: f32,
-    group_size: f32,
+    tex_size: u32,
 }
 
 @group(0) @binding(0) var cube_write: texture_storage_2d_array<rgba8unorm, write>;
 @group(0) @binding(1) var cube_read: texture_cube<f32>;
 @group(1) @binding(0) var<uniform> terrain: Terrain;
+@group(2) @binding(0) var<uniform> camera: Camera;
 
 @compute
 @workgroup_size(16, 16)
 fn generate_terrain(@builtin(global_invocation_id) position: vec3<u32>) {
-    let group_size = u32(terrain.group_size);
-
-    if any(vec2(group_size) <= position.xy) || any(vec2(2048u) <= position.xy) {
+    if any(vec2(terrain.tex_size) <= position.xy) {
         return;
     }
 
-    let color = vec4(stars(vec3<f32>(position)), 1.0);
+    let color = vec4(stars(position), 1.0);
 
     textureStore(cube_write, position.xy, position.z, color);
 }
+
 
 // What needs to happen is depending on xyz and camera angle needs to be updated
 
@@ -29,24 +29,12 @@ fn generate_terrain(@builtin(global_invocation_id) position: vec3<u32>) {
 // If it doesn't it will become black
 // upscale texture make some random function that will either scale the star up or won't
 
+fn stars(pos_in: vec3<u32>) -> vec3<f32> {
+    //let group_x = pos_in.x / 16.;
+    //let group_y = pos_in.y / 16.;
+    //let layer = pos_in.z;
 
-// Generate stars based on xyz position of the camera
-// Mimic a texture cube by using io 0-5
-// in particle.wgsl + light_particle.wgsl use the camera to convert the cube back to 2d view
-// render 
-
-// |---------|---------|
-// |         |         |
-// |160, 0   |160, 160 |
-// |         |         |
-// |---------|---------|
-
-fn stars(pos_in: vec3<f32>) -> vec3<f32> {
-    //let group_x = pos_in.x / 128.;
-    //let group_y = pos_in.y / 128.;
-
-
-    var pos = pos_in.xy;
+    var pos = vec2<f32>(pos_in.xy);
     let star_size = 4.;
     let depth = 10.;
     let star = star_size; // TODO make a minimal change on size
@@ -61,7 +49,7 @@ fn stars(pos_in: vec3<f32>) -> vec3<f32> {
 
     //let offset = random_v2(pos);
 
-    let spot = (pos + offset) % space;
+    let spot = pos % space;
 
     let half = space / 2.;
     let remainder = half - spot;

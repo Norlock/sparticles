@@ -8,6 +8,7 @@ use egui_winit::{
     egui::WidgetText,
     winit::event::{ElementState, KeyboardInput, VirtualKeyCode},
 };
+use encase::ShaderType;
 use glam::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,16 +78,19 @@ pub struct Camera {
     bg: wgpu::BindGroup,
 }
 
-#[derive(encase::ShaderType)]
+#[derive(ShaderType)]
 struct CameraUniform {
     view_proj: glam::Mat4,
     view: glam::Mat4,
+    inv_proj: glam::Mat4,
+    inv_view: glam::Mat3,
     position: glam::Vec3,
     bloom_treshold: glam::Vec3,
     tonemap: u32,
 }
 
 impl Camera {
+    // TODO just call from field
     pub fn bg(&self) -> &wgpu::BindGroup {
         &self.bg
     }
@@ -106,7 +110,7 @@ impl Camera {
         let proj = Mat4::perspective_rh(fov, aspect, near, far);
 
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            size: buffer_size(),
+            size: CameraUniform::min_size().into(),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             label: Some("Camera buffer"),
             mapped_at_creation: false,
@@ -281,9 +285,20 @@ impl Camera {
         let view_mat = self.view_mat();
         let view_proj = self.view_proj(&view_mat);
 
+        let inv_proj = self.proj.inverse();
+
+        let inv_view = glam::Mat3::from_cols(
+            view_mat.x_axis.truncate(),
+            view_mat.y_axis.truncate(),
+            view_mat.z_axis.truncate(),
+        )
+        .transpose();
+
         CameraUniform {
             view_proj,
             view: view_mat,
+            inv_proj,
+            inv_view,
             position: self.position,
             bloom_treshold: self.bloom_treshold,
             tonemap: self.tonemap_type as u32,
@@ -302,19 +317,4 @@ impl Camera {
     pub fn view_proj(&self, view_mat: &Mat4) -> Mat4 {
         self.proj * (*view_mat)
     }
-}
-
-fn buffer_size() -> u64 {
-    let view_proj_size = 16;
-    let view_mat_size = 16;
-    let position_size = 4;
-    let bloom_treshold_size = 4;
-    let tonemap_size = 4;
-
-    // The most aligned member of that strut is aligned to 16. As such
-    // destruct is aligned to 16, instructs have their size rounded up to their alignment.
-    // So bloom treshold 1 == 4
-
-    (view_proj_size + view_mat_size + position_size + bloom_treshold_size + tonemap_size)
-        * std::mem::size_of::<f32>() as u64
 }

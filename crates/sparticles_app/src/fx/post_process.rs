@@ -141,18 +141,13 @@ impl PostProcessState {
         r_pass.set_pipeline(&pp.render_pipeline);
         r_pass.set_bind_group(0, &pp.fx_state.r_bg, &[]);
         r_pass.set_bind_group(1, &pp.io_ctx.bg, &[]);
-        r_pass.set_bind_group(2, &state.terrain_generator.cube_bg(), &[]);
         r_pass.draw(0..3, 0..1);
         Profiler::end_scope(gfx, &mut r_pass).await;
 
         GfxState::render_frame(gfx, r_pass, primitives).await;
     }
 
-    pub fn new(
-        gfx: &GfxState,
-        app_settings: &impl AppVisitor,
-        terrain_bg_layout: &wgpu::BindGroupLayout,
-    ) -> Self {
+    pub fn new(gfx: &GfxState, app_settings: &impl AppVisitor) -> Self {
         let device = &gfx.device;
         let config = &gfx.surface_config;
 
@@ -169,7 +164,7 @@ impl PostProcessState {
 
         let r_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post fx layout"),
-            bind_group_layouts: &[&fx_state.r_bg_layout, &io_ctx.bg_layout, terrain_bg_layout],
+            bind_group_layouts: &[&fx_state.r_bg_layout, &io_ctx.bg_layout],
             push_constant_ranges: &[],
         });
 
@@ -193,7 +188,7 @@ impl PostProcessState {
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
                     blend: None,
-                    write_mask: wgpu::ColorWrites::ALL,
+                    write_mask: wgpu::ColorWrites::COLOR,
                 })],
             }),
             multiview: None,
@@ -298,7 +293,7 @@ impl FxState {
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::StorageTexture {
                     view_dimension: wgpu::TextureViewDimension::D2,
-                    format: GfxState::TEXTURE_FORMAT,
+                    format: GfxState::HDR_TEX_FORMAT,
                     access: wgpu::StorageTextureAccess::ReadWrite,
                 },
                 count: NonZeroU32::new(array_count),

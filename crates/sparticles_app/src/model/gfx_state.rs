@@ -365,6 +365,7 @@ impl GfxState {
             TerrainGenerator::compute(state, &mut encoder);
         }
 
+        TerrainGenerator::render(state, &mut encoder).await;
         EmitterState::render_particles(state, &mut encoder).await;
         PostProcessState::compute(state, &mut encoder).await;
         let res = GfxState::draw_ui(state, &mut encoder, app_visitor).await;

@@ -91,8 +91,8 @@ impl SparState {
 
         collection.insert(builtin.id.to_string(), builtin);
 
-        let terrain_generator = TerrainGenerator::new(&gfx, &camera).await;
-        let mut post_process = PostProcessState::new(&gfx, init, &terrain_generator.cube_bg_layout);
+        let mut post_process = PostProcessState::new(&gfx, init);
+        let terrain_generator = TerrainGenerator::new(&gfx, &camera);
         let gfx = Arc::new(RwLock::new(gfx));
         let collection = Arc::new(RwLock::new(collection));
 

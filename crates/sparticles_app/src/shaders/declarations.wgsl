@@ -38,9 +38,11 @@ struct Emitter {
     padding_2: f32,
 };
 
-struct CameraUniform {
+struct Camera {
     view_proj: mat4x4<f32>,
     view: mat4x4<f32>,
+    inv_proj: mat4x4<f32>,
+    inv_view: mat3x3<f32>,
     position: vec3<f32>,
     bloom_treshold: vec3<f32>,
     tonemap: u32,
