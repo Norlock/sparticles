@@ -1,11 +1,10 @@
-use egui_wgpu::wgpu::{self, util::DeviceExt};
-use encase::ShaderType;
-
 use crate::{
     model::{gfx_state::Profiler, Camera, GfxState, SparState},
     shaders::ShaderOptions,
     traits::BufferContent,
 };
+use egui_wgpu::wgpu::{self, util::DeviceExt};
+use encase::ShaderType;
 
 #[derive(ShaderType, Debug)]
 pub struct TerrainUniform {
@@ -15,6 +14,7 @@ pub struct TerrainUniform {
 
 pub struct TerrainGenerator {
     pub compute_pipeline: wgpu::ComputePipeline,
+    //pub irrediance_convolution_pipeline: wgpu::ComputePipeline,
     pub render_pipeline: wgpu::RenderPipeline,
     pub cube_bgs: Vec<wgpu::BindGroup>,
     pub cube_bg_layout: wgpu::BindGroupLayout,
@@ -32,9 +32,10 @@ pub struct TerrainUniformCtx {
 
 const CUBE_SIZE: u32 = 2048;
 const SDR_NOISE: &str = "noise.wgsl";
+const SDR_TONEMAPPING: &str = "pbr/tonemapping.wgsl";
 const SDR_CREATE_TERRAIN: &str = "terrain/create_terrain.wgsl";
 const SDR_RENDER_TERRAIN: &str = "terrain/render_terrain.wgsl";
-const TERRAIN_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+const TERRAIN_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 impl TerrainGenerator {
     pub async fn update(state: &mut SparState) {
@@ -74,6 +75,9 @@ impl TerrainGenerator {
 
             i += 1;
         }
+
+        //c_pass.set_pipeline(&tg.irrediance_convolution_pipeline);
+        //c_pass.set_bind_group(0, &tg.cube_bgs[(tg.uniform_ctxs.len() + 1) % 2], &[]);
 
         tg.has_been_executed = true;
     }
@@ -230,11 +234,10 @@ impl TerrainGenerator {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Linear,
-            border_color: Some(wgpu::SamplerBorderColor::OpaqueWhite),
             ..Default::default()
         });
 
-        for i in 0..2 {
+        for _ in 0..2 {
             let size = wgpu::Extent3d {
                 width: CUBE_SIZE as u32,
                 height: CUBE_SIZE as u32,
@@ -253,27 +256,16 @@ impl TerrainGenerator {
                 dimension: wgpu::TextureDimension::D2,
                 view_formats: &[],
             }));
-
-            gfx.queue.write_texture(
-                cube_texs[i].as_image_copy(),
-                &[255, 255, 255, 255],
-                wgpu::ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(4),
-                    rows_per_image: None,
-                },
-                wgpu::Extent3d::default(),
-            );
         }
 
         for i in 0..2 {
-            let layers_view = cube_texs[(i + 1) % 2].create_view(&wgpu::TextureViewDescriptor {
+            let layers_view = cube_texs[i % 2].create_view(&wgpu::TextureViewDescriptor {
                 dimension: Some(wgpu::TextureViewDimension::D2Array),
                 array_layer_count: Some(6),
                 ..Default::default()
             });
 
-            let cube_view = cube_texs[i % 2].create_view(&wgpu::TextureViewDescriptor {
+            let cube_view = cube_texs[(i + 1) % 2].create_view(&wgpu::TextureViewDescriptor {
                 dimension: Some(wgpu::TextureViewDimension::Cube),
                 array_layer_count: Some(6),
                 ..Default::default()
@@ -315,10 +307,25 @@ impl TerrainGenerator {
             entry_point: "generate_terrain",
         });
 
+        //let irradiance_pipeline_layout =
+        //device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        //label: Some("Terrain Generator Pipeline Layout"),
+        //bind_group_layouts: &[&cube_bg_layout],
+        //push_constant_ranges: &[],
+        //});
+
+        //let irrediance_convolution_pipeline =
+        //device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        //label: Some("Irradiance convolution pipeline"),
+        //layout: Some(&irradiance_pipeline_layout),
+        //module: &create_shader,
+        //entry_point: "irradiance_convolution",
+        //});
+
         // Render terrain
         let render_shader = gfx.create_shader_builtin(ShaderOptions {
             if_directives: &[],
-            files: &[SDR_NOISE, SDR_RENDER_TERRAIN],
+            files: &[SDR_TONEMAPPING, SDR_NOISE, SDR_RENDER_TERRAIN],
             label: "Render Terrain SDR",
         });
 
@@ -353,6 +360,7 @@ impl TerrainGenerator {
 
         Self {
             compute_pipeline,
+            //irrediance_convolution_pipeline,
             render_pipeline,
             cube_bgs,
             uniform_ctxs,

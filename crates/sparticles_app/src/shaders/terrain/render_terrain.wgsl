@@ -26,6 +26,9 @@ fn vs_main(@builtin(vertex_index) vert_idx: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(terrain_map, terrain_s, in.uv);
+    var color = textureSample(terrain_map, terrain_s, in.uv).rgb;
+    color = color / (color + vec3(1.0));
+
+    return vec4(linear_to_srgb(color), 1.);
 }
 

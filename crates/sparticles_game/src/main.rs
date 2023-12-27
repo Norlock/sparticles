@@ -57,14 +57,24 @@ impl AppVisitor for GameState {
         emitter.spawn_delay_sec = 2.0;
 
         emitter.mesh = MeshRef {
-            collection_id: "StarSparrow.glb".to_string(),
-            mesh_id: "Mesh.001".to_string(),
+            collection_id: "Intergalactic.glb".to_string(),
+            mesh_id: "Baked Animations Intergalactic_Spaceships_Version_2".to_string(),
         };
 
         emitter.material = MaterialRef {
-            collection_id: "StarSparrow.glb".to_string(),
-            material_id: "StarSparrowRed".to_string(),
+            collection_id: "Intergalactic.glb".to_string(),
+            material_id: "Material.001".to_string(),
         };
+
+        //emitter.mesh = MeshRef {
+        //collection_id: "StarSparrow.glb".to_string(),
+        //mesh_id: "Mesh.001".to_string(),
+        //};
+
+        //emitter.material = MaterialRef {
+        //collection_id: "StarSparrow.glb".to_string(),
+        //material_id: "StarSparrowRed".to_string(),
+        //};
 
         DataSource::Code {
             lights: Box::new(lights),

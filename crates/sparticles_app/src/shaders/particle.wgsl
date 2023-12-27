@@ -19,6 +19,8 @@ struct VertexOutput {
 }
 
 @group(3) @binding(0) var<storage, read> light_particles: array<Particle>;
+@group(4) @binding(1) var terrain_map: texture_cube<f32>;
+@group(4) @binding(2) var terrain_s: sampler;
 
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
@@ -52,8 +54,10 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
 
     let F0 = mix(vec3(0.04), albedo, metallic);
     let V = normalize(camera.position.xyz - in.world_pos);
+    let NdotV = max(dot(N, V), 0.0);
+
     var Lo = vec3(0.0);
-    var Diff = vec3(0.0);
+    var Shad = vec3(0.0);
 
     for (var i = 0u; i < arrayLength(&light_particles); i++) {
         let light = light_particles[i];
@@ -62,30 +66,41 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
 
         // calculate per-light radiance
         let L = normalize(light_pos - in.world_pos);
+        // Half view
         let H = normalize(V + L);
+
+        let NdotL = max(dot(N, L), 0.0);
+        let HdotV = max(dot(H, V), 0.0);
+        let WNdotL = max(dot(WN, L), 0.0);
 
         let distance = length(light_pos - in.world_pos);
         let radiance = light_col / (distance * distance);
 
         // Cook-Torrance BRDF
         let NDF = distribution_ggx(N, H, roughness);
-        let G = geometry_smith(N, V, L, roughness);
-        let F = fresnel_schlick(max(dot(H, V), 0.0), F0);
+        let G = geometry_smith(NdotV, NdotL, roughness);
+
+        let F = fresnel_schlick(HdotV, F0);
 
         let numerator = NDF * G * F;
 
-        let NdotL = max(dot(N, L), 0.0);
-        let denominator = 4.0 * max(dot(N, V), 0.0) * NdotL;
+        let denominator = 4.0 * NdotV * NdotL;
         let specular = numerator / (denominator + 0.0001);
         let kD = (vec3(1.0) - F) * (1.0 - metallic);
+        let lambert = lambert(kD * albedo);
 
-        Diff += max(dot(WN, L), 0.0) * radiance;
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+        Shad += WNdotL * radiance;
+        Lo += (lambert + specular) * radiance * NdotL;
     }
 
     var out: FragmentOutput;
 
-    let color = tonemap(Diff * vec3(0.4) * albedo * ao + Lo + emissive, camera.tonemap);
+    //var irradiance = textureSample(irradianceMap, N).rgb;
+    let world_reflect = reflect(-V, WN);
+    let reflection = textureSample(terrain_map, terrain_s, world_reflect).rgb;
+    let shininess = 0.01;
+
+    let color = tonemap(Shad * vec3(0.4) * albedo * ao + Lo + emissive, camera.tonemap);
 
     out.color = vec4(linear_to_srgb(color), 1.0);
 

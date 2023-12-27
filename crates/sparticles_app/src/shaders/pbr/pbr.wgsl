@@ -8,8 +8,9 @@ struct FragmentOutput {
 }
 
 struct MaterialUniform {
-    emissive_strength: f32,
     emissive_factor: vec3<f32>,
+    emissive_strength: f32,
+    ior: f32,
 }
 
 @group(1) @binding(0) var albedo_tex: texture_2d<f32>;
@@ -25,8 +26,21 @@ struct MaterialUniform {
 @group(1) @binding(9) var ao_s: sampler;
 @group(1) @binding(10) var<uniform> mat_globals: MaterialUniform;
 
-fn fresnel_schlick(cos_theta: f32, F0: vec3<f32>) -> vec3<f32> {
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+// BRDF approximation sample count (higher is better quality and slower)
+const BRDF_SAMPLE_COUNT: i32 = 64;
+
+// reflection convolution sample count (higher is better quality and slower)
+const REFLECTION_SAMPLE_COUNT: i32 = 256;
+
+// irradiance convolution step (lower is better quality and slower)
+const sampleDelta: f32 = 0.1;
+
+fn fresnel_schlick(HdotV: f32, F0: vec3<f32>) -> vec3<f32> {
+    return F0 + (1. - F0) * pow(clamp(1. - HdotV, 0., 1.), 5.);
+}
+
+fn lambert(color: vec3<f32>) -> vec3<f32> {
+    return color / PI;
 }
 
 fn distribution_ggx(N: vec3<f32>, H: vec3<f32>, roughness: f32) -> f32 {
@@ -52,12 +66,37 @@ fn geometry_schlick_ggx(NdotV: f32, roughness: f32) -> f32 {
     return num / denom;
 }
 
-fn geometry_smith(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, roughness: f32) -> f32 {
-    let NdotV = max(dot(N, V), 0.0);
-    let NdotL = max(dot(N, L), 0.0);
+fn geometry_smith(NdotV: f32, NdotL: f32, roughness: f32) -> f32 {
     let ggx2 = geometry_schlick_ggx(NdotV, roughness);
     let ggx1 = geometry_schlick_ggx(NdotL, roughness);
 
     return ggx1 * ggx2;
 }
 
+//fn ImportanceSampleGGX(Xi: vec2<f32>, N: vec3<f32>, roughness: f32, tangent: vec3<f32>, bitangent: vec3<f32>) -> vec3<f32> {
+//    var a = roughness * roughness;
+//
+//    var phi = 2.0 * PI * Xi.x;
+//    var cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
+//    var sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+//
+//    var H = vec3(
+//        cos(phi) * sinTheta,
+//        sin(phi) * sinTheta,
+//        cosTheta
+//    );
+//
+//    var up;
+//    if abs(N.z) < 0.999 {
+//        up = vec3(0.0, 0.0, 1.0);
+//    } else {
+//        up = vec3(1.0, 0.0, 0.0);
+//    }
+//
+//    var sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
+//    return normalize(sampleVec);
+//}  
+
+fn brdf(diffuse: vec3<f32>, specular: vec3<f32>) -> vec3<f32> {
+    return diffuse + specular;
+}

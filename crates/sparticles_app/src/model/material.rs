@@ -19,8 +19,9 @@ pub struct Material {
 
 #[derive(ShaderType, Clone, Copy)]
 pub struct MaterialUniform {
-    pub emissive_strength: f32,
     pub emissive_factor: glam::Vec3,
+    pub emissive_strength: f32,
+    pub ior: f32,
 }
 
 pub struct MaterialCtx {
@@ -37,6 +38,7 @@ pub struct MaterialCtx {
     pub ao_tex: wgpu::Texture,
     pub ao_s: wgpu::Sampler,
     pub cull_mode: Option<wgpu::Face>,
+    pub ior: f32,
 }
 
 impl Material {
@@ -70,6 +72,7 @@ impl Material {
                     emissive_s,
                     emissive_factor: glam::Vec3::ONE,
                     emissive_strength: 1.0,
+                    ior: 1.5,
                     ao_tex,
                     ao_s,
                     cull_mode: Some(wgpu::Face::Back),
@@ -110,6 +113,7 @@ impl Material {
         let uniform = MaterialUniform {
             emissive_strength: ctx.emissive_strength,
             emissive_factor: ctx.emissive_factor,
+            ior: ctx.ior,
         };
 
         let buffer_content = uniform.buffer_content();

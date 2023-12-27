@@ -263,6 +263,14 @@ impl Model {
                 ao_s = gfx.create_sampler();
             }
 
+            let ior = material.ior().unwrap_or(1.5);
+
+            println!("IOR value: {ior}");
+
+            if let Some(tex_data) = material.specular() {
+                //
+            }
+
             let id = material
                 .name()
                 .map(|name| name.to_string())
@@ -288,6 +296,7 @@ impl Model {
                         ao_tex,
                         ao_s,
                         cull_mode,
+                        ior,
                     },
                     gfx,
                 ),
