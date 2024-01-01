@@ -70,6 +70,7 @@ impl SparState {
         gfx.resize(size);
         self.post_process.resize(&gfx);
         self.camera.resize(&gfx);
+        self.terrain_generator.resize();
     }
 
     pub fn process_events(&mut self, input: &KeyboardInput) {
@@ -102,7 +103,7 @@ impl SparState {
             &camera,
             &collection,
             &mut post_process,
-            &terrain_generator.cube_bg_layout,
+            &terrain_generator.env_bg_layout,
         )
         .await;
 

@@ -24,16 +24,7 @@ struct MaterialUniform {
 @group(1) @binding(7) var emissive_s: sampler;
 @group(1) @binding(8) var ao_tex: texture_2d<f32>;
 @group(1) @binding(9) var ao_s: sampler;
-@group(1) @binding(10) var<uniform> mat_globals: MaterialUniform;
-
-// BRDF approximation sample count (higher is better quality and slower)
-const BRDF_SAMPLE_COUNT: i32 = 64;
-
-// reflection convolution sample count (higher is better quality and slower)
-const REFLECTION_SAMPLE_COUNT: i32 = 256;
-
-// irradiance convolution step (lower is better quality and slower)
-const sampleDelta: f32 = 0.1;
+@group(1) @binding(10) var<uniform> material: MaterialUniform;
 
 fn fresnel_schlick(HdotV: f32, F0: vec3<f32>) -> vec3<f32> {
     return F0 + (1. - F0) * pow(clamp(1. - HdotV, 0., 1.), 5.);

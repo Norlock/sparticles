@@ -50,9 +50,10 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
     let metallic = metallic_roughness.r;
     let roughness = metallic_roughness.g;
     let ao = textureSample(ao_tex, ao_s, in.uv).r;
-    let emissive = mat_globals.emissive_factor * srgb_to_linear(textureSample(emissive_tex, emissive_s, in.uv)).rgb * mat_globals.emissive_strength;
+    let emissive = material.emissive_factor * srgb_to_linear(textureSample(emissive_tex, emissive_s, in.uv)).rgb * material.emissive_strength;
 
     let F0 = mix(vec3(0.04), albedo, metallic);
+    // View direction
     let V = normalize(camera.position.xyz - in.world_pos);
     let NdotV = max(dot(N, V), 0.0);
 
@@ -64,9 +65,9 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
         let light_pos = light.model.w.xyz;
         let light_col = light.color.rgb;
 
-        // calculate per-light radiance
+        // Light direction
         let L = normalize(light_pos - in.world_pos);
-        // Half view
+        // Half direction
         let H = normalize(V + L);
 
         let NdotL = max(dot(N, L), 0.0);
@@ -79,7 +80,6 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
         // Cook-Torrance BRDF
         let NDF = distribution_ggx(N, H, roughness);
         let G = geometry_smith(NdotV, NdotL, roughness);
-
         let F = fresnel_schlick(HdotV, F0);
 
         let numerator = NDF * G * F;

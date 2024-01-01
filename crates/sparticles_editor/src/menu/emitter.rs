@@ -493,7 +493,7 @@ async fn recreate_emitter(
                 camera,
                 collection,
                 emitter_type: EmitterType::Lights,
-                terrain_bg_layout: &state.terrain_generator.cube_bg_layout,
+                terrain_bg_layout: &state.terrain_generator.env_bg_layout,
             },
             encoder,
         )
@@ -509,7 +509,7 @@ async fn recreate_emitter(
                     emitter_type: EmitterType::Normal {
                         lights_layout: &em.bg_layout,
                     },
-                    terrain_bg_layout: &state.terrain_generator.cube_bg_layout,
+                    terrain_bg_layout: &state.terrain_generator.env_bg_layout,
                 },
                 encoder,
             )
@@ -527,7 +527,7 @@ async fn recreate_emitter(
                 emitter_type: EmitterType::Normal {
                     lights_layout: &lights.bg_layout,
                 },
-                terrain_bg_layout: &state.terrain_generator.cube_bg_layout,
+                terrain_bg_layout: &state.terrain_generator.env_bg_layout,
             },
             encoder,
         )

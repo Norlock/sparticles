@@ -14,12 +14,18 @@ pub struct TerrainUniform {
 
 pub struct TerrainGenerator {
     pub compute_pipeline: wgpu::ComputePipeline,
-    //pub irrediance_convolution_pipeline: wgpu::ComputePipeline,
-    pub render_pipeline: wgpu::RenderPipeline,
-    pub cube_bgs: Vec<wgpu::BindGroup>,
-    pub cube_bg_layout: wgpu::BindGroupLayout,
+    pub irradiance_render_pipeline: wgpu::RenderPipeline,
+    pub terrain_render_pipeline: wgpu::RenderPipeline,
+    pub env_bindings: Vec<TerrainBinding>,
+    pub env_bg_layout: wgpu::BindGroupLayout,
+    pub cube_texs: Vec<wgpu::Texture>,
     pub uniform_ctxs: Vec<TerrainUniformCtx>,
     pub has_been_executed: bool,
+}
+
+pub struct TerrainBinding {
+    pub bg: wgpu::BindGroup,
+    pub view: wgpu::TextureView,
 }
 
 pub struct TerrainUniformCtx {
@@ -47,33 +53,84 @@ impl TerrainGenerator {
         //.write_buffer(&tg.buf, 0, &tg.uniform.buffer_content());
     }
 
-    pub fn cube_bg(&self) -> &wgpu::BindGroup {
-        &self.cube_bgs[(self.cube_bgs.len() + 1) % 2]
+    pub fn environment_bg(&self) -> &wgpu::BindGroup {
+        &self.env_bindings[self.uniform_ctxs.len() % 2].bg
     }
 
-    pub fn compute(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
+    pub fn environment_view(&self) -> &wgpu::TextureView {
+        &self.env_bindings[self.uniform_ctxs.len() % 2].view
+    }
+
+    pub fn resize(&mut self) {
+        self.has_been_executed = false;
+    }
+
+    //pub fn irradiance_bg(&self) -> &wgpu::BindGroup {
+    //&self.env_bindings[(self.uniform_ctxs.len() + 1) % 2].bg
+    //}
+
+    //pub fn irradiance_view(&self) -> &wgpu::TextureView {
+    //&self.env_bindings[(self.uniform_ctxs.len() + 1) % 2].view
+    //}
+
+    pub async fn compute(state: &mut SparState, encoder: &mut wgpu::CommandEncoder) {
         let tg = &mut state.terrain_generator;
+        let pp = &state.post_process;
         let camera = &state.camera;
+        let gfx = &state.gfx;
 
         if tg.has_been_executed {
             return;
         }
 
-        let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-            label: Some("Terrain compute pass"),
-            timestamp_writes: None,
-        });
+        {
+            let mut c_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Terrain compute pass"),
+                timestamp_writes: None,
+            });
 
-        let mut i = 0;
+            let mut i = 0;
 
-        for uniform_ctx in tg.uniform_ctxs.iter() {
-            c_pass.set_pipeline(&tg.compute_pipeline);
-            c_pass.set_bind_group(0, &tg.cube_bgs[i % 2], &[]);
-            c_pass.set_bind_group(1, &uniform_ctx.bg, &[]);
-            c_pass.set_bind_group(2, &camera.bg(), &[]);
-            c_pass.dispatch_workgroups(uniform_ctx.count_x, uniform_ctx.count_y, 6);
+            for uniform_ctx in tg.uniform_ctxs.iter() {
+                c_pass.set_pipeline(&tg.compute_pipeline);
+                c_pass.set_bind_group(0, &tg.env_bindings[i % 2].bg, &[]);
+                c_pass.set_bind_group(1, &uniform_ctx.bg, &[]);
+                c_pass.set_bind_group(2, &camera.bg(), &[]);
+                c_pass.dispatch_workgroups(uniform_ctx.count_x, uniform_ctx.count_y, 6);
 
-            i += 1;
+                i += 1;
+            }
+        }
+
+        {
+            let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Terrain irradiance render"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &pp.irradiance_view(),
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: pp.depth_view(),
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            Profiler::begin_scope(gfx, "Render irradiance", &mut r_pass).await;
+            r_pass.set_pipeline(&tg.irradiance_render_pipeline);
+            r_pass.set_bind_group(0, &tg.environment_bg(), &[]);
+            r_pass.set_bind_group(1, camera.bg(), &[]);
+            r_pass.draw(0..3, 0..1);
+            Profiler::end_scope(gfx, &mut r_pass).await;
         }
 
         //c_pass.set_pipeline(&tg.irrediance_convolution_pipeline);
@@ -88,27 +145,36 @@ impl TerrainGenerator {
         let camera = &state.camera;
         let gfx = &state.gfx;
 
-        let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Post process render"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: pp.frame_view(),
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+        {
+            let mut r_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Post process render"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: pp.frame_view(),
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: pp.depth_view(),
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
 
-        Profiler::begin_scope(gfx, "Render terrain", &mut r_pass).await;
-        r_pass.set_pipeline(&tg.render_pipeline);
-        r_pass.set_bind_group(0, &tg.cube_bg(), &[]);
-        r_pass.set_bind_group(1, camera.bg(), &[]);
-        r_pass.draw(0..3, 0..1);
-        Profiler::end_scope(gfx, &mut r_pass).await;
+            Profiler::begin_scope(gfx, "Render terrain", &mut r_pass).await;
+            r_pass.set_pipeline(&tg.terrain_render_pipeline);
+            r_pass.set_bind_group(0, &tg.environment_bg(), &[]);
+            r_pass.set_bind_group(1, camera.bg(), &[]);
+            r_pass.draw(0..3, 0..1);
+            Profiler::end_scope(gfx, &mut r_pass).await;
+        }
     }
 
     pub fn create_group_sizes(
@@ -189,7 +255,7 @@ impl TerrainGenerator {
         let uniform_ctxs = Self::create_group_sizes(gfx, &uniform_bg_layout);
 
         let mut cube_texs = vec![];
-        let mut cube_bgs = vec![];
+        let mut env_bindings = vec![];
 
         let cube_bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Cube bind group layout"),
@@ -259,13 +325,13 @@ impl TerrainGenerator {
         }
 
         for i in 0..2 {
-            let layers_view = cube_texs[i % 2].create_view(&wgpu::TextureViewDescriptor {
+            let write_view = cube_texs[i % 2].create_view(&wgpu::TextureViewDescriptor {
                 dimension: Some(wgpu::TextureViewDimension::D2Array),
                 array_layer_count: Some(6),
                 ..Default::default()
             });
 
-            let cube_view = cube_texs[(i + 1) % 2].create_view(&wgpu::TextureViewDescriptor {
+            let read_view = cube_texs[(i + 1) % 2].create_view(&wgpu::TextureViewDescriptor {
                 dimension: Some(wgpu::TextureViewDimension::Cube),
                 array_layer_count: Some(6),
                 ..Default::default()
@@ -277,11 +343,11 @@ impl TerrainGenerator {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&layers_view),
+                        resource: wgpu::BindingResource::TextureView(&write_view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&cube_view),
+                        resource: wgpu::BindingResource::TextureView(&read_view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
@@ -290,7 +356,10 @@ impl TerrainGenerator {
                 ],
             });
 
-            cube_bgs.push(bg);
+            env_bindings.push(TerrainBinding {
+                bg,
+                view: read_view,
+            });
         }
 
         // Create terrain
@@ -307,21 +376,6 @@ impl TerrainGenerator {
             entry_point: "generate_terrain",
         });
 
-        //let irradiance_pipeline_layout =
-        //device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        //label: Some("Terrain Generator Pipeline Layout"),
-        //bind_group_layouts: &[&cube_bg_layout],
-        //push_constant_ranges: &[],
-        //});
-
-        //let irrediance_convolution_pipeline =
-        //device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        //label: Some("Irradiance convolution pipeline"),
-        //layout: Some(&irradiance_pipeline_layout),
-        //module: &create_shader,
-        //entry_point: "irradiance_convolution",
-        //});
-
         // Render terrain
         let render_shader = gfx.create_shader_builtin(ShaderOptions {
             if_directives: &[],
@@ -329,43 +383,56 @@ impl TerrainGenerator {
             label: "Render Terrain SDR",
         });
 
-        let r_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Terrain Generator Pipeline Layout"),
-            bind_group_layouts: &[&cube_bg_layout, &camera.bg_layout],
-            push_constant_ranges: &[],
-        });
+        let r_terrain_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Terrain Generator Pipeline Layout"),
+                bind_group_layouts: &[&cube_bg_layout, &camera.bg_layout],
+                push_constant_ranges: &[],
+            });
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Terrain render pipeline"),
-            layout: Some(&r_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &render_shader,
-                entry_point: "vs_main",
-                buffers: &[],
-            },
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &render_shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: GfxState::HDR_TEX_FORMAT,
-                    blend: None,
-                    write_mask: wgpu::ColorWrites::COLOR,
-                })],
-            }),
-            multiview: None,
-        });
+        let create_render_pipeline = |entry_point: &str| -> wgpu::RenderPipeline {
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Terrain render pipeline"),
+                layout: Some(&r_terrain_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &render_shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                primitive: wgpu::PrimitiveState::default(),
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: GfxState::DEPTH_FORMAT,
+                    depth_write_enabled: false,
+                    depth_compare: wgpu::CompareFunction::Less,
+                    stencil: wgpu::StencilState::default(),
+                    bias: wgpu::DepthBiasState::default(),
+                }),
+                multisample: wgpu::MultisampleState::default(),
+                fragment: Some(wgpu::FragmentState {
+                    module: &render_shader,
+                    entry_point,
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: GfxState::HDR_TEX_FORMAT,
+                        blend: None,
+                        write_mask: wgpu::ColorWrites::COLOR,
+                    })],
+                }),
+                multiview: None,
+            })
+        };
+
+        let terrain_render_pipeline = create_render_pipeline("fs_draw_terrain");
+        let irradiance_render_pipeline = create_render_pipeline("fs_irradiance_convolution");
 
         Self {
             compute_pipeline,
-            //irrediance_convolution_pipeline,
-            render_pipeline,
-            cube_bgs,
+            irradiance_render_pipeline,
+            terrain_render_pipeline,
+            env_bindings,
             uniform_ctxs,
-            cube_bg_layout,
+            env_bg_layout: cube_bg_layout,
             has_been_executed: false,
+            cube_texs,
         }
     }
 }

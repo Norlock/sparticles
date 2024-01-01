@@ -89,6 +89,11 @@ impl PostProcessState {
         &self.fx_state.tex_views[1]
     }
 
+    pub fn irradiance_view(&self) -> &wgpu::TextureView {
+        &self.fx_state.tex_views[2]
+        //&self.fx_state.tex_views.last().unwrap()
+    }
+
     pub fn depth_view(&self) -> &wgpu::TextureView {
         &self.fx_state.depth_view
     }
@@ -126,7 +131,7 @@ impl PostProcessState {
                 view: &output_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    load: wgpu::LoadOp::Load,
                     store: wgpu::StoreOp::Store,
                 },
             })],

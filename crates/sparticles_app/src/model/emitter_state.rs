@@ -102,7 +102,7 @@ impl EmitterState {
                     lights_layout: &emitters[0].bg_layout,
                 },
                 gfx,
-                terrain_bg_layout: &terrain_generator.cube_bg_layout,
+                terrain_bg_layout: &terrain_generator.env_bg_layout,
             };
 
             emitters.push(Self::new(options).await);
@@ -201,7 +201,7 @@ impl EmitterState {
                     view: pp.frame_view(),
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                         store: wgpu::StoreOp::Store,
                     },
                 }),
@@ -253,9 +253,9 @@ impl EmitterState {
 
             if !em.is_light {
                 r_pass.set_bind_group(3, &emitters[0].bgs[nr], &[]);
-                r_pass.set_bind_group(4, &tg.cube_bg(), &[]);
+                r_pass.set_bind_group(4, &tg.environment_bg(), &[]);
             } else {
-                r_pass.set_bind_group(3, &tg.cube_bg(), &[]);
+                r_pass.set_bind_group(3, &tg.environment_bg(), &[]);
             }
 
             r_pass.draw_indexed(mesh.indices_range(), 0, 0..em.particle_count() as u32);
