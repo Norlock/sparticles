@@ -8,6 +8,7 @@ struct FragmentOutput {
 }
 
 struct MaterialUniform {
+    albedo_col: vec4<f32>,
     emissive_factor: vec3<f32>,
     specular_color_factor: vec3<f32>,
     emissive_strength: f32,

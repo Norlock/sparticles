@@ -45,7 +45,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 }
 
 fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> FragmentOutput {
-    let albedo = pow(ALB, vec3(2.2));
+    let albedo = pow(ALB * material.albedo_col.rgb, vec3(2.2));
     let metallic_roughness = textureSample(metal_rough_tex, metal_rough_s, in.uv).rg;
     let metallic = metallic_roughness.r;
     let roughness = metallic_roughness.g;
@@ -108,9 +108,9 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
     var hdr = Shad * vec3(0.4) * albedo * ao + Lo + emissive;
 
     // --------------- ENVIRONMENT --------------------
-    if roughness < 0.40 {
-        let factor = max(1. - roughness, 0.0001) * 0.02;
-        hdr += env_color * factor * hdr;
+    if roughness < 1.0 {
+        let factor = max(1. - roughness, 0.);
+        hdr += env_color * pow(factor, 4.0) * hdr;
     }
     // --------------- ENVIRONMENT --------------------
 

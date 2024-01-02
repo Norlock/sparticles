@@ -19,6 +19,7 @@ pub struct Material {
 
 #[derive(ShaderType, Clone, Copy)]
 pub struct MaterialUniform {
+    pub albedo_col: glam::Vec4,
     pub emissive_factor: glam::Vec3,
     pub specular_color_factor: glam::Vec3,
     pub emissive_strength: f32,
@@ -29,6 +30,7 @@ pub struct MaterialUniform {
 pub struct MaterialCtx {
     pub albedo_tex: wgpu::Texture,
     pub albedo_s: wgpu::Sampler,
+    pub albedo_col: glam::Vec4,
     pub metallic_roughness_tex: wgpu::Texture,
     pub metallic_roughness_s: wgpu::Sampler,
     pub normal_tex: wgpu::Texture,
@@ -76,6 +78,7 @@ impl Material {
                 MaterialCtx {
                     albedo_tex,
                     albedo_s,
+                    albedo_col: glam::Vec4::ONE,
                     metallic_roughness_tex,
                     metallic_roughness_s,
                     normal_tex,
@@ -130,6 +133,7 @@ impl Material {
 
         // Material Uniform
         let uniform = MaterialUniform {
+            albedo_col: ctx.albedo_col,
             emissive_strength: ctx.emissive_strength,
             emissive_factor: ctx.emissive_factor,
             ior: ctx.ior,

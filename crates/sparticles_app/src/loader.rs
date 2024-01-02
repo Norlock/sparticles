@@ -349,6 +349,7 @@ impl Model {
                     MaterialCtx {
                         albedo_tex,
                         albedo_s,
+                        albedo_col,
                         emissive_tex,
                         emissive_s,
                         emissive_factor,
