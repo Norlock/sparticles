@@ -9,7 +9,9 @@ struct FragmentOutput {
 
 struct MaterialUniform {
     emissive_factor: vec3<f32>,
+    specular_color_factor: vec3<f32>,
     emissive_strength: f32,
+    specular_factor: f32,
     ior: f32,
 }
 
@@ -24,7 +26,11 @@ struct MaterialUniform {
 @group(1) @binding(7) var emissive_s: sampler;
 @group(1) @binding(8) var ao_tex: texture_2d<f32>;
 @group(1) @binding(9) var ao_s: sampler;
-@group(1) @binding(10) var<uniform> material: MaterialUniform;
+@group(1) @binding(10) var specular_tex: texture_2d<f32>;
+@group(1) @binding(11) var specular_s: sampler;
+@group(1) @binding(12) var specular_color_tex: texture_2d<f32>;
+@group(1) @binding(13) var specular_color_s: sampler;
+@group(1) @binding(14) var<uniform> material: MaterialUniform;
 
 fn fresnel_schlick(HdotV: f32, F0: vec3<f32>) -> vec3<f32> {
     return F0 + (1. - F0) * pow(clamp(1. - HdotV, 0., 1.), 5.);

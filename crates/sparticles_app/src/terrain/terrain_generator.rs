@@ -403,7 +403,7 @@ impl TerrainGenerator {
                 depth_stencil: Some(wgpu::DepthStencilState {
                     format: GfxState::DEPTH_FORMAT,
                     depth_write_enabled: false,
-                    depth_compare: wgpu::CompareFunction::Less,
+                    depth_compare: wgpu::CompareFunction::LessEqual,
                     stencil: wgpu::StencilState::default(),
                     bias: wgpu::DepthBiasState::default(),
                 }),

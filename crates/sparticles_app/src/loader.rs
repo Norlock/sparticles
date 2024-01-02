@@ -178,8 +178,11 @@ impl Model {
         for (i, material) in gltf.materials().enumerate() {
             let albedo_tex: wgpu::Texture;
             let albedo_s: wgpu::Sampler;
+            let albedo_col: glam::Vec4;
             let metallic_roughness_tex: wgpu::Texture;
             let metallic_roughness_s: wgpu::Sampler;
+            let roughness_factor: f32;
+            let metallic_factor: f32;
             let normal_tex: wgpu::Texture;
             let normal_s: wgpu::Sampler;
             let emissive_tex: wgpu::Texture;
@@ -188,6 +191,13 @@ impl Model {
             let emissive_strength: f32;
             let ao_tex: wgpu::Texture;
             let ao_s: wgpu::Sampler;
+            let specular_tex: wgpu::Texture;
+            let specular_s: wgpu::Sampler;
+            let specular_color_tex: wgpu::Texture;
+            let specular_color_s: wgpu::Sampler;
+            let specular_factor: f32;
+            let specular_color_factor: glam::Vec3;
+
             let cull_mode = Some(wgpu::Face::Back);
 
             let pbr = material.pbr_metallic_roughness();
@@ -203,11 +213,19 @@ impl Model {
                 albedo_s = gfx.create_sampler();
             }
 
+            albedo_col = pbr.base_color_factor().into();
+            println!("roughness {}", pbr.roughness_factor());
+            println!("metallic {}", pbr.metallic_factor());
+
             if let Some(tex_data) = pbr.metallic_roughness_texture() {
                 let tex = tex_data.texture();
                 metallic_roughness_tex =
                     fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
                 metallic_roughness_s = fetch_sampler(tex.sampler(), gfx).await;
+
+                if let Some(tex) = tex_data.texture_transform() {
+                    println!("Heeft texture transform pbr_metallic_roughness");
+                }
                 println!("Contains metallic_roughness_tex");
             } else {
                 let metallic_factor = pbr.metallic_factor();
@@ -238,7 +256,7 @@ impl Model {
                 let tex = tex_data.texture();
                 emissive_tex = fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
                 emissive_s = fetch_sampler(tex.sampler(), gfx).await;
-                println!("contains emissive_tex");
+                println!("Contains emissive_tex");
             } else {
                 let gfx = &gfx.read().await;
                 emissive_tex = gfx.create_builtin_tex(TexType::Black);
@@ -268,7 +286,53 @@ impl Model {
             println!("IOR value: {ior}");
 
             if let Some(tex_data) = material.specular() {
-                //
+                println!("Contains specular data");
+
+                if let Some(tex_data) = tex_data.specular_texture() {
+                    let tex = tex_data.texture();
+                    specular_tex = fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
+                    specular_s = fetch_sampler(tex.sampler(), gfx).await;
+                    println!("Contains specular map");
+                } else {
+                    let gfx = &gfx.read().await;
+                    specular_tex = gfx.create_builtin_tex(TexType::White);
+                    specular_s = gfx.create_sampler();
+                }
+
+                if let Some(tex_data) = tex_data.specular_color_texture() {
+                    let tex = tex_data.texture();
+                    specular_color_tex =
+                        fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
+                    specular_color_s = fetch_sampler(tex.sampler(), gfx).await;
+                    println!("Contains specular color map");
+                } else {
+                    let gfx = &gfx.read().await;
+                    specular_color_tex = gfx.create_builtin_tex(TexType::White);
+                    specular_color_s = gfx.create_sampler();
+                }
+
+                specular_factor = tex_data.specular_factor();
+                specular_color_factor = tex_data.specular_color_factor().into();
+            } else {
+                let gfx = &gfx.read().await;
+                specular_factor = 1.0;
+                specular_color_factor = glam::Vec3::ONE;
+                specular_tex = gfx.create_builtin_tex(TexType::White);
+                specular_s = gfx.create_sampler();
+                specular_color_tex = gfx.create_builtin_tex(TexType::White);
+                specular_color_s = gfx.create_sampler();
+            }
+
+            if let Some(tex_data) = material.pbr_specular_glossiness() {
+                println!("heeft specular glossiness");
+            }
+
+            if let Some(tex_data) = material.volume() {
+                println!("heeft volume");
+            }
+
+            if let Some(tex_data) = material.transmission() {
+                println!("heeft transmission");
             }
 
             let id = material
@@ -295,6 +359,12 @@ impl Model {
                         normal_s,
                         ao_tex,
                         ao_s,
+                        specular_tex,
+                        specular_s,
+                        specular_color_tex,
+                        specular_color_s,
+                        specular_color_factor,
+                        specular_factor,
                         cull_mode,
                         ior,
                     },

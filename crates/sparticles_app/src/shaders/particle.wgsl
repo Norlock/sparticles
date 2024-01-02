@@ -50,12 +50,23 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
     let metallic = metallic_roughness.r;
     let roughness = metallic_roughness.g;
     let ao = textureSample(ao_tex, ao_s, in.uv).r;
+    let specular_val = textureSample(specular_tex, specular_s, in.uv).a * material.specular_factor;
+    let specular_color_val = textureSample(specular_color_tex, specular_color_s, in.uv).rgb * material.specular_color_factor;
     let emissive = material.emissive_factor * srgb_to_linear(textureSample(emissive_tex, emissive_s, in.uv)).rgb * material.emissive_strength;
 
     let F0 = mix(vec3(0.04), albedo, metallic);
+
     // View direction
-    let V = normalize(camera.position.xyz - in.world_pos);
+    let V = normalize(camera.position - in.world_pos);
     let NdotV = max(dot(N, V), 0.0);
+
+    let shininess = 0.01;
+    let world_reflect = reflect(-V, N);
+    let world_refract = refract(-V, N, 1. / material.ior);
+
+    var reflection = textureSample(terrain_map, terrain_s, world_reflect).rgb;
+    var refraction = textureSample(terrain_map, terrain_s, world_refract).rgb;
+    var env_color = mix(reflection, refraction, 0.5);
 
     var Lo = vec3(0.0);
     var Shad = vec3(0.0);
@@ -86,6 +97,7 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
 
         let denominator = 4.0 * NdotV * NdotL;
         let specular = numerator / (denominator + 0.0001);
+
         let kD = (vec3(1.0) - F) * (1.0 - metallic);
         let lambert = lambert(kD * albedo);
 
@@ -93,16 +105,22 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
         Lo += (lambert + specular) * radiance * NdotL;
     }
 
+    var hdr = Shad * vec3(0.4) * albedo * ao + Lo + emissive;
+
+    // --------------- ENVIRONMENT --------------------
+    if roughness < 0.40 {
+        let factor = max(1. - roughness, 0.0001) * 0.02;
+        hdr += env_color * factor * hdr;
+    }
+    // --------------- ENVIRONMENT --------------------
+
+    var color = tonemap(hdr, camera.tonemap);
+
+    color = linear_to_srgb(color).rgb;
+
     var out: FragmentOutput;
 
-    //var irradiance = textureSample(irradianceMap, N).rgb;
-    let world_reflect = reflect(-V, WN);
-    let reflection = textureSample(terrain_map, terrain_s, world_reflect).rgb;
-    let shininess = 0.01;
-
-    let color = tonemap(Shad * vec3(0.4) * albedo * ao + Lo + emissive, camera.tonemap);
-
-    out.color = vec4(linear_to_srgb(color), 1.0);
+    out.color = vec4(color, 1.0);
 
     if any(camera.bloom_treshold < out.color.rgb) {
         out.split = out.color;

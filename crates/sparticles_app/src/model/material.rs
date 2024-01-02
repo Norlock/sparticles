@@ -20,7 +20,9 @@ pub struct Material {
 #[derive(ShaderType, Clone, Copy)]
 pub struct MaterialUniform {
     pub emissive_factor: glam::Vec3,
+    pub specular_color_factor: glam::Vec3,
     pub emissive_strength: f32,
+    pub specular_factor: f32,
     pub ior: f32,
 }
 
@@ -39,6 +41,12 @@ pub struct MaterialCtx {
     pub ao_s: wgpu::Sampler,
     pub cull_mode: Option<wgpu::Face>,
     pub ior: f32,
+    pub specular_tex: wgpu::Texture,
+    pub specular_s: wgpu::Sampler,
+    pub specular_color_tex: wgpu::Texture,
+    pub specular_color_s: wgpu::Sampler,
+    pub specular_factor: f32,
+    pub specular_color_factor: glam::Vec3,
 }
 
 impl Material {
@@ -57,6 +65,10 @@ impl Material {
         let emissive_s = gfx.create_sampler();
         let ao_tex = gfx.create_builtin_tex(TexType::White);
         let ao_s = gfx.create_sampler();
+        let specular_tex = gfx.create_builtin_tex(TexType::White);
+        let specular_s = gfx.create_sampler();
+        let specular_color_tex = gfx.create_builtin_tex(TexType::White);
+        let specular_color_s = gfx.create_sampler();
 
         materials.insert(
             CIRCLE_MAT_ID.to_string(),
@@ -73,6 +85,13 @@ impl Material {
                     emissive_factor: glam::Vec3::ONE,
                     emissive_strength: 1.0,
                     ior: 1.5,
+                    specular_factor: 1.0,
+                    specular_color_factor: glam::Vec3::ONE,
+                    specular_tex,
+                    specular_s,
+                    specular_color_tex,
+                    specular_color_s,
+
                     ao_tex,
                     ao_s,
                     cull_mode: Some(wgpu::Face::Back),
@@ -89,7 +108,7 @@ impl Material {
 
         let mut entries = vec![];
 
-        for i in 0..5 {
+        for i in 0..7 {
             entries.push(wgpu::BindGroupLayoutEntry {
                 binding: i * 2,
                 visibility: wgpu::ShaderStages::FRAGMENT,
@@ -114,6 +133,8 @@ impl Material {
             emissive_strength: ctx.emissive_strength,
             emissive_factor: ctx.emissive_factor,
             ior: ctx.ior,
+            specular_factor: ctx.specular_factor,
+            specular_color_factor: ctx.specular_color_factor,
         };
 
         let buffer_content = uniform.buffer_content();
@@ -125,7 +146,7 @@ impl Material {
         });
 
         entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 10,
+            binding: 14,
             visibility: wgpu::ShaderStages::FRAGMENT,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
@@ -145,6 +166,8 @@ impl Material {
         let metal_roughness_view = ctx.metallic_roughness_tex.default_view();
         let emissive_view = ctx.emissive_tex.default_view();
         let ao_view = ctx.ao_tex.default_view();
+        let specular_view = ctx.specular_tex.default_view();
+        let specular_color_view = ctx.specular_color_tex.default_view();
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
@@ -191,6 +214,22 @@ impl Material {
                 },
                 wgpu::BindGroupEntry {
                     binding: 10,
+                    resource: wgpu::BindingResource::TextureView(&specular_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 11,
+                    resource: wgpu::BindingResource::Sampler(&ctx.specular_s),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 12,
+                    resource: wgpu::BindingResource::TextureView(&specular_color_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 13,
+                    resource: wgpu::BindingResource::Sampler(&ctx.specular_color_s),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 14,
                     resource: uniform_buffer.as_entire_binding(),
                 },
             ],

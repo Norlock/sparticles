@@ -49,3 +49,9 @@ https://github.com/Norlock/sparticles/assets/7510943/b0bfde2b-b44d-40fb-b88d-0c0
 - [ ] Motion blur
 - [ ] Particle trails
 - [ ] Displacement map
+
+
+
+## jep
+- Use pythagoras distance for size in terrain generation
+- Use the same textures if camera doesn't rotate or move
