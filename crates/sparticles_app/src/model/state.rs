@@ -62,7 +62,6 @@ impl SparState {
         Camera::update(self, events).await;
         PostProcessState::update(self, events).await;
         EmitterState::update(self, events).await;
-        TerrainGenerator::update(self).await;
     }
 
     pub async fn resize(&mut self, size: PhysicalSize<u32>) {
@@ -70,7 +69,6 @@ impl SparState {
         gfx.resize(size);
         self.post_process.resize(&gfx);
         self.camera.resize(&gfx);
-        self.terrain_generator.resize();
     }
 
     pub fn process_events(&mut self, input: &KeyboardInput) {
@@ -121,7 +119,7 @@ impl SparState {
             terrain_generator,
         };
 
-        init.add_widget_builders(&mut state);
+        init.add_widget_builders(&mut state).await;
 
         state
     }

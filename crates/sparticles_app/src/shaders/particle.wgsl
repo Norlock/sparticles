@@ -65,8 +65,8 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
     let world_refract = refract(-V, N, 1. / material.ior);
 
     var reflection = textureSample(terrain_map, terrain_s, world_reflect).rgb;
-    var refraction = textureSample(terrain_map, terrain_s, world_refract).rgb;
-    var env_color = mix(reflection, refraction, 0.5);
+    //var refraction = textureSample(terrain_map, terrain_s, world_refract).rgb;
+    //var env_color = mix(reflection, refraction, 0.5);
 
     var Lo = vec3(0.0);
     var Shad = vec3(0.0);
@@ -105,14 +105,17 @@ fn apply_pbr(in: VertexOutput, N: vec3<f32>, WN: vec3<f32>, ALB: vec3<f32>) -> F
         Lo += (lambert + specular) * radiance * NdotL;
     }
 
-    var hdr = Shad * vec3(0.4) * albedo * ao + Lo + emissive;
+    // --------------- ENVIRONMENT --------------------
+    var kS = fresnel_schlick(NdotV, F0);
+    var kD = 1.0 - kS;
 
+    kD *= 1.0 - metallic;
+
+    var diffuse = reflection * albedo * ao;
+    var ambient = (kD * diffuse);
     // --------------- ENVIRONMENT --------------------
-    if roughness < 1.0 {
-        let factor = max(1. - roughness, 0.);
-        hdr += env_color * pow(factor, 4.0) * hdr;
-    }
-    // --------------- ENVIRONMENT --------------------
+
+    var hdr = Shad * vec3(0.4) * albedo * ao + Lo + emissive + ambient;
 
     var color = tonemap(hdr, camera.tonemap);
 

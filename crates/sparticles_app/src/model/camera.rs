@@ -9,7 +9,6 @@ use egui_winit::{
     winit::event::{ElementState, KeyboardInput, VirtualKeyCode},
 };
 use encase::ShaderType;
-use glam::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TonemapType {
@@ -50,14 +49,13 @@ impl From<TonemapType> for u32 {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Camera {
-    pub position: Vec3, // Camera position
-    pub view_dir: Vec3, // Camera aimed at
+    pub position: glam::Vec3, // Camera position
+    pub view_dir: glam::Vec3, // Camera aimed at
     pub pitch: f32,
     pub yaw: f32,
     pub bg_layout: wgpu::BindGroupLayout,
-    pub bloom_treshold: Vec3, // To prepare for post FX
+    pub bloom_treshold: glam::Vec3, // To prepare for post FX
     pub tonemap_type: TonemapType,
-    pub look_at: Vec3,
     fov: f32,  // Field of view (frustum vertical degrees)
     near: f32, // What is too close to show
     far: f32,  // What is too far to show
@@ -74,7 +72,7 @@ pub struct Camera {
     is_down_pressed: bool,
     is_rotate_down_pressed: bool,
 
-    proj: Mat4,
+    proj: glam::Mat4,
     bg: wgpu::BindGroup,
 }
 
@@ -98,16 +96,15 @@ impl Camera {
     pub fn new(gfx_state: &GfxState) -> Self {
         let device = &gfx_state.device;
 
-        let position = Vec3::new(0., 0., 10.);
-        let view_dir = Vec3::new(0., 0., -10.);
-        let look_at = position + view_dir;
+        let position = glam::Vec3::new(0., 0., 10.);
+        let view_dir = glam::Vec3::new(0., 0., -10.);
         let pitch = 0.;
         let yaw = 0.;
         let near = 0.1;
         let far = 100.0;
         let fov = (45.0f32).to_radians();
         let aspect = gfx_state.aspect();
-        let proj = Mat4::perspective_rh(fov, aspect, near, far);
+        let proj = glam::Mat4::perspective_rh(fov, aspect, near, far);
 
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             size: CameraUniform::min_size().into(),
@@ -147,11 +144,10 @@ impl Camera {
             yaw,
             position,
             view_dir,
-            look_at,
             buffer,
             bg_layout,
             bg,
-            bloom_treshold: Vec3::MAX,
+            bloom_treshold: glam::Vec3::MAX,
             tonemap_type: TonemapType::AcesNarkowicz,
             proj,
             is_forward_pressed: false,
@@ -165,6 +161,16 @@ impl Camera {
             is_down_pressed: false,
             is_rotate_down_pressed: false,
         }
+    }
+
+    pub fn with_pos(mut self, pos: glam::Vec3) -> Self {
+        self.position = pos;
+        self
+    }
+
+    pub fn with_view_dir(mut self, pos: glam::Vec3) -> Self {
+        self.position = pos;
+        self
     }
 
     pub async fn update(state: &mut SparState, events: &SparEvents) {
@@ -186,17 +192,17 @@ impl Camera {
 
         let move_delta = speed * clock.delta_sec();
         let rotation = move_delta / 3.0;
-        let yaw_mat = Mat3::from_rotation_y(camera.yaw);
-        let pitch_mat = Mat3::from_rotation_x(camera.pitch);
+        let yaw_mat = glam::Mat3::from_rotation_y(camera.yaw);
+        let pitch_mat = glam::Mat3::from_rotation_x(camera.pitch);
 
-        let rotate_vec = |unrotated_vec: Vec3| yaw_mat * pitch_mat * unrotated_vec;
+        let rotate_vec = |unrotated_vec: glam::Vec3| yaw_mat * pitch_mat * unrotated_vec;
 
         if camera.is_forward_pressed {
-            camera.position += rotate_vec(Vec3::new(0., 0., -move_delta));
+            camera.position += rotate_vec(glam::Vec3::new(0., 0., -move_delta));
         }
 
         if camera.is_backward_pressed {
-            camera.position += rotate_vec(Vec3::new(0., 0., move_delta));
+            camera.position += rotate_vec(glam::Vec3::new(0., 0., move_delta));
         }
 
         if camera.is_up_pressed {
@@ -208,11 +214,11 @@ impl Camera {
         }
 
         if camera.is_left_pressed {
-            camera.position += rotate_vec(Vec3::new(-move_delta, 0., 0.));
+            camera.position += rotate_vec(glam::Vec3::new(-move_delta, 0., 0.));
         }
 
         if camera.is_right_pressed {
-            camera.position += rotate_vec(Vec3::new(move_delta, 0., 0.));
+            camera.position += rotate_vec(glam::Vec3::new(move_delta, 0., 0.));
         }
 
         if camera.is_rotate_up_pressed {
@@ -236,7 +242,7 @@ impl Camera {
     }
 
     pub fn resize(&mut self, gfx_state: &GfxState) {
-        self.proj = Mat4::perspective_rh(self.fov, gfx_state.aspect(), self.near, self.far);
+        self.proj = glam::Mat4::perspective_rh(self.fov, gfx_state.aspect(), self.near, self.far);
     }
 
     pub fn process_input(&mut self, input: &KeyboardInput) -> bool {
@@ -306,15 +312,19 @@ impl Camera {
         .buffer_content()
     }
 
-    pub fn view_mat(&self) -> Mat4 {
-        let yaw_mat = Mat3::from_rotation_y(self.yaw);
-        let pitch_mat = Mat3::from_rotation_x(self.pitch);
+    pub fn view_mat(&self) -> glam::Mat4 {
+        let yaw_mat = glam::Mat3::from_rotation_y(self.yaw);
+        let pitch_mat = glam::Mat3::from_rotation_x(self.pitch);
 
         let rotated_view_dir = yaw_mat * pitch_mat * self.view_dir;
-        Mat4::look_at_rh(self.position, self.position + rotated_view_dir, Vec3::Y)
+        glam::Mat4::look_at_rh(
+            self.position,
+            self.position + rotated_view_dir,
+            glam::Vec3::Y,
+        )
     }
 
-    pub fn view_proj(&self, view_mat: &Mat4) -> Mat4 {
+    pub fn view_proj(&self, view_mat: &glam::Mat4) -> glam::Mat4 {
         self.proj * (*view_mat)
     }
 }

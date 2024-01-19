@@ -63,7 +63,7 @@ pub struct CreateEmitterOptions<'a> {
     pub camera: &'a Camera,
     pub collection: &'a Arc<RwLock<HashMap<ID, Model>>>,
     pub emitter_type: EmitterType<'a>,
-    pub terrain_bg_layout: &'a wgpu::BindGroupLayout,
+    pub env_bg_layout: &'a wgpu::BindGroupLayout,
 }
 
 pub struct RecreateEmitterOptions<'a> {
@@ -102,7 +102,7 @@ impl EmitterState {
                     lights_layout: &emitters[0].bg_layout,
                 },
                 gfx,
-                terrain_bg_layout: &terrain_generator.env_bg_layout,
+                env_bg_layout: &terrain_generator.env_bg_layout,
             };
 
             emitters.push(Self::new(options).await);
@@ -253,9 +253,9 @@ impl EmitterState {
 
             if !em.is_light {
                 r_pass.set_bind_group(3, &emitters[0].bgs[nr], &[]);
-                r_pass.set_bind_group(4, &tg.environment_bg(), &[]);
+                r_pass.set_bind_group(4, &tg.irradiance_bg(), &[]);
             } else {
-                r_pass.set_bind_group(3, &tg.environment_bg(), &[]);
+                r_pass.set_bind_group(3, &tg.irradiance_bg(), &[]);
             }
 
             r_pass.draw_indexed(mesh.indices_range(), 0, 0..em.particle_count() as u32);
@@ -278,7 +278,7 @@ impl EmitterState {
             camera: options.camera,
             collection: options.collection,
             emitter_type: options.emitter_type,
-            terrain_bg_layout: options.terrain_bg_layout,
+            env_bg_layout: options.terrain_bg_layout,
         })
         .await;
 
@@ -343,7 +343,7 @@ impl EmitterState {
         let uniform = options.uniform;
         let gfx = options.gfx;
         let collection = options.collection;
-        let terrain_bg_layout = options.terrain_bg_layout;
+        let terrain_bg_layout = options.env_bg_layout;
 
         {
             let mut collection = collection.write().await;

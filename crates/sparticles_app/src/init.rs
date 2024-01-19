@@ -52,7 +52,7 @@ pub trait AppVisitor {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("exports")
     }
 
-    fn add_widget_builders(&mut self, state: &mut SparState);
+    async fn add_widget_builders(&mut self, state: &mut SparState);
 
     fn draw_ui(&mut self, state: &mut SparState, encoder: &mut wgpu::CommandEncoder) -> SparEvents;
 
@@ -97,7 +97,7 @@ impl Init {
         gfx: &Arc<RwLock<GfxState>>,
         collection: &Arc<RwLock<HashMap<ID, Model>>>,
         camera: &Camera,
-        terrain_bg_layout: &wgpu::BindGroupLayout,
+        env_bg_layout: &wgpu::BindGroupLayout,
     ) -> Vec<EmitterState> {
         let mut emitters: Vec<EmitterState> = Vec::new();
 
@@ -109,7 +109,7 @@ impl Init {
             collection,
             gfx,
             emitter_type: EmitterType::Lights,
-            terrain_bg_layout,
+            env_bg_layout,
         })
         .await;
 
@@ -130,7 +130,7 @@ impl Init {
                     emitter_type: EmitterType::Normal {
                         lights_layout: &lights.bg_layout,
                     },
-                    terrain_bg_layout,
+                    env_bg_layout,
                 })
                 .await,
             );
@@ -246,7 +246,7 @@ impl Init {
         registry_par_anims: Vec<Box<dyn RegisterParticleAnimation>>,
         registry_em_anims: Vec<Box<dyn RegisterEmitterAnimation>>,
         registry_post_fx: Vec<Box<dyn RegisterPostFx>>,
-        terrain_bg_layout: &wgpu::BindGroupLayout,
+        env_bg_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         let mut emitters = Vec::new();
 
@@ -263,7 +263,7 @@ impl Init {
             collection,
             gfx,
             emitter_type: EmitterType::Lights,
-            terrain_bg_layout,
+            env_bg_layout,
         })
         .await;
 
@@ -301,7 +301,7 @@ impl Init {
                 emitter_type: EmitterType::Normal {
                     lights_layout: &lights.bg_layout,
                 },
-                terrain_bg_layout,
+                env_bg_layout,
             })
             .await;
 

@@ -55,7 +55,7 @@ fn stars(pos_in: vec3<u32>) -> vec3<f32> {
     let remainder = half - spot;
 
     if length(remainder) <= star {
-        return vec3(1.0);
+        return vec3(200.0);
     } else {
         return vec3(0.0);
     }

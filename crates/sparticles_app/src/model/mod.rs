@@ -8,6 +8,7 @@ pub mod gfx_state;
 pub mod life_cycle;
 pub mod material;
 pub mod mesh;
+pub mod skin;
 pub mod state;
 
 pub use camera::{Camera, TonemapType};
@@ -19,4 +20,5 @@ pub use gfx_state::GfxState;
 pub use life_cycle::LifeCycle;
 pub use material::Material;
 pub use mesh::{Mesh, ModelVertex};
+//pub use skin::Skin;
 pub use state::SparState;

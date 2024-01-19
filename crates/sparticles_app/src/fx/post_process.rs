@@ -89,11 +89,6 @@ impl PostProcessState {
         &self.fx_state.tex_views[1]
     }
 
-    pub fn irradiance_view(&self) -> &wgpu::TextureView {
-        &self.fx_state.tex_views[2]
-        //&self.fx_state.tex_views.last().unwrap()
-    }
-
     pub fn depth_view(&self) -> &wgpu::TextureView {
         &self.fx_state.depth_view
     }

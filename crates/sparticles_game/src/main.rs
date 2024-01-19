@@ -97,7 +97,7 @@ impl AppVisitor for GameState {
         events
     }
 
-    fn add_widget_builders(&mut self, state: &mut SparState) {
+    async fn add_widget_builders(&mut self, state: &mut SparState) {
         #[cfg(feature = "editor")]
         self.guis
             .insert(GUI_EDITOR, Box::new(Editor::new(state, self.model_dir())));

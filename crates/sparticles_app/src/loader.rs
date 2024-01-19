@@ -9,6 +9,8 @@ use crate::util::ID;
 use async_std::sync::RwLock;
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufReader;
 use std::sync::Arc;
 
 pub const CIRCLE_MESH_ID: &str = "circle-mesh";
@@ -77,8 +79,8 @@ impl Model {
             .join("src/assets/models")
             .join(filename);
 
-        let file = std::fs::File::open(path)?;
-        let reader = std::io::BufReader::new(file);
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
         let gltf = gltf::Gltf::from_reader(reader)?;
 
         // Load buffers
@@ -98,6 +100,13 @@ impl Model {
                 }
             }
         }
+
+        let loader = LoaderCtx {
+            gfx: gfx.clone(),
+            gltf,
+            buffer_data,
+            filename: filename.to_string(),
+        };
 
         async fn fetch_sampler(
             sampler_data: gltf::texture::Sampler<'_>,
@@ -155,7 +164,7 @@ impl Model {
         async fn fetch_texture(
             img: gltf::image::Image<'_>,
             s_rgb: bool,
-            buffer_data: &mut [Vec<u8>],
+            buffer_data: &[Vec<u8>],
             gfx: &Arc<RwLock<GfxState>>,
         ) -> wgpu::Texture {
             match img.source() {
@@ -175,7 +184,11 @@ impl Model {
 
         let mut materials: HashMap<ID, Material> = HashMap::new();
 
-        for (i, material) in gltf.materials().enumerate() {
+        for (i, skin) in loader.gltf.skins().enumerate() {}
+
+        for (i, material) in loader.gltf.materials().enumerate() {
+            let buffer_data = &loader.buffer_data;
+
             let albedo_tex: wgpu::Texture;
             let albedo_s: wgpu::Sampler;
             let albedo_col: glam::Vec4;
@@ -204,7 +217,7 @@ impl Model {
 
             if let Some(tex_data) = pbr.base_color_texture() {
                 let tex = tex_data.texture();
-                albedo_tex = fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
+                albedo_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
                 albedo_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("Contains albedo tex");
             } else {
@@ -219,17 +232,19 @@ impl Model {
 
             if let Some(tex_data) = pbr.metallic_roughness_texture() {
                 let tex = tex_data.texture();
-                metallic_roughness_tex =
-                    fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
+                metallic_roughness_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
                 metallic_roughness_s = fetch_sampler(tex.sampler(), gfx).await;
+
+                //metallic_factor = pbr.metallic_factor();
+                //roughness_factor = pbr.roughness_factor();
 
                 if let Some(tex) = tex_data.texture_transform() {
                     println!("Heeft texture transform pbr_metallic_roughness");
                 }
                 println!("Contains metallic_roughness_tex");
             } else {
-                let metallic_factor = pbr.metallic_factor();
-                let roughness_factor = pbr.roughness_factor();
+                metallic_factor = pbr.metallic_factor();
+                roughness_factor = pbr.roughness_factor();
 
                 let gfx = &gfx.read().await;
                 metallic_roughness_tex = gfx.create_builtin_tex(TexType::Custom {
@@ -241,7 +256,7 @@ impl Model {
 
             if let Some(tex_data) = material.normal_texture() {
                 let tex = tex_data.texture();
-                normal_tex = fetch_texture(tex.source(), false, &mut buffer_data, gfx).await;
+                normal_tex = fetch_texture(tex.source(), false, &buffer_data, gfx).await;
                 normal_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("Contains normal_tex");
             } else {
@@ -254,7 +269,7 @@ impl Model {
 
             if let Some(tex_data) = material.emissive_texture() {
                 let tex = tex_data.texture();
-                emissive_tex = fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
+                emissive_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
                 emissive_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("Contains emissive_tex");
             } else {
@@ -272,7 +287,7 @@ impl Model {
 
             if let Some(tex_data) = material.occlusion_texture() {
                 let tex = tex_data.texture();
-                ao_tex = fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
+                ao_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
                 ao_s = fetch_sampler(tex.sampler(), gfx).await;
                 println!("contains occlusion_texture");
             } else {
@@ -290,7 +305,7 @@ impl Model {
 
                 if let Some(tex_data) = tex_data.specular_texture() {
                     let tex = tex_data.texture();
-                    specular_tex = fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
+                    specular_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
                     specular_s = fetch_sampler(tex.sampler(), gfx).await;
                     println!("Contains specular map");
                 } else {
@@ -301,8 +316,7 @@ impl Model {
 
                 if let Some(tex_data) = tex_data.specular_color_texture() {
                     let tex = tex_data.texture();
-                    specular_color_tex =
-                        fetch_texture(tex.source(), true, &mut buffer_data, gfx).await;
+                    specular_color_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
                     specular_color_s = fetch_sampler(tex.sampler(), gfx).await;
                     println!("Contains specular color map");
                 } else {
@@ -382,6 +396,8 @@ impl Model {
         //}
         //}
 
+        let gltf = &loader.gltf;
+
         for scene in gltf.scenes() {
             for node in scene.nodes() {
                 let mut model = glam::Mat4::from_cols_array_2d(&node.transform().matrix());
@@ -399,85 +415,16 @@ impl Model {
                 }
 
                 if let Some(mesh) = node.mesh() {
-                    let mut vertices = Vec::new();
-                    let mut indices = Vec::new();
-
-                    for primitive in mesh.primitives() {
-                        let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
-
-                        if let Some(vertex_attribute) = reader.read_positions() {
-                            vertex_attribute.for_each(|vertex| {
-                                vertices.push(ModelVertex {
-                                    position: vertex,
-                                    uv: Default::default(),
-                                    normal: Default::default(),
-                                    tangent: Default::default(),
-                                    bitangent: Default::default(),
-                                })
-                            });
-                        }
-
-                        if let Some(normal_attribute) = reader.read_normals() {
-                            for (i, normal) in normal_attribute.enumerate() {
-                                vertices[i].normal = normal;
-                            }
-                        }
-
-                        if let Some(tex_coords) = reader.read_tex_coords(0).map(|v| v.into_f32()) {
-                            for (i, uv) in tex_coords.enumerate() {
-                                vertices[i].uv = uv;
-                            }
-                        }
-
-                        if let Some(tangents) = reader.read_tangents() {
-                            for (i, tangent) in tangents.enumerate() {
-                                let tn: glam::Vec3 = glam::Vec3::from_slice(&tangent[..3]);
-                                let nm: glam::Vec3 = vertices[i].normal.into();
-
-                                vertices[i].tangent.copy_from_slice(&tangent[..3]);
-                                vertices[i].bitangent = (nm.cross(tn) * tangent[3]).into();
-                            }
-                        }
-
-                        if let Some(indices_raw) = reader.read_indices() {
-                            indices.append(&mut indices_raw.into_u32().collect::<Vec<u32>>());
-                        }
-                    }
-
-                    let device = &gfx.read().await.device;
-
-                    let vertex_buffer =
-                        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                            label: Some(&format!("{:?} Vertex Buffer", filename)),
-                            contents: bytemuck::cast_slice(&vertices),
-                            usage: wgpu::BufferUsages::VERTEX,
-                        });
-
-                    let index_buffer =
-                        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                            label: Some(&format!("{:?} Index Buffer", filename)),
-                            contents: bytemuck::cast_slice(&indices),
-                            usage: wgpu::BufferUsages::INDEX,
-                        });
-
                     let id = mesh
                         .name()
                         .map(|name| name.to_string())
-                        .unwrap_or_else(|| format!("mesh-{}", materials.len()));
+                        .unwrap_or_else(|| format!("mesh-{}", meshes.len()));
 
                     println!("Importing mesh: {:?}", &id);
 
-                    meshes.insert(
-                        id,
-                        Mesh {
-                            indices,
-                            vertices,
-                            vertex_buffer,
-                            index_buffer,
-                            model,
-                            fs_entry_point: FsEntryPoint::Model,
-                        },
-                    );
+                    let mesh = load_mesh(&loader, mesh, model).await;
+
+                    meshes.insert(id, mesh);
                 } else {
                     println!("Not a mesh! {}", node.name().unwrap_or("no name"));
                 }
@@ -489,6 +436,90 @@ impl Model {
             materials,
             meshes,
         })
+    }
+}
+
+struct LoaderCtx {
+    gfx: Arc<RwLock<GfxState>>,
+    gltf: gltf::Gltf,
+    buffer_data: Vec<Vec<u8>>,
+    filename: String,
+}
+
+async fn load_mesh(loader: &LoaderCtx, mesh: gltf::Mesh<'_>, model: glam::Mat4) -> Mesh {
+    let LoaderCtx {
+        gfx,
+        buffer_data,
+        filename,
+        ..
+    } = loader;
+
+    let mut vertices = Vec::new();
+    let mut indices = Vec::new();
+
+    for primitive in mesh.primitives() {
+        let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
+
+        if let Some(vertex_attribute) = reader.read_positions() {
+            vertex_attribute.for_each(|vertex| {
+                vertices.push(ModelVertex {
+                    position: vertex,
+                    uv: Default::default(),
+                    normal: Default::default(),
+                    tangent: Default::default(),
+                    bitangent: Default::default(),
+                })
+            });
+        }
+
+        if let Some(normal_attribute) = reader.read_normals() {
+            for (i, normal) in normal_attribute.enumerate() {
+                vertices[i].normal = normal;
+            }
+        }
+
+        if let Some(tex_coords) = reader.read_tex_coords(0).map(|v| v.into_f32()) {
+            for (i, uv) in tex_coords.enumerate() {
+                vertices[i].uv = uv;
+            }
+        }
+
+        if let Some(tangents) = reader.read_tangents() {
+            for (i, tangent) in tangents.enumerate() {
+                let tn: glam::Vec3 = glam::Vec3::from_slice(&tangent[..3]);
+                let nm: glam::Vec3 = vertices[i].normal.into();
+
+                vertices[i].tangent.copy_from_slice(&tangent[..3]);
+                vertices[i].bitangent = (nm.cross(tn) * tangent[3]).into();
+            }
+        }
+
+        if let Some(indices_raw) = reader.read_indices() {
+            indices.append(&mut indices_raw.into_u32().collect::<Vec<u32>>());
+        }
+    }
+
+    let device = &gfx.read().await.device;
+
+    let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some(&format!("{:?} Vertex Buffer", filename)),
+        contents: bytemuck::cast_slice(&vertices),
+        usage: wgpu::BufferUsages::VERTEX,
+    });
+
+    let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some(&format!("{:?} Index Buffer", filename)),
+        contents: bytemuck::cast_slice(&indices),
+        usage: wgpu::BufferUsages::INDEX,
+    });
+
+    Mesh {
+        indices,
+        vertices,
+        vertex_buffer,
+        index_buffer,
+        model,
+        fs_entry_point: FsEntryPoint::Model,
     }
 }
 
