@@ -2,7 +2,8 @@
 /// https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos
 /// https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_009_Meshes.model
 use crate::model::emitter_state::FsEntryPoint;
-use crate::model::material::MaterialCtx;
+use crate::model::material::{MaterialCtx, MaterialRef};
+use crate::model::mesh::MeshRef;
 use crate::model::{GfxState, Material, Mesh, ModelVertex};
 use crate::texture::{TexType, TextureHandler};
 use crate::util::ID;
@@ -14,7 +15,7 @@ use std::io::BufReader;
 use std::sync::Arc;
 
 pub const CIRCLE_MESH_ID: &str = "circle-mesh";
-pub const CIRCLE_MAT_ID: &str = "circle-mat";
+pub const DEFAULT_MAT_ID: &str = "circle-mat";
 pub const BUILTIN_ID: &str = "builtin";
 
 pub struct Model {
@@ -42,6 +43,37 @@ async fn load_texture(
     let data = load_binary(filename).await?;
 
     Ok(TextureHandler::tex_from_bytes(gfx, &data, true).await)
+}
+
+fn create_material_id(material: &gltf::Material, idx: usize) -> String {
+    material
+        .name()
+        .map(|name| name.to_string())
+        .unwrap_or_else(|| format!("material-{}", idx))
+}
+
+fn create_material_ref(
+    collection_id: String,
+    material: &gltf::Material,
+    idx: usize,
+) -> MaterialRef {
+    MaterialRef {
+        collection_id,
+        material_id: create_material_id(material, idx),
+    }
+}
+
+fn create_mesh_id(mesh: &gltf::Mesh<'_>, idx: usize) -> String {
+    mesh.name()
+        .map(|name| name.to_string())
+        .unwrap_or_else(|| format!("mesh-{}", idx))
+}
+
+fn create_mesh_ref(collection_id: String, mesh: &gltf::Mesh<'_>, idx: usize) -> MeshRef {
+    MeshRef {
+        collection_id,
+        mesh_id: create_mesh_id(mesh, idx),
+    }
 }
 
 impl Model {
@@ -108,247 +140,10 @@ impl Model {
             filename: filename.to_string(),
         };
 
-        async fn fetch_sampler(
-            sampler_data: gltf::texture::Sampler<'_>,
-            gfx: &Arc<RwLock<GfxState>>,
-        ) -> wgpu::Sampler {
-            let default_sampler = wgpu::SamplerDescriptor::default();
-
-            let (min_filter, mipmap_filter) = match &sampler_data.min_filter() {
-                Some(gltf::texture::MinFilter::Linear) => {
-                    (wgpu::FilterMode::Linear, default_sampler.mipmap_filter)
-                }
-                Some(gltf::texture::MinFilter::Nearest) => {
-                    (wgpu::FilterMode::Nearest, default_sampler.mipmap_filter)
-                }
-                Some(gltf::texture::MinFilter::LinearMipmapLinear) => {
-                    (wgpu::FilterMode::Linear, wgpu::FilterMode::Linear)
-                }
-                Some(gltf::texture::MinFilter::NearestMipmapNearest) => {
-                    (wgpu::FilterMode::Nearest, wgpu::FilterMode::Nearest)
-                }
-                Some(gltf::texture::MinFilter::LinearMipmapNearest) => {
-                    (wgpu::FilterMode::Linear, wgpu::FilterMode::Nearest)
-                }
-                Some(gltf::texture::MinFilter::NearestMipmapLinear) => {
-                    (wgpu::FilterMode::Nearest, wgpu::FilterMode::Linear)
-                }
-                None => (default_sampler.min_filter, default_sampler.mipmap_filter),
-            };
-
-            let mag_filter = match &sampler_data.mag_filter() {
-                Some(gltf::texture::MagFilter::Linear) => wgpu::FilterMode::Linear,
-                Some(gltf::texture::MagFilter::Nearest) => wgpu::FilterMode::Nearest,
-                None => wgpu::FilterMode::default(),
-            };
-
-            let get_wrapping_mode = |wrap: gltf::texture::WrappingMode| match wrap {
-                gltf::texture::WrappingMode::Repeat => wgpu::AddressMode::Repeat,
-                gltf::texture::WrappingMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
-                gltf::texture::WrappingMode::MirroredRepeat => wgpu::AddressMode::MirrorRepeat,
-            };
-
-            let device = &gfx.write().await.device;
-
-            device.create_sampler(&wgpu::SamplerDescriptor {
-                label: sampler_data.name(),
-                min_filter,
-                mag_filter,
-                mipmap_filter,
-                address_mode_u: get_wrapping_mode(sampler_data.wrap_s()),
-                address_mode_v: get_wrapping_mode(sampler_data.wrap_t()),
-                ..Default::default()
-            })
-        }
-
-        async fn fetch_texture(
-            img: gltf::image::Image<'_>,
-            s_rgb: bool,
-            buffer_data: &[Vec<u8>],
-            gfx: &Arc<RwLock<GfxState>>,
-        ) -> wgpu::Texture {
-            match img.source() {
-                gltf::image::Source::View { view, mime_type: _ } => {
-                    let start = view.offset();
-                    let end = start + view.length();
-                    let buf_idx = view.buffer().index();
-
-                    TextureHandler::tex_from_bytes(gfx, &buffer_data[buf_idx][start..end], s_rgb)
-                        .await
-                }
-                gltf::image::Source::Uri { uri, mime_type: _ } => {
-                    load_texture(uri, gfx).await.expect("Can't load diffuse")
-                }
-            }
-        }
-
         let mut materials: HashMap<ID, Material> = HashMap::new();
-
-        for (i, skin) in loader.gltf.skins().enumerate() {}
+        let mut meshes: HashMap<ID, Mesh> = HashMap::new();
 
         for (i, material) in loader.gltf.materials().enumerate() {
-            let buffer_data = &loader.buffer_data;
-
-            let albedo_tex: wgpu::Texture;
-            let albedo_s: wgpu::Sampler;
-            let albedo_col: glam::Vec4;
-            let metallic_roughness_tex: wgpu::Texture;
-            let metallic_roughness_s: wgpu::Sampler;
-            let roughness_factor: f32;
-            let metallic_factor: f32;
-            let normal_tex: wgpu::Texture;
-            let normal_s: wgpu::Sampler;
-            let emissive_tex: wgpu::Texture;
-            let emissive_s: wgpu::Sampler;
-            let emissive_factor: glam::Vec3;
-            let emissive_strength: f32;
-            let ao_tex: wgpu::Texture;
-            let ao_s: wgpu::Sampler;
-            let specular_tex: wgpu::Texture;
-            let specular_s: wgpu::Sampler;
-            let specular_color_tex: wgpu::Texture;
-            let specular_color_s: wgpu::Sampler;
-            let specular_factor: f32;
-            let specular_color_factor: glam::Vec3;
-
-            let cull_mode = Some(wgpu::Face::Back);
-
-            let pbr = material.pbr_metallic_roughness();
-
-            if let Some(tex_data) = pbr.base_color_texture() {
-                let tex = tex_data.texture();
-                albedo_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
-                albedo_s = fetch_sampler(tex.sampler(), gfx).await;
-                println!("Contains albedo tex");
-            } else {
-                let gfx = &gfx.read().await;
-                albedo_tex = gfx.create_builtin_tex(TexType::White);
-                albedo_s = gfx.create_sampler();
-            }
-
-            albedo_col = pbr.base_color_factor().into();
-            println!("roughness {}", pbr.roughness_factor());
-            println!("metallic {}", pbr.metallic_factor());
-
-            if let Some(tex_data) = pbr.metallic_roughness_texture() {
-                let tex = tex_data.texture();
-                metallic_roughness_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
-                metallic_roughness_s = fetch_sampler(tex.sampler(), gfx).await;
-
-                //metallic_factor = pbr.metallic_factor();
-                //roughness_factor = pbr.roughness_factor();
-
-                if let Some(tex) = tex_data.texture_transform() {
-                    println!("Heeft texture transform pbr_metallic_roughness");
-                }
-                println!("Contains metallic_roughness_tex");
-            } else {
-                metallic_factor = pbr.metallic_factor();
-                roughness_factor = pbr.roughness_factor();
-
-                let gfx = &gfx.read().await;
-                metallic_roughness_tex = gfx.create_builtin_tex(TexType::Custom {
-                    srgb: true,
-                    value: glam::Vec4::new(metallic_factor, roughness_factor, 0., 0.),
-                });
-                metallic_roughness_s = gfx.create_sampler();
-            }
-
-            if let Some(tex_data) = material.normal_texture() {
-                let tex = tex_data.texture();
-                normal_tex = fetch_texture(tex.source(), false, &buffer_data, gfx).await;
-                normal_s = fetch_sampler(tex.sampler(), gfx).await;
-                println!("Contains normal_tex");
-            } else {
-                let gfx = &gfx.read().await;
-                normal_tex = gfx.create_builtin_tex(TexType::Normal);
-                normal_s = gfx.create_sampler();
-            }
-
-            emissive_factor = material.emissive_factor().into();
-
-            if let Some(tex_data) = material.emissive_texture() {
-                let tex = tex_data.texture();
-                emissive_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
-                emissive_s = fetch_sampler(tex.sampler(), gfx).await;
-                println!("Contains emissive_tex");
-            } else {
-                let gfx = &gfx.read().await;
-                emissive_tex = gfx.create_builtin_tex(TexType::Black);
-                emissive_s = gfx.create_sampler();
-            }
-
-            if let Some(strength) = material.emissive_strength() {
-                emissive_strength = strength;
-                println!("Strength: {strength}");
-            } else {
-                emissive_strength = 1.;
-            }
-
-            if let Some(tex_data) = material.occlusion_texture() {
-                let tex = tex_data.texture();
-                ao_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
-                ao_s = fetch_sampler(tex.sampler(), gfx).await;
-                println!("contains occlusion_texture");
-            } else {
-                let gfx = &gfx.read().await;
-                ao_tex = gfx.create_builtin_tex(TexType::White);
-                ao_s = gfx.create_sampler();
-            }
-
-            let ior = material.ior().unwrap_or(1.5);
-
-            println!("IOR value: {ior}");
-
-            if let Some(tex_data) = material.specular() {
-                println!("Contains specular data");
-
-                if let Some(tex_data) = tex_data.specular_texture() {
-                    let tex = tex_data.texture();
-                    specular_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
-                    specular_s = fetch_sampler(tex.sampler(), gfx).await;
-                    println!("Contains specular map");
-                } else {
-                    let gfx = &gfx.read().await;
-                    specular_tex = gfx.create_builtin_tex(TexType::White);
-                    specular_s = gfx.create_sampler();
-                }
-
-                if let Some(tex_data) = tex_data.specular_color_texture() {
-                    let tex = tex_data.texture();
-                    specular_color_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
-                    specular_color_s = fetch_sampler(tex.sampler(), gfx).await;
-                    println!("Contains specular color map");
-                } else {
-                    let gfx = &gfx.read().await;
-                    specular_color_tex = gfx.create_builtin_tex(TexType::White);
-                    specular_color_s = gfx.create_sampler();
-                }
-
-                specular_factor = tex_data.specular_factor();
-                specular_color_factor = tex_data.specular_color_factor().into();
-            } else {
-                let gfx = &gfx.read().await;
-                specular_factor = 1.0;
-                specular_color_factor = glam::Vec3::ONE;
-                specular_tex = gfx.create_builtin_tex(TexType::White);
-                specular_s = gfx.create_sampler();
-                specular_color_tex = gfx.create_builtin_tex(TexType::White);
-                specular_color_s = gfx.create_sampler();
-            }
-
-            if let Some(tex_data) = material.pbr_specular_glossiness() {
-                println!("heeft specular glossiness");
-            }
-
-            if let Some(tex_data) = material.volume() {
-                println!("heeft volume");
-            }
-
-            if let Some(tex_data) = material.transmission() {
-                println!("heeft transmission");
-            }
-
             let id = material
                 .name()
                 .map(|name| name.to_string())
@@ -356,39 +151,17 @@ impl Model {
 
             println!("Importing material: {:?}", &id);
 
-            let gfx = &gfx.read().await;
-            materials.insert(
-                id,
-                Material::new(
-                    MaterialCtx {
-                        albedo_tex,
-                        albedo_s,
-                        albedo_col,
-                        emissive_tex,
-                        emissive_s,
-                        emissive_factor,
-                        emissive_strength,
-                        metallic_roughness_tex,
-                        metallic_roughness_s,
-                        normal_tex,
-                        normal_s,
-                        ao_tex,
-                        ao_s,
-                        specular_tex,
-                        specular_s,
-                        specular_color_tex,
-                        specular_color_s,
-                        specular_color_factor,
-                        specular_factor,
-                        cull_mode,
-                        ior,
-                    },
-                    gfx,
-                ),
-            );
+            materials.insert(id, load_material(&loader, material).await);
         }
 
-        let mut meshes: HashMap<ID, Mesh> = HashMap::new();
+        for (i, skin) in loader.gltf.skins().enumerate() {
+            let id = skin
+                .name()
+                .map(|name| name.to_string())
+                .unwrap_or_else(|| format!("skin-{}", i));
+
+            println!("Importing skin: {:?}", &id);
+        }
 
         //for anim in gltf.animations() {
         //for channel in anim.channels() {
@@ -415,14 +188,33 @@ impl Model {
                 }
 
                 if let Some(mesh) = node.mesh() {
-                    let id = mesh
-                        .name()
-                        .map(|name| name.to_string())
-                        .unwrap_or_else(|| format!("mesh-{}", meshes.len()));
+                    fn get_children(
+                        filename: &str,
+                        list: &mut Vec<MeshRef>,
+                        node: &gltf::Node<'_>,
+                    ) {
+                        for child in node.children() {
+                            if let Some(mesh) = child.mesh() {
+                                list.push(create_mesh_ref(
+                                    filename.to_string(),
+                                    &mesh,
+                                    child.index(),
+                                ));
+                            }
+
+                            for grand_child in child.children() {
+                                get_children(filename, list, &grand_child);
+                            }
+                        }
+                    }
+
+                    let mut children_ids = vec![];
+                    get_children(&loader.filename, &mut children_ids, &node);
+
+                    let id = create_mesh_id(&mesh, node.index());
+                    let mesh = load_mesh(&loader, mesh, model, children_ids).await;
 
                     println!("Importing mesh: {:?}", &id);
-
-                    let mesh = load_mesh(&loader, mesh, model).await;
 
                     meshes.insert(id, mesh);
                 } else {
@@ -446,7 +238,16 @@ struct LoaderCtx {
     filename: String,
 }
 
-async fn load_mesh(loader: &LoaderCtx, mesh: gltf::Mesh<'_>, model: glam::Mat4) -> Mesh {
+async fn load_skin(loader: &LoaderCtx, skin: gltf::Skin<'_>) {
+    //
+}
+
+async fn load_mesh(
+    loader: &LoaderCtx,
+    mesh: gltf::Mesh<'_>,
+    model: glam::Mat4,
+    children_refs: Vec<MeshRef>,
+) -> Mesh {
     let LoaderCtx {
         gfx,
         buffer_data,
@@ -456,9 +257,28 @@ async fn load_mesh(loader: &LoaderCtx, mesh: gltf::Mesh<'_>, model: glam::Mat4) 
 
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
+    let mut material_ref: MaterialRef = MaterialRef::default();
 
+    // TODO split in primitives
     for primitive in mesh.primitives() {
         let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
+
+        let material = primitive.material();
+        println!("Material: {}", material.name().unwrap_or("no name"));
+
+        for map in primitive.mappings() {
+            println!("variant: {:?}", map.material().name().unwrap_or("no name"));
+        }
+
+        // TODO set mode
+        let mode = primitive.mode();
+
+        // TODO Fix idx
+        material_ref = create_material_ref(
+            loader.filename.to_string(),
+            &material,
+            material.index().unwrap_or(0),
+        );
 
         if let Some(vertex_attribute) = reader.read_positions() {
             vertex_attribute.for_each(|vertex| {
@@ -489,7 +309,7 @@ async fn load_mesh(loader: &LoaderCtx, mesh: gltf::Mesh<'_>, model: glam::Mat4) 
                 let tn: glam::Vec3 = glam::Vec3::from_slice(&tangent[..3]);
                 let nm: glam::Vec3 = vertices[i].normal.into();
 
-                vertices[i].tangent.copy_from_slice(&tangent[..3]);
+                vertices[i].tangent = tn.to_array();
                 vertices[i].bitangent = (nm.cross(tn) * tangent[3]).into();
             }
         }
@@ -497,6 +317,9 @@ async fn load_mesh(loader: &LoaderCtx, mesh: gltf::Mesh<'_>, model: glam::Mat4) 
         if let Some(indices_raw) = reader.read_indices() {
             indices.append(&mut indices_raw.into_u32().collect::<Vec<u32>>());
         }
+
+        // TODO move vert_buffer + index_buffer here
+        // And split mesh into primitives
     }
 
     let device = &gfx.read().await.device;
@@ -514,13 +337,282 @@ async fn load_mesh(loader: &LoaderCtx, mesh: gltf::Mesh<'_>, model: glam::Mat4) 
     });
 
     Mesh {
+        children_refs,
         indices,
         vertices,
         vertex_buffer,
         index_buffer,
         model,
+        material_ref,
         fs_entry_point: FsEntryPoint::Model,
     }
+}
+
+async fn fetch_sampler(
+    sampler_data: gltf::texture::Sampler<'_>,
+    gfx: &Arc<RwLock<GfxState>>,
+) -> wgpu::Sampler {
+    let default_sampler = wgpu::SamplerDescriptor::default();
+
+    let (min_filter, mipmap_filter) = match &sampler_data.min_filter() {
+        Some(gltf::texture::MinFilter::Linear) => {
+            (wgpu::FilterMode::Linear, default_sampler.mipmap_filter)
+        }
+        Some(gltf::texture::MinFilter::Nearest) => {
+            (wgpu::FilterMode::Nearest, default_sampler.mipmap_filter)
+        }
+        Some(gltf::texture::MinFilter::LinearMipmapLinear) => {
+            (wgpu::FilterMode::Linear, wgpu::FilterMode::Linear)
+        }
+        Some(gltf::texture::MinFilter::NearestMipmapNearest) => {
+            (wgpu::FilterMode::Nearest, wgpu::FilterMode::Nearest)
+        }
+        Some(gltf::texture::MinFilter::LinearMipmapNearest) => {
+            (wgpu::FilterMode::Linear, wgpu::FilterMode::Nearest)
+        }
+        Some(gltf::texture::MinFilter::NearestMipmapLinear) => {
+            (wgpu::FilterMode::Nearest, wgpu::FilterMode::Linear)
+        }
+        None => (default_sampler.min_filter, default_sampler.mipmap_filter),
+    };
+
+    let mag_filter = match &sampler_data.mag_filter() {
+        Some(gltf::texture::MagFilter::Linear) => wgpu::FilterMode::Linear,
+        Some(gltf::texture::MagFilter::Nearest) => wgpu::FilterMode::Nearest,
+        None => wgpu::FilterMode::default(),
+    };
+
+    let get_wrapping_mode = |wrap: gltf::texture::WrappingMode| match wrap {
+        gltf::texture::WrappingMode::Repeat => wgpu::AddressMode::Repeat,
+        gltf::texture::WrappingMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
+        gltf::texture::WrappingMode::MirroredRepeat => wgpu::AddressMode::MirrorRepeat,
+    };
+
+    let device = &gfx.write().await.device;
+
+    device.create_sampler(&wgpu::SamplerDescriptor {
+        label: sampler_data.name(),
+        min_filter,
+        mag_filter,
+        mipmap_filter,
+        address_mode_u: get_wrapping_mode(sampler_data.wrap_s()),
+        address_mode_v: get_wrapping_mode(sampler_data.wrap_t()),
+        ..Default::default()
+    })
+}
+
+async fn fetch_texture(
+    img: gltf::image::Image<'_>,
+    s_rgb: bool,
+    buffer_data: &[Vec<u8>],
+    gfx: &Arc<RwLock<GfxState>>,
+) -> wgpu::Texture {
+    match img.source() {
+        gltf::image::Source::View { view, mime_type: _ } => {
+            let start = view.offset();
+            let end = start + view.length();
+            let buf_idx = view.buffer().index();
+
+            TextureHandler::tex_from_bytes(gfx, &buffer_data[buf_idx][start..end], s_rgb).await
+        }
+        gltf::image::Source::Uri { uri, mime_type: _ } => {
+            load_texture(uri, gfx).await.expect("Can't load diffuse")
+        }
+    }
+}
+
+async fn load_material(loader: &LoaderCtx, material: gltf::Material<'_>) -> Material {
+    let buffer_data = &loader.buffer_data;
+    let gfx = &loader.gfx;
+
+    let albedo_tex: wgpu::Texture;
+    let albedo_s: wgpu::Sampler;
+    let albedo_col: glam::Vec4;
+    let metallic_roughness_tex: wgpu::Texture;
+    let metallic_roughness_s: wgpu::Sampler;
+    let roughness_factor: f32;
+    let metallic_factor: f32;
+    let normal_tex: wgpu::Texture;
+    let normal_s: wgpu::Sampler;
+    let emissive_tex: wgpu::Texture;
+    let emissive_s: wgpu::Sampler;
+    let emissive_factor: glam::Vec3;
+    let emissive_strength: f32;
+    let ao_tex: wgpu::Texture;
+    let ao_s: wgpu::Sampler;
+    let specular_tex: wgpu::Texture;
+    let specular_s: wgpu::Sampler;
+    let specular_color_tex: wgpu::Texture;
+    let specular_color_s: wgpu::Sampler;
+    let specular_factor: f32;
+    let specular_color_factor: glam::Vec3;
+
+    let cull_mode = Some(wgpu::Face::Back);
+
+    let pbr = material.pbr_metallic_roughness();
+
+    if let Some(tex_data) = pbr.base_color_texture() {
+        let tex = tex_data.texture();
+        albedo_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
+        albedo_s = fetch_sampler(tex.sampler(), gfx).await;
+        println!("Contains albedo tex");
+    } else {
+        let gfx = &gfx.read().await;
+        albedo_tex = gfx.create_builtin_tex(TexType::White);
+        albedo_s = gfx.create_sampler();
+    }
+
+    albedo_col = pbr.base_color_factor().into();
+    println!("roughness {}", pbr.roughness_factor());
+    println!("metallic {}", pbr.metallic_factor());
+
+    if let Some(tex_data) = pbr.metallic_roughness_texture() {
+        let tex = tex_data.texture();
+        metallic_roughness_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
+        metallic_roughness_s = fetch_sampler(tex.sampler(), gfx).await;
+
+        //metallic_factor = pbr.metallic_factor();
+        //roughness_factor = pbr.roughness_factor();
+
+        if let Some(tex) = tex_data.texture_transform() {
+            println!("Heeft texture transform pbr_metallic_roughness");
+        }
+        println!("Contains metallic_roughness_tex");
+    } else {
+        metallic_factor = pbr.metallic_factor();
+        roughness_factor = pbr.roughness_factor();
+
+        let gfx = &gfx.read().await;
+        metallic_roughness_tex = gfx.create_builtin_tex(TexType::Custom {
+            srgb: true,
+            value: glam::Vec4::new(metallic_factor, roughness_factor, 0., 0.),
+        });
+        metallic_roughness_s = gfx.create_sampler();
+    }
+
+    if let Some(tex_data) = material.normal_texture() {
+        let tex = tex_data.texture();
+        normal_tex = fetch_texture(tex.source(), false, &buffer_data, gfx).await;
+        normal_s = fetch_sampler(tex.sampler(), gfx).await;
+        println!("Contains normal_tex");
+    } else {
+        let gfx = &gfx.read().await;
+        normal_tex = gfx.create_builtin_tex(TexType::Normal);
+        normal_s = gfx.create_sampler();
+    }
+
+    emissive_factor = material.emissive_factor().into();
+
+    if let Some(tex_data) = material.emissive_texture() {
+        let tex = tex_data.texture();
+        emissive_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
+        emissive_s = fetch_sampler(tex.sampler(), gfx).await;
+        println!("Contains emissive_tex");
+    } else {
+        let gfx = &gfx.read().await;
+        emissive_tex = gfx.create_builtin_tex(TexType::Black);
+        emissive_s = gfx.create_sampler();
+    }
+
+    if let Some(strength) = material.emissive_strength() {
+        emissive_strength = strength;
+        println!("Strength: {strength}");
+    } else {
+        emissive_strength = 1.;
+    }
+
+    if let Some(tex_data) = material.occlusion_texture() {
+        let tex = tex_data.texture();
+        ao_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
+        ao_s = fetch_sampler(tex.sampler(), gfx).await;
+        println!("contains occlusion_texture");
+    } else {
+        let gfx = &gfx.read().await;
+        ao_tex = gfx.create_builtin_tex(TexType::White);
+        ao_s = gfx.create_sampler();
+    }
+
+    let ior = material.ior().unwrap_or(1.5);
+
+    println!("IOR value: {ior}");
+
+    if let Some(tex_data) = material.specular() {
+        println!("Contains specular data");
+
+        if let Some(tex_data) = tex_data.specular_texture() {
+            let tex = tex_data.texture();
+            specular_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
+            specular_s = fetch_sampler(tex.sampler(), gfx).await;
+            println!("Contains specular map");
+        } else {
+            let gfx = &gfx.read().await;
+            specular_tex = gfx.create_builtin_tex(TexType::White);
+            specular_s = gfx.create_sampler();
+        }
+
+        if let Some(tex_data) = tex_data.specular_color_texture() {
+            let tex = tex_data.texture();
+            specular_color_tex = fetch_texture(tex.source(), true, &buffer_data, gfx).await;
+            specular_color_s = fetch_sampler(tex.sampler(), gfx).await;
+            println!("Contains specular color map");
+        } else {
+            let gfx = &gfx.read().await;
+            specular_color_tex = gfx.create_builtin_tex(TexType::White);
+            specular_color_s = gfx.create_sampler();
+        }
+
+        specular_factor = tex_data.specular_factor();
+        specular_color_factor = tex_data.specular_color_factor().into();
+    } else {
+        let gfx = &gfx.read().await;
+        specular_factor = 1.0;
+        specular_color_factor = glam::Vec3::ONE;
+        specular_tex = gfx.create_builtin_tex(TexType::White);
+        specular_s = gfx.create_sampler();
+        specular_color_tex = gfx.create_builtin_tex(TexType::White);
+        specular_color_s = gfx.create_sampler();
+    }
+
+    if let Some(tex_data) = material.pbr_specular_glossiness() {
+        println!("heeft specular glossiness");
+    }
+
+    if let Some(tex_data) = material.volume() {
+        println!("heeft volume");
+    }
+
+    if let Some(tex_data) = material.transmission() {
+        println!("heeft transmission");
+    }
+
+    let gfx = &gfx.read().await;
+
+    Material::new(
+        MaterialCtx {
+            albedo_tex,
+            albedo_s,
+            albedo_col,
+            emissive_tex,
+            emissive_s,
+            emissive_factor,
+            emissive_strength,
+            metallic_roughness_tex,
+            metallic_roughness_s,
+            normal_tex,
+            normal_s,
+            ao_tex,
+            ao_s,
+            specular_tex,
+            specular_s,
+            specular_color_tex,
+            specular_color_s,
+            specular_color_factor,
+            specular_factor,
+            cull_mode,
+            ior,
+        },
+        gfx,
+    )
 }
 
 //let a = glam::Mat4::from_euler(glam::EulerRot::default(), 0., 0., 0.);

@@ -1,17 +1,38 @@
-use super::{emitter_state::FsEntryPoint, Camera, GfxState};
-use crate::{loader::CIRCLE_MESH_ID, util::ID};
+use super::{emitter_state::FsEntryPoint, material::MaterialRef, Camera, GfxState};
+use crate::{
+    loader::{BUILTIN_ID, CIRCLE_MESH_ID},
+    util::ID,
+};
 use bytemuck::{Pod, Zeroable};
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use glam::Vec2;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Range};
 
 pub struct Mesh {
     pub vertices: Vec<ModelVertex>,
     pub indices: Vec<u32>,
+    pub children_refs: Vec<MeshRef>,
+    pub material_ref: MaterialRef,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub model: glam::Mat4,
     pub fs_entry_point: FsEntryPoint,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeshRef {
+    pub collection_id: ID,
+    pub mesh_id: ID,
+}
+
+impl MeshRef {
+    pub fn create_circle() -> Self {
+        Self {
+            collection_id: BUILTIN_ID.to_string(),
+            mesh_id: CIRCLE_MESH_ID.to_string(),
+        }
+    }
 }
 
 impl Mesh {
@@ -67,10 +88,12 @@ impl Mesh {
 
         Mesh {
             vertices,
+            children_refs: vec![],
             indices,
             vertex_buffer,
             index_buffer,
             model: glam::Mat4::default(),
+            material_ref: MaterialRef::default(),
             fs_entry_point: FsEntryPoint::Circle,
         }
     }

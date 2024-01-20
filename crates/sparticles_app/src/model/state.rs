@@ -1,6 +1,6 @@
-use super::{
-    Camera, Clock, EmitterState, GfxState, Material, MaterialRef, Mesh, MeshRef, SparEvents,
-};
+use super::material::MaterialRef;
+use super::mesh::MeshRef;
+use super::{Camera, Clock, EmitterState, GfxState, Material, Mesh, SparEvents};
 use crate::fx::PostProcessState;
 use crate::init::{AppVisitor, Init};
 use crate::loader::Model;
@@ -119,7 +119,7 @@ impl SparState {
             terrain_generator,
         };
 
-        init.add_widget_builders(&mut state).await;
+        init.add_widget_builders(&mut state);
 
         state
     }

@@ -1,12 +1,13 @@
 use super::GfxState;
 use crate::{
-    loader::CIRCLE_MAT_ID,
+    loader::{BUILTIN_ID, DEFAULT_MAT_ID},
     texture::TexType,
     traits::{BufferContent, CreateFxView},
     util::ID,
 };
 use egui_wgpu::wgpu::{self, util::DeviceExt};
 use encase::ShaderType;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, num::NonZeroU64};
 
 pub struct Material {
@@ -15,6 +16,21 @@ pub struct Material {
     pub bg_layout: wgpu::BindGroupLayout,
     pub uniform: MaterialUniform,
     pub buf: wgpu::Buffer,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaterialRef {
+    pub collection_id: ID,
+    pub material_id: ID,
+}
+
+impl Default for MaterialRef {
+    fn default() -> Self {
+        Self {
+            collection_id: BUILTIN_ID.to_string(),
+            material_id: DEFAULT_MAT_ID.to_string(),
+        }
+    }
 }
 
 #[derive(ShaderType, Clone, Copy)]
@@ -73,7 +89,7 @@ impl Material {
         let specular_color_s = gfx.create_sampler();
 
         materials.insert(
-            CIRCLE_MAT_ID.to_string(),
+            DEFAULT_MAT_ID.to_string(),
             Self::new(
                 MaterialCtx {
                     albedo_tex,

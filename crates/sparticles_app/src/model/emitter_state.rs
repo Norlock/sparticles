@@ -238,7 +238,7 @@ impl EmitterState {
 
         for em in emitters.iter() {
             let mesh = collection.get_mesh(&em.uniform.mesh);
-            let mat = collection.get_mat(&em.uniform.material);
+            let mat = collection.get_mat(&mesh.material_ref);
 
             let scope_str = format!("Emitter: {}", em.id());
             Profiler::begin_scope(gfx, &scope_str, &mut r_pass).await;
@@ -256,6 +256,20 @@ impl EmitterState {
                 r_pass.set_bind_group(4, &tg.irradiance_bg(), &[]);
             } else {
                 r_pass.set_bind_group(3, &tg.irradiance_bg(), &[]);
+
+                for child_ref in mesh.children_refs.iter() {
+                    let mesh = collection.get_mesh(&child_ref);
+                    let mat = collection.get_mat(&mesh.material_ref);
+
+                    r_pass.set_pipeline(&em.render_pipelines[&mesh.fs_entry_point]);
+                    r_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+                    r_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+
+                    r_pass.set_bind_group(0, camera.bg(), &[]);
+                    r_pass.set_bind_group(1, &mat.bg, &[]);
+                    r_pass.set_bind_group(2, &em.bgs[nr], &[]);
+                    r_pass.set_bind_group(3, &tg.irradiance_bg(), &[]);
+                }
             }
 
             r_pass.draw_indexed(mesh.indices_range(), 0, 0..em.particle_count() as u32);
@@ -349,7 +363,7 @@ impl EmitterState {
             let mut collection = collection.write().await;
 
             let mesh_key = &uniform.mesh.collection_id;
-            let mat_key = &uniform.material.collection_id;
+            //let mat_key = &uniform.material.collection_id;
 
             if !collection.contains_key(mesh_key) {
                 collection.insert(
@@ -360,14 +374,14 @@ impl EmitterState {
                 );
             }
 
-            if !collection.contains_key(mat_key) {
-                collection.insert(
-                    mat_key.to_string(),
-                    Model::load_gltf(gfx, mat_key)
-                        .await
-                        .expect("Can't load model"),
-                );
-            }
+            //if !collection.contains_key(mat_key) {
+            //collection.insert(
+            //mat_key.to_string(),
+            //Model::load_gltf(gfx, mat_key)
+            //.await
+            //.expect("Can't load model"),
+            //);
+            //}
         }
 
         let emitter_buf_content = uniform.create_buffer_content(collection).await;
@@ -499,7 +513,8 @@ impl EmitterState {
         let is_light;
 
         let collection = collection.read().await;
-        let material = collection.get_mat(&uniform.material);
+        let mesh = collection.get_mesh(&uniform.mesh);
+        let material = collection.get_mat(&mesh.material_ref);
 
         match &options.emitter_type {
             EmitterType::Lights => {

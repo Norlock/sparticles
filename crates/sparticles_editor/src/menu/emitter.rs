@@ -391,33 +391,34 @@ async fn model_settings(menu_ctx: &mut MenuCtx<'_>, ui: &mut Ui) {
         }
     });
 
-    custom_header(ui, "Material collection");
+    // TODO FIX
+    //custom_header(ui, "Material collection");
 
-    horizontal_scroll(ui, "mat_coll", |ui| {
-        for (key, _) in collection.iter() {
-            if ui
-                .selectable_label(mat.collection_id == *key, key)
-                .clicked()
-            {
-                mat.collection_id = key.clone();
+    //horizontal_scroll(ui, "mat_coll", |ui| {
+    //for (key, _) in collection.iter() {
+    //if ui
+    //.selectable_label(mat.collection_id == *key, key)
+    //.clicked()
+    //{
+    //mat.collection_id = key.clone();
 
-                let mat_model = collection.get(&mat.collection_id).unwrap();
-                mat.material_id = mat_model.materials.keys().next().unwrap().to_string();
-            }
-        }
-    });
+    //let mat_model = collection.get(&mat.collection_id).unwrap();
+    //mat.material_id = mat_model.materials.keys().next().unwrap().to_string();
+    //}
+    //}
+    //});
 
-    let mat_model = collection.get(&mat.collection_id).unwrap();
+    //let mat_model = collection.get(&mat.collection_id).unwrap();
 
-    custom_header(ui, "Material");
+    //custom_header(ui, "Material");
 
-    horizontal_scroll(ui, "mat", |ui| {
-        for (key, _) in mat_model.materials.iter() {
-            if ui.selectable_label(mat.material_id == *key, key).clicked() {
-                mat.material_id = key.clone();
-            }
-        }
-    });
+    //horizontal_scroll(ui, "mat", |ui| {
+    //for (key, _) in mat_model.materials.iter() {
+    //if ui.selectable_label(mat.material_id == *key, key).clicked() {
+    //mat.material_id = key.clone();
+    //}
+    //}
+    //});
 
     ui.add_space(10.);
 

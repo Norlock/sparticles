@@ -1,5 +1,7 @@
+use super::material::MaterialRef;
+use super::mesh::MeshRef;
 use super::Clock;
-use crate::loader::{Model, BUILTIN_ID, CIRCLE_MAT_ID, CIRCLE_MESH_ID};
+use crate::loader::{Model, BUILTIN_ID, CIRCLE_MESH_ID, DEFAULT_MAT_ID};
 use crate::model::state::FastFetch;
 use crate::traits::{FromRGB, HandleAngles};
 use crate::util::ID;
@@ -25,18 +27,6 @@ impl Boundry {
         assert!(min <= max, "Min must be smaller than max");
         Boundry(min, max)
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MeshRef {
-    pub collection_id: ID,
-    pub mesh_id: ID,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MaterialRef {
-    pub collection_id: ID,
-    pub material_id: ID,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,7 +62,8 @@ pub struct EmitterUniform {
     pub particle_material_mass: f32,
     pub particle_lifetime_sec: f32,
     pub mesh: MeshRef,
-    pub material: MaterialRef,
+    /// Optional material, if none default from meshes
+    pub material: Option<MaterialRef>,
 }
 
 pub struct EmitterSettings {
@@ -83,7 +74,7 @@ pub struct EmitterSettings {
     pub recreate: bool,
 
     pub mesh: MeshRef,
-    pub material: MaterialRef,
+    pub material: Option<MaterialRef>,
 
     pub box_position: Vec3,
     pub box_dimensions: Vec3,
@@ -144,10 +135,7 @@ impl EmitterUniform {
             elapsed_sec: 0.,
             delta_sec: 0.0,
 
-            material: MaterialRef {
-                collection_id: BUILTIN_ID.to_string(),
-                material_id: CIRCLE_MAT_ID.to_string(),
-            },
+            material: None,
             mesh: MeshRef {
                 collection_id: BUILTIN_ID.to_string(),
                 mesh_id: CIRCLE_MESH_ID.to_string(),
@@ -174,7 +162,7 @@ impl EmitterUniform {
 
         // TODO iets beter dan string kopieren
         self.mesh = settings.mesh.clone();
-        self.material = settings.material.clone();
+        //self.material = settings.material.clone();
 
         if settings.recreate {
             self.spawn_count = settings.spawn_count;

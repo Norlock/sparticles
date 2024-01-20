@@ -8,10 +8,10 @@ use sparticles_app::{
     },
     gui::{winit::event::KeyboardInput, State},
     init::{AppVisitor, DataSource},
-    loader::{BUILTIN_ID, CIRCLE_MAT_ID, CIRCLE_MESH_ID},
+    loader::{BUILTIN_ID, CIRCLE_MESH_ID, DEFAULT_MAT_ID},
     model::{
-        emitter::{MaterialRef, MeshRef},
-        Boundry, EmitterState, EmitterUniform, GfxState, LifeCycle, SparEvents, SparState,
+        material::MaterialRef, mesh::MeshRef, Boundry, EmitterState, EmitterUniform, GfxState,
+        LifeCycle, SparEvents, SparState,
     },
     traits::*,
     wgpu::CommandEncoder,
@@ -71,10 +71,10 @@ impl AppVisitor for GameState {
             mesh_id: "Mesh.001".to_string(),
         };
 
-        emitter.material = MaterialRef {
+        emitter.material = Some(MaterialRef {
             collection_id: "StarSparrow.glb".to_string(),
             material_id: "StarSparrowRed".to_string(),
-        };
+        });
 
         DataSource::Code {
             lights: Box::new(lights),
@@ -97,7 +97,7 @@ impl AppVisitor for GameState {
         events
     }
 
-    async fn add_widget_builders(&mut self, state: &mut SparState) {
+    fn add_widget_builders(&mut self, state: &mut SparState) {
         #[cfg(feature = "editor")]
         self.guis
             .insert(GUI_EDITOR, Box::new(Editor::new(state, self.model_dir())));
